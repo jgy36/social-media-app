@@ -20,12 +20,15 @@ jobs:
         distribution: 'temurin'
 
     - name: Build with Maven
+      working-directory: ./PoliticalApp
       run: mvn clean install
 
     - name: Run tests
+      working-directory: ./PoliticalApp
       run: mvn test
 
     - name: Deploy to Heroku
+      working-directory: ./PoliticalApp
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
       run: |
