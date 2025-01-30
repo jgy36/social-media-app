@@ -20,11 +20,11 @@ jobs:
         distribution: 'temurin'
 
     - name: Build with Maven (Skip Tests)
-      working-directory: ./backend
+      working-directory: ./PoliticalApp
       run: mvn clean install -DskipTests
 
     - name: Deploy to Heroku
-      working-directory: ./backend
+      working-directory: ./PoliticalApp
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
       run: |
