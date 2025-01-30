@@ -19,14 +19,19 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
 
+    - name: Install Heroku CLI
+      run: |
+        curl https://cli-assets.heroku.com/install-ubuntu.sh | sh
+        heroku --version  # Verify installation
+
     - name: Build with Maven (Skip Tests)
       working-directory: ./PoliticalApp
-      run: mvn clean package -DskipTests  # Ensures a .jar file is created
+      run: mvn clean package -DskipTests  # Ensures .jar file is created
 
     - name: Deploy to Heroku
       working-directory: ./PoliticalApp
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
       run: |
-        heroku plugins:install heroku-cli-deploy
+        heroku auth:token
         heroku deploy:war target/*.jar --app political-heroku
