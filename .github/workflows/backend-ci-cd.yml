@@ -21,11 +21,12 @@ jobs:
 
     - name: Build with Maven (Skip Tests)
       working-directory: ./PoliticalApp
-      run: mvn clean install -DskipTests
+      run: mvn clean package -DskipTests  # Ensures a .jar file is created
 
     - name: Deploy to Heroku
       working-directory: ./PoliticalApp
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
       run: |
-        heroku deploy:jar target/*.jar --app <your-heroku-app-name>
+        heroku plugins:install heroku-cli-deploy
+        heroku deploy:war target/*.jar --app political-heroku
