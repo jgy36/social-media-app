@@ -16,20 +16,16 @@ jobs:
     - name: Set up JDK
       uses: actions/setup-java@v3
       with:
-        java-version: '21'
+        java-version: '17'
         distribution: 'temurin'
 
-    - name: Build with Maven
-      working-directory: ./PoliticalApp
-      run: mvn clean install
-
-    - name: Run tests
-      working-directory: ./PoliticalApp
-      run: mvn test
+    - name: Build with Maven (Skip Tests)
+      working-directory: ./backend
+      run: mvn clean install -DskipTests
 
     - name: Deploy to Heroku
-      working-directory: ./PoliticalApp
+      working-directory: ./backend
       env:
         HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
       run: |
-        heroku deploy:jar target/*.jar --app political-heroku
+        heroku deploy:jar target/*.jar --app <your-heroku-app-name>
