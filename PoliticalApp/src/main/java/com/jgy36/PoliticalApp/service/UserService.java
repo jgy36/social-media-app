@@ -2,46 +2,42 @@ package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.UserRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 @Service
 public class UserService {
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @Autowired
-    private EmailService emailService;
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     public void registerUser(String username, String email, String password) {
+        // ✅ Check if username already exists
+        if (userRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("Username already exists. Please choose another.");
+        }
+
+        // ✅ Check if email already exists
         if (userRepository.existsByEmail(email)) {
-            throw new RuntimeException("Email already registered");
+            throw new IllegalArgumentException("Email already exists. Please use another email.");
         }
 
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
-        user.setVerificationToken(UUID.randomUUID().toString());
+        user.setVerified(false); // User must verify email
 
-        userRepository.save(user);
-        emailService.sendVerificationEmail(email, user.getVerificationToken());
-    }
-
-    public void verifyUser(String token) {
-        User user = userRepository.findByVerificationToken(token)
-                .orElseThrow(() -> new RuntimeException("Invalid verification token"));
-
-        user.setVerified(true);
-        user.setVerificationToken(null); // Remove the token after verification
-        userRepository.save(user);
+        try {
+            userRepository.save(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException("A user with this username or email already exists.");
+        }
     }
 }
-
