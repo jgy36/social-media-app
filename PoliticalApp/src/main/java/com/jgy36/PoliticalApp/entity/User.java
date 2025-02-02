@@ -1,11 +1,15 @@
 package com.jgy36.PoliticalApp.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
+@Getter
+@Setter
 @Table(name = "users")
 public class User {
 
@@ -22,24 +26,23 @@ public class User {
     @Column(nullable = false)
     private String password;
 
+    @Enumerated(EnumType.STRING) // ✅ Store as STRING instead of plain text
     @Column(nullable = false)
-    private String role = "USER"; // Default role is "USER"
-
-    @Column(nullable = false)
-    private boolean verified = false; // Default: false (User needs to verify email)
-
-    private String verificationToken; // Token for email verification
+    private Role role = Role.ROLE_USER; // ✅ Default to ROLE_USER
 
     @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now(); // Auto-assign creation timestamp
+    private boolean verified = false;
 
-    // ✅ Default Constructor
+    private String verificationToken;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
     public User() {
-        this.verificationToken = UUID.randomUUID().toString(); // Generate token on creation
+        this.verificationToken = UUID.randomUUID().toString();
     }
 
-    // ✅ Parameterized Constructor (Useful for manual user creation)
-    public User(String username, String email, String password, String role) {
+    public User(String username, String email, String password, Role role) {
         this.username = username;
         this.email = email;
         this.password = password;
@@ -47,79 +50,5 @@ public class User {
         this.verified = false;
         this.verificationToken = UUID.randomUUID().toString();
         this.createdAt = LocalDateTime.now();
-    }
-
-    // ✅ Getters and Setters
-
-    // Unique ID (Primary Key)
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    // Username (Must be unique)
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
-
-    // Email Address (Must be unique)
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    // Password (Stored as a hashed value)
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    // User Role (USER or ADMIN)
-    public String getRole() {
-        return role;
-    }
-
-    public void setRole(String role) {
-        this.role = role;
-    }
-
-    // Account Verification Status (true = verified, false = not verified)
-    public boolean isVerified() {
-        return verified;
-    }
-
-    public void setVerified(boolean verified) {
-        this.verified = verified;
-    }
-
-    // Email Verification Token (Generated on registration)
-    public String getVerificationToken() {
-        return verificationToken;
-    }
-
-    public void setVerificationToken(String verificationToken) {
-        this.verificationToken = verificationToken;
-    }
-
-    // Account Creation Timestamp
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
     }
 }

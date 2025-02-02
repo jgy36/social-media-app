@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.service;
 
+import com.jgy36.PoliticalApp.entity.Role;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -32,6 +33,7 @@ public class UserService {
         user.setUsername(username);
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
+        user.setRole(Role.ROLE_USER); // ✅ Set default role to ROLE_USER
         user.setVerified(false); // User must verify email
 
         try {
