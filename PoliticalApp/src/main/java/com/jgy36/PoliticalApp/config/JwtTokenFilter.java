@@ -33,7 +33,15 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        // Get authorization header and validate
+        String requestURI = request.getRequestURI();
+
+        // ✅ Bypass authentication for login, register, and verification endpoints
+        if (requestURI.startsWith("/api/auth")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // ✅ Extract token from Authorization header
         final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header == null || !header.startsWith("Bearer ")) {
             chain.doFilter(request, response);
