@@ -52,20 +52,20 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ Public endpoints
+                        // ✅ Public Endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/politicians", "/api/politicians/{id}", "/api/politicians/search").permitAll()
+                        .requestMatchers("/api/comments/politician/{politicianId}").permitAll() // ✅ Fix: Make GET comments public
 
-                        // ✅ Admin-only endpoints
+                        // ✅ Protected Endpoints
+                        .requestMatchers("/api/comments/**").authenticated() // Other comment actions require authentication
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-
-                        // ✅ Require authentication for all other requests
                         .anyRequest().authenticated()
                 )
-
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
 }
