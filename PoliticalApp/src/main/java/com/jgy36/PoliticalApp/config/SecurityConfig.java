@@ -19,7 +19,7 @@ public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtTokenFilter jwtTokenFilter;
-    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint; // ✅ Inject the new entry point
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtTokenFilter jwtTokenFilter,
                           JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
@@ -52,13 +52,18 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll() // Allow auth endpoints
-                        .requestMatchers("/api/politicians").permitAll() // Public route
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN") // ✅ Restrict to admins only
+                        // ✅ Public endpoints
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/politicians", "/api/politicians/{id}", "/api/politicians/search").permitAll()
+
+                        // ✅ Admin-only endpoints
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
+
+                        // ✅ Require authentication for all other requests
                         .anyRequest().authenticated()
                 )
 
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)) // ✅ Set custom 401 response
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
                 .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
