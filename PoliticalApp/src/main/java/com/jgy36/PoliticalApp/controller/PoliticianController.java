@@ -60,4 +60,12 @@ public class PoliticianController {
         politicianService.deletePolitician(id);
         return ResponseEntity.ok("Politician deleted successfully.");
     }
+
+    // ✅ Admin-only: Update a politician
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Politician> updatePolitician(@PathVariable Long id, @RequestBody Politician politician) {
+        return ResponseEntity.ok(politicianService.updatePolitician(id, politician));
+    }
+
 }
