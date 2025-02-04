@@ -43,4 +43,22 @@ public class PoliticianService {
     public List<Politician> findByPosition(String position) {
         return politicianRepository.findByPosition(position);
     }
+
+    public Politician updatePolitician(Long id, Politician updatedPolitician) {
+        Optional<Politician> existingPoliticianOpt = politicianRepository.findById(id);
+        if (existingPoliticianOpt.isEmpty()) {
+            throw new IllegalArgumentException("Politician with ID " + id + " not found.");
+        }
+
+        Politician existingPolitician = existingPoliticianOpt.get();
+        existingPolitician.setName(updatedPolitician.getName());
+        existingPolitician.setParty(updatedPolitician.getParty());
+        existingPolitician.setState(updatedPolitician.getState());
+        existingPolitician.setPosition(updatedPolitician.getPosition());
+        existingPolitician.setYearsServed(updatedPolitician.getYearsServed());
+        existingPolitician.setTermLength(updatedPolitician.getTermLength());
+
+        return politicianRepository.save(existingPolitician);
+    }
+
 }
