@@ -1,10 +1,18 @@
 package com.jgy36.PoliticalApp.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
+@Getter
+@Setter
+@NoArgsConstructor
 @Table(name = "posts")
 public class Post {
 
@@ -12,21 +20,19 @@ public class Post {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, columnDefinition = "TEXT") // ✅ Ensure it's stored as TEXT
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY) // ✅ Optimize query performance
     @JoinColumn(name = "user_id", nullable = false)
     private User author;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false) // ✅ Immutable after creation
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @Column(nullable = false)
-    private int likes = 0;
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<PostLike> likes = new HashSet<PostLike>(); // ✅ Explicit type declaration
 
-    public Post() {
-    }
 
     public Post(String content, User author) {
         this.content = content;
@@ -34,44 +40,7 @@ public class Post {
         this.createdAt = LocalDateTime.now();
     }
 
-    // ✅ Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getContent() {
-        return content;
-    }
-
-    public void setContent(String content) {
-        this.content = content;
-    }
-
-    public User getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(User author) {
-        this.author = author;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public int getLikes() {
-        return likes;
-    }
-
-    public void setLikes(int likes) {
-        this.likes = likes;
+    public int getLikeCount() {
+        return likes.size(); // ✅ Like count is now dynamically calculated
     }
 }

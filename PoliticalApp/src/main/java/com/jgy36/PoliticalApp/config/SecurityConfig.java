@@ -53,23 +53,24 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                                .requestMatchers("/api/auth/**").permitAll()  // ✅ Public Auth routes
-                                .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // ✅ Public GET posts
-                                .requestMatchers(HttpMethod.GET, "/api/politicians/**").permitAll()  // ✅ Public GET Politicians
+                        // ✅ Public Endpoints
+                        .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
+                        .requestMatchers(HttpMethod.GET, "/api/politicians/**").permitAll()  // Public GET Politicians
+                        .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()  // Public GET Comments
 
-// ✅ Fix: Allow Public Access to ALL GET Comment Routes (For fetching comments)
-                                .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()
+                        // ✅ PROTECTED Endpoints (Require JWT Token)
+                        .requestMatchers("/api/comments/**").authenticated()  // Require authentication for posting/liking comments
+                        .requestMatchers("/api/follow/**").authenticated()  // ✅ Secure Follow API (Users must be logged in)
+                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")  // Only Admins
 
-// ✅ PROTECTED Endpoints (Require JWT Token)
-                                .requestMatchers("/api/comments/**").authenticated()  // ✅ Require authentication for posting/liking comments
-                                .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")  // ✅ Only Admins
-                                .anyRequest().authenticated()
-
+                        .anyRequest().authenticated() // ✅ Everything else requires authentication
                 )
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)) // ✅ Custom 401 Response
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)) // Custom 401 Response
                 .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
 
 }
