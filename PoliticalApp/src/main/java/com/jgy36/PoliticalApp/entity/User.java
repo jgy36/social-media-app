@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -38,6 +40,16 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    // ✅ Getters & Setters
+    @Getter
+    @ManyToMany
+    @JoinTable(
+            name = "follows",
+            joinColumns = @JoinColumn(name = "follower_id"),
+            inverseJoinColumns = @JoinColumn(name = "following_id")
+    )
+    private Set<User> following = new HashSet<>(); // Users this user is following
+
     public User() {
         this.verificationToken = UUID.randomUUID().toString();
     }
@@ -51,4 +63,13 @@ public class User {
         this.verificationToken = UUID.randomUUID().toString();
         this.createdAt = LocalDateTime.now();
     }
+
+    public void follow(User user) {
+        following.add(user);
+    }
+
+    public void unfollow(User user) {
+        following.remove(user);
+    }
+
 }
