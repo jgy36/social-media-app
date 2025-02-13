@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,6 +26,7 @@ public class Post {
 
     @ManyToOne(fetch = FetchType.LAZY) // ✅ Optimize query performance
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnore // 🚀 PREVENT INFINITE LOOP
     private User author;
 
     @Column(nullable = false, updatable = false) // ✅ Immutable after creation

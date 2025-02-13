@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.controller;
 
+import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.service.PostService;
 import org.springframework.http.ResponseEntity;
@@ -19,21 +20,20 @@ public class PostController {
     }
 
     /**
-     * ✅ Get posts for "For You" (All posts)
+     * ✅ Get all posts
      */
     @GetMapping("/for-you")
-    public ResponseEntity<List<Post>> getAllPosts() {
+    public ResponseEntity<List<PostDTO>> getAllPosts() {
         return ResponseEntity.ok(postService.getAllPosts());
     }
 
-    /**
-     * ✅ Get posts for "Following" (Only posts from followed users)
-     */
+    // ✅ Get posts from users that the current user follows
     @GetMapping("/following")
-    @PreAuthorize("isAuthenticated()") // Requires authentication
-    public ResponseEntity<List<Post>> getPostsFromFollowing() {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<PostDTO>> getPostsFromFollowing() {
         return ResponseEntity.ok(postService.getPostsFromFollowing());
     }
+
 
     /**
      * ✅ Create a new post

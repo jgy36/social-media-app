@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.service;
 
+import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.PostLike;
 import com.jgy36.PoliticalApp.entity.User;
@@ -32,14 +33,18 @@ public class PostService {
     /**
      * ✅ Get posts for "For You" tab (all posts sorted by newest first)
      */
-    public List<Post> getAllPosts() {
-        return postRepository.findAllByOrderByCreatedAtDesc();
+    public List<PostDTO> getAllPosts() {
+        List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
+        return posts.stream()
+                .map(PostDTO::new) // ✅ Convert Post -> PostDTO
+                .collect(Collectors.toList());
     }
+
 
     /**
      * ✅ Get posts for "Following" tab (only posts from users that the current user follows)
      */
-    public List<Post> getPostsFromFollowing() {
+    public List<PostDTO> getPostsFromFollowing() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
         Optional<User> userOpt = userRepository.findByEmail(email);
@@ -53,13 +58,16 @@ public class PostService {
                 .map(User::getId)
                 .collect(Collectors.toList());
 
-        // If user follows no one, return an empty list
         if (followingIds.isEmpty()) {
-            return List.of();
+            return List.of(); // ✅ Return an empty list instead of null
         }
 
-        return postRepository.findPostsFromFollowing(followingIds);
+        List<Post> posts = postRepository.findPostsFromFollowing(followingIds);
+        return posts.stream()
+                .map(PostDTO::new) // ✅ Convert Post -> PostDTO
+                .collect(Collectors.toList());
     }
+
 
     /**
      * ✅ Create a new post (Requires authentication)
