@@ -1,6 +1,7 @@
 package com.jgy36.PoliticalApp.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 @Entity
 @Table(name = "follows")
@@ -10,10 +11,13 @@ public class Follow {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // ✅ Getters & Setters
+    @Getter
     @ManyToOne
     @JoinColumn(name = "follower_id", nullable = false)
     private User follower;
 
+    @Getter
     @ManyToOne
     @JoinColumn(name = "following_id", nullable = false)
     private User following;
@@ -26,12 +30,4 @@ public class Follow {
         this.following = following;
     }
 
-    // ✅ Getters & Setters
-    public User getFollower() {
-        return follower;
-    }
-
-    public User getFollowing() {
-        return following;
-    }
 }

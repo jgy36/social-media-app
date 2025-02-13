@@ -1,7 +1,9 @@
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.entity.Post;
+import com.jgy36.PoliticalApp.entity.PostLike;
 import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.repository.PostLikeRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import org.springframework.security.core.Authentication;
@@ -17,10 +19,14 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final PostLikeRepository postLikeRepository;
 
-    public PostService(PostRepository postRepository, UserRepository userRepository) {
+
+    public PostService(PostRepository postRepository, UserRepository userRepository, PostLikeRepository postLikeRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
+        this.postLikeRepository = postLikeRepository;
+
     }
 
     /**
@@ -102,5 +108,27 @@ public class PostService {
         }
 
         postRepository.delete(post);
+    }
+
+    public String likePost(Long postId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+
+        Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
+
+        if (existingLike.isPresent()) {
+            postLikeRepository.deleteByPostAndUser(post, user);
+            return "Post unliked successfully.";
+        } else {
+            PostLike like = new PostLike();
+            like.setPost(post);
+            like.setUser(user);
+            postLikeRepository.save(like);
+            return "Post liked successfully.";
+        }
     }
 }

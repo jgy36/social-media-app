@@ -53,4 +53,14 @@ public class PostController {
         postService.deletePost(postId);
         return ResponseEntity.ok("Post deleted successfully");
     }
+
+    /**
+     * ✅ Like a post
+     */
+    @PostMapping("/{postId}/like")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<String> likePost(@PathVariable Long postId) {
+        String message = postService.likePost(postId);
+        return ResponseEntity.ok(message);
+    }
 }

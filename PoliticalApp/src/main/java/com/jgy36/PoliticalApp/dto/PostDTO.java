@@ -10,17 +10,17 @@ public class PostDTO {
     private String content;
     private String author;
     private LocalDateTime createdAt;
-    private int likes;
+    private int likes;  // ✅ Now stores the number of likes
 
     public PostDTO(Post post) {
         this.id = post.getId();
         this.content = post.getContent();
         this.author = post.getAuthor().getUsername();
         this.createdAt = post.getCreatedAt();
-        this.likes = post.getLikes();
+        this.likes = post.getLikes().size(); // ✅ Get the count of likes
     }
 
-    // ✅ Getters
+    // ✅ Getters and Setters
     public Long getId() {
         return id;
     }
