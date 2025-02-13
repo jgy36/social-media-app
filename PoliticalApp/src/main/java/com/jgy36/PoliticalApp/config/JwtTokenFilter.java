@@ -33,42 +33,47 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
-        String requestURI = request.getRequestURI();
-
-        // ✅ Bypass authentication for login, register, and verification endpoints
-        if (requestURI.startsWith("/api/auth")) {
-            chain.doFilter(request, response);
-            return;
-        }
-
-        // ✅ Extract token from Authorization header
         final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+
         if (header == null || !header.startsWith("Bearer ")) {
+            logger.debug("❌ No JWT token found in request headers");
             chain.doFilter(request, response);
             return;
         }
 
         final String token = header.substring(7);
+        logger.debug("🔍 Extracted Token: " + token);
 
         try {
             String email = jwtTokenUtil.extractUsername(token);
+            logger.debug("✅ Token belongs to: " + email);
+
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
                 if (jwtTokenUtil.validateToken(token, userDetails)) {
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+                    logger.debug("✅ Authentication successful for: " + email);
+                } else {
+                    logger.debug("❌ Invalid JWT Token");
+                    response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid JWT Token");
+                    return;
                 }
             }
         } catch (ExpiredJwtException e) {
+            logger.debug("❌ Expired JWT Token");
             response.sendError(HttpStatus.UNAUTHORIZED.value(), "Expired JWT Token");
             return;
         } catch (JwtException e) {
+            logger.debug("❌ Invalid JWT Token");
             response.sendError(HttpStatus.UNAUTHORIZED.value(), "Invalid JWT Token");
             return;
         }
 
         chain.doFilter(request, response);
     }
+
 }

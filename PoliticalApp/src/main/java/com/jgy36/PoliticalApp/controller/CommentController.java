@@ -2,8 +2,10 @@ package com.jgy36.PoliticalApp.controller;
 
 import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.service.CommentService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,5 +40,29 @@ public class CommentController {
         commentService.deleteComment(commentId);
         return ResponseEntity.ok("Comment deleted successfully.");
     }
+
+    // ✅ Like a comment (Requires JWT Token)
+    @PostMapping("/like/{commentId}")
+    public ResponseEntity<String> likeComment(@PathVariable Long commentId, Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("❌ Authentication required");
+        }
+
+        commentService.likeComment(commentId);
+        return ResponseEntity.ok("Comment liked successfully!");
+    }
+
+    @PostMapping("/reply/{commentId}")
+    public ResponseEntity<Comment> replyToComment(@PathVariable Long commentId,
+                                                  @RequestBody String content,
+                                                  Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
+        }
+
+        Comment reply = commentService.replyToComment(commentId, content);
+        return ResponseEntity.ok(reply);
+    }
+
 }
 

@@ -3,6 +3,7 @@ package com.jgy36.PoliticalApp.config;
 import com.jgy36.PoliticalApp.service.UserDetailsServiceImpl;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -52,17 +53,20 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // ✅ Public Endpoints
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/politicians", "/api/politicians/{id}", "/api/politicians/search").permitAll()
-                        .requestMatchers("/api/comments/politician/{politicianId}").permitAll() // ✅ Fix: Make GET comments public
+                                .requestMatchers("/api/auth/**").permitAll()  // ✅ Public Auth routes
+                                .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // ✅ Public GET posts
+                                .requestMatchers(HttpMethod.GET, "/api/politicians/**").permitAll()  // ✅ Public GET Politicians
 
-                        // ✅ Protected Endpoints
-                        .requestMatchers("/api/comments/**").authenticated() // Other comment actions require authentication
-                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
-                        .anyRequest().authenticated()
+// ✅ Fix: Allow Public Access to ALL GET Comment Routes (For fetching comments)
+                                .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()
+
+// ✅ PROTECTED Endpoints (Require JWT Token)
+                                .requestMatchers("/api/comments/**").authenticated()  // ✅ Require authentication for posting/liking comments
+                                .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")  // ✅ Only Admins
+                                .anyRequest().authenticated()
+
                 )
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
+                .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)) // ✅ Custom 401 Response
                 .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
