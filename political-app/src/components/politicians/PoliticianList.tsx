@@ -26,3 +26,40 @@ const PoliticianList = () => {
 
 export default PoliticianList;
 */
+import PoliticianCard from "./PoliticianCard";
+
+const PoliticianList = () => {
+  // ✅ Mock Data (for now, replace later with API call)
+  const politicians = [
+    {
+      id: 1,
+      name: "John Doe",
+      party: "Independent",
+      state: "California",
+      position: "Senator",
+      yearsServed: 6,
+      termStart: "2015-01-03",
+      termEnd: "2021-01-03",
+    },
+    {
+      id: 2,
+      name: "Jane Smith",
+      party: "Democrat",
+      state: "New York",
+      position: "Governor",
+      yearsServed: 4,
+      termStart: "2019-01-01",
+      termEnd: "2023-01-01",
+    },
+  ];
+
+  return (
+    <div>
+      {politicians.map((politician) => (
+        <PoliticianCard key={politician.id} politician={politician} />
+      ))}
+    </div>
+  );
+};
+
+export default PoliticianList;
