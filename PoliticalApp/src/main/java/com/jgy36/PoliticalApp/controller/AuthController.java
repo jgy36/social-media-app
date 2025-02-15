@@ -4,7 +4,10 @@ import com.jgy36.PoliticalApp.config.JwtTokenUtil;
 import com.jgy36.PoliticalApp.dto.AuthResponse;
 import com.jgy36.PoliticalApp.dto.LoginRequest;
 import com.jgy36.PoliticalApp.dto.RegisterRequest;
+import com.jgy36.PoliticalApp.service.TokenBlacklistService;
 import com.jgy36.PoliticalApp.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,11 +23,13 @@ public class AuthController {
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenUtil jwtTokenUtil;
+    private final TokenBlacklistService tokenBlacklistService;
 
-    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtTokenUtil jwtTokenUtil) {
+    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtTokenUtil jwtTokenUtil, TokenBlacklistService tokenBlacklistService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.jwtTokenUtil = jwtTokenUtil;
+        this.tokenBlacklistService = tokenBlacklistService;
     }
 
     /**
@@ -50,4 +55,22 @@ public class AuthController {
 
         return ResponseEntity.ok(new AuthResponse(token));
     }
+
+    /**
+     * ✅ Logout User by Invalidating Token
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            long expiration = jwtTokenUtil.getExpirationFromToken(token); // Get token expiration
+
+            tokenBlacklistService.blacklistToken(token, expiration - System.currentTimeMillis());
+        }
+
+        return ResponseEntity.ok("Logged out successfully");
+    }
+
 }

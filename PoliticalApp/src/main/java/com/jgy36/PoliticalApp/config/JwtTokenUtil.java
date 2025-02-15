@@ -1,9 +1,6 @@
 package com.jgy36.PoliticalApp.config;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtParser;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +14,7 @@ import java.util.function.Function;
 @Component
 public class JwtTokenUtil {
 
-    @Value("${jwt.secret}") // ✅ Securely inject secret from properties
+    @Value("${jwt.secret}") // ✅ Inject secret from properties
     private String secret;
 
     @Value("${jwt.expirationMs}") // ✅ Inject expiration time from properties
@@ -30,11 +27,13 @@ public class JwtTokenUtil {
      * @return A JWT token as a String.
      */
     public String generateToken(String email) {
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)); // ✅ Correct key usage
+
         return Jwts.builder()
-                .setSubject(email) // Set email as subject
-                .setIssuedAt(new Date()) // Token issue time
-                .setExpiration(new Date(System.currentTimeMillis() + expirationMs)) // Expiry date
-                .signWith(SignatureAlgorithm.HS256, secret) // Sign with secret key
+                .subject(email) // ✅ Use subject() instead of setSubject()
+                .issuedAt(new Date()) // ✅ Use issuedAt()
+                .expiration(new Date(System.currentTimeMillis() + expirationMs)) // ✅ Use expiration()
+                .signWith(key, Jwts.SIG.HS256) // ✅ Correct way to sign JWT in JJWT 0.12.6
                 .compact();
     }
 
@@ -44,9 +43,23 @@ public class JwtTokenUtil {
      * @param token The JWT token.
      * @return The extracted email.
      */
-    public String extractUsername(String token) {
-        return extractClaim(token, Claims::getSubject);
+    public String getUsernameFromToken(String token) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            System.out.println("✅ Extracted Username from Token: " + claims.getSubject());
+            return claims.getSubject();
+        } catch (Exception e) {
+            System.out.println("❌ Error extracting username from JWT: " + e.getMessage());
+            return null;
+        }
     }
+
 
     /**
      * ✅ Extracts the expiration date from a JWT token.
@@ -77,10 +90,9 @@ public class JwtTokenUtil {
      * @param token The JWT token.
      * @return The claims inside the token.
      */
-
     private Claims extractAllClaims(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)); // Ensure it's a SecretKey
-        JwtParser parser = Jwts.parser().verifyWith(key).build(); // Now verifyWith() will work
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)); // ✅ Ensure it's a SecretKey
+        JwtParser parser = Jwts.parser().verifyWith(key).build(); // ✅ Correct parsing method
 
         return parser.parseSignedClaims(token).getPayload();
     }
@@ -103,7 +115,41 @@ public class JwtTokenUtil {
      * @return True if valid, False otherwise.
      */
     public boolean validateToken(String token, UserDetails userDetails) {
-        final String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        try {
+            Claims claims = extractAllClaims(token);
+            Date expiration = claims.getExpiration();
+
+            if (expiration.before(new Date())) {
+                System.out.println("🚨 Token expired at: " + expiration);
+                return false;
+            }
+
+            String email = getUsernameFromToken(token);
+            return (email.equals(userDetails.getUsername()));
+        } catch (ExpiredJwtException e) {
+            System.out.println("🚨 Token is expired!");
+            return false;
+        } catch (JwtException e) {
+            System.out.println("🚨 Invalid token!");
+            return false;
+        }
+    }
+
+    /**
+     * ✅ Extracts expiration time from a JWT token.
+     *
+     * @param token The JWT token.
+     * @return The expiration timestamp.
+     */
+    public long getExpirationFromToken(String token) {
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)); // ✅ Correct SecretKey usage
+
+        Claims claims = Jwts.parser()
+                .verifyWith(key)  // ✅ Now correctly uses SecretKey
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        return claims.getExpiration().getTime();
     }
 }
