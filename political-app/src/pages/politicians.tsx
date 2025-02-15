@@ -1,4 +1,4 @@
-/* import Navbar from "@/components/navbar/Navbar";
+import Navbar from "@/components/navbar/Navbar";
 import PoliticianList from "@/components/politicians/PoliticianList";
 
 const Politicians = () => {
@@ -14,4 +14,4 @@ const Politicians = () => {
 };
 
 export default Politicians;
-*/
+

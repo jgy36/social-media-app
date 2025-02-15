@@ -1,19 +1,21 @@
-import { useState } from "react";
-import FeedTabs from "@/components/feed/FeedTabs";
-import PostList from "@/components/feed/PostList";
+import { useEffect } from "react";
+import { useSelector } from "react-redux";
+import { useRouter } from "next/router";
+import { RootState } from "@/redux/store";
 
 const HomePage = () => {
-  const [activeTab, setActiveTab] = useState<"for-you" | "following">("for-you");
+  const token = useSelector((state: RootState) => state.user.token);
+  const router = useRouter();
 
-  return (
-    <div className="max-w-2xl mx-auto p-4">
-      {/* Tab Switcher */}
-      <FeedTabs onTabChange={setActiveTab} />
+  useEffect(() => {
+    if (token) {
+      router.push("/feed"); // ✅ Redirects to feed if logged in
+    } else {
+      router.push("/login"); // ✅ Redirects to login if NOT logged in
+    }
+  }, [token, router]);
 
-      {/* Show Posts Based on Selected Tab */}
-      <PostList activeTab={activeTab} />
-    </div>
-  );
+  return null; // ✅ No UI needed, just redirection logic
 };
 
-export default HomePage; 
+export default HomePage;

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import Post from "./Post";
 import { PostType } from "@/types/post";
-import { fetchPosts } from "@/utils/api"; // ✅ Ensure correct API call
+import { fetchPosts } from "@/utils/api";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
-// ✅ Define the expected props for filtering posts
 interface PostListProps {
   activeTab: "for-you" | "following";
 }
@@ -11,32 +12,35 @@ interface PostListProps {
 const PostList: React.FC<PostListProps> = ({ activeTab }) => {
   const [posts, setPosts] = useState<PostType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const token = useSelector((state: RootState) => state.user.token); // ✅ Get token from Redux
 
   useEffect(() => {
     const loadPosts = async () => {
+      if (!token && activeTab === "following") return; // ✅ Prevent fetching "following" posts without authentication
+
       setLoading(true);
-      const data = await fetchPosts();
-      setPosts(data);
+      const endpoint =
+        activeTab === "for-you" ? "posts/for-you" : "posts/following";
+      try {
+        const data = await fetchPosts(endpoint);
+        setPosts(data);
+      } catch (error) {
+        console.error("Failed to load posts:", error);
+      }
       setLoading(false);
     };
 
     loadPosts();
-  }, []);
+  }, [activeTab, token]); // ✅ Re-fetch when tab or token changes
 
-  // ✅ Filter posts based on tab selection
-  const filteredPosts = posts.filter((post) => {
-    if (activeTab === "following") {
-      return post.following; // ✅ Ensure your backend provides `following` field
-    }
-    return true; // Show all posts for "For You" tab
-  });
-
+  if (!token && activeTab === "following")
+    return <p>Please log in to see posts from people you follow.</p>;
   if (loading) return <p>Loading posts...</p>;
-  if (filteredPosts.length === 0) return <p>No posts available.</p>;
+  if (posts.length === 0) return <p>No posts available.</p>;
 
   return (
     <div>
-      {filteredPosts.map((post) => (
+      {posts.map((post) => (
         <Post key={post.id} post={post} />
       ))}
     </div>
