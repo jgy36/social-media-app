@@ -44,22 +44,9 @@ public class PostService {
     /**
      * ✅ Get posts for "Following" tab (only posts from users that the current user follows)
      */
-    public List<PostDTO> getPostsFromFollowing() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String email = auth.getName();
-        Optional<User> userOpt = userRepository.findByEmail(email);
-
-        if (userOpt.isEmpty()) {
-            throw new IllegalArgumentException("User not found");
-        }
-
-        User user = userOpt.get();
-        List<Long> followingIds = user.getFollowing().stream()
-                .map(User::getId)
-                .collect(Collectors.toList());
-
+    public List<PostDTO> getPostsFromFollowing(List<Long> followingIds) {
         if (followingIds.isEmpty()) {
-            return List.of(); // ✅ Return an empty list instead of null
+            return List.of(); // ✅ Return an empty list if user follows no one
         }
 
         List<Post> posts = postRepository.findPostsFromFollowing(followingIds);
