@@ -66,8 +66,8 @@ export const fetchWithToken = async (
   const token = getCookie("token"); // ✅ Get token
 
   if (!token) {
-    console.error("🚨 No auth token found!");
-    throw new Error("No auth token found!");
+    console.warn(`🚨 No auth token found! Skipping request: ${endpoint}`);
+    return null; // ✅ Prevents app crashes after logout
   }
 
   const headers: HeadersInit = {
