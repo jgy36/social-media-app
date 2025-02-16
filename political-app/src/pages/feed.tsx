@@ -1,7 +1,7 @@
 import { useState } from "react";
 import FeedTabs from "@/components/feed/FeedTabs";
 import PostList from "@/components/feed/PostList";
-import Navbar from "@/components/navbar/Navbar"; // ✅ Add Navbar
+import Navbar from "@/components/navbar/Navbar"; // ✅ Add Navbar 
 
 const FeedPage = () => {
   const [activeTab, setActiveTab] = useState<"for-you" | "following">(

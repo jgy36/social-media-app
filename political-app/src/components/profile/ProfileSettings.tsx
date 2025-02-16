@@ -1,23 +1,15 @@
-import { useDispatch } from "react-redux";
-import { useRouter } from "next/router";
-import { logoutUser } from "@/redux/slices/userSlice";
+interface ProfileSettingsProps {
+  onLogout: () => void; // ✅ Define the `onLogout` function prop
+}
 
-const ProfileSettings: React.FC = () => {
-  const dispatch = useDispatch();
-  const router = useRouter();
-
-  const handleLogout = () => {
-    dispatch(logoutUser()); // ✅ Clears token and username
-    router.push("/login"); // ✅ Redirect to login page
-  };
-
+const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout }) => {
   return (
     <div className="mt-6">
       <h2 className="text-xl font-bold">Settings</h2>
 
       {/* ✅ Logout Button */}
       <button
-        onClick={handleLogout}
+        onClick={onLogout}
         className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700"
       >
         Logout
