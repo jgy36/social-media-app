@@ -150,7 +150,7 @@ const ElectionMap = () => {
           marginTop: "10px",
         }}
       >
-        Election Map
+        2020 U.S. Election Results by County
       </h1>
       <div
         ref={mapContainerRef}
