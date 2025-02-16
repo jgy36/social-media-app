@@ -4,6 +4,8 @@ import com.jgy36.PoliticalApp.config.JwtTokenUtil;
 import com.jgy36.PoliticalApp.dto.AuthResponse;
 import com.jgy36.PoliticalApp.dto.LoginRequest;
 import com.jgy36.PoliticalApp.dto.RegisterRequest;
+import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.service.TokenBlacklistService;
 import com.jgy36.PoliticalApp.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -13,7 +15,12 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 @RestController // ✅ Ensures Spring Boot detects this as a REST API
 @RequestMapping("/api/auth") // ✅ Ensures `/api/auth` is the base URL
@@ -24,12 +31,16 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenUtil jwtTokenUtil;
     private final TokenBlacklistService tokenBlacklistService;
+    private final UserRepository userRepository;
+    private final BCryptPasswordEncoder passwordEncoder;
 
-    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtTokenUtil jwtTokenUtil, TokenBlacklistService tokenBlacklistService) {
+    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtTokenUtil jwtTokenUtil, TokenBlacklistService tokenBlacklistService, UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.jwtTokenUtil = jwtTokenUtil;
         this.tokenBlacklistService = tokenBlacklistService;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     /**
@@ -71,6 +82,32 @@ public class AuthController {
         }
 
         return ResponseEntity.ok("Logged out successfully");
+    }
+
+    @PostMapping("/google-login")
+    public ResponseEntity<AuthResponse> googleLogin(@RequestBody Map<String, String> userData) {
+        String email = userData.get("email");
+        String name = userData.get("name");
+
+        // ✅ Check if user already exists
+        Optional<User> existingUser = userRepository.findByEmail(email);
+        User user;
+
+        if (existingUser.isPresent()) {
+            user = existingUser.get();
+        } else {
+            // ✅ If user doesn't exist, create a new one with a random password
+            user = new User();
+            user.setEmail(email);
+            user.setUsername(name);
+            user.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); // Random password
+            userRepository.save(user);
+        }
+
+        // ✅ Generate JWT token for authentication
+        String token = jwtTokenUtil.generateToken(user.getEmail());
+
+        return ResponseEntity.ok(new AuthResponse(token));
     }
 
 }
