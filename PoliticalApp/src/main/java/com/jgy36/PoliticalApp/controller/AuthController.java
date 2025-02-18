@@ -15,9 +15,11 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -56,16 +58,30 @@ public class AuthController {
      * ✅ Login endpoint: Authenticates user and returns JWT token.
      */
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        String token = jwtTokenUtil.generateToken(authentication.getName());
 
-        return ResponseEntity.ok(new AuthResponse(token));
+        // ✅ Extract username from Authentication object
+        String username = ((org.springframework.security.core.userdetails.User) authentication.getPrincipal()).getUsername();
+        String token = jwtTokenUtil.generateToken(username); // ✅ Now passing the correct type
+
+        User user = userRepository.findByEmail(username) // ✅ Now using `username` instead of `loginRequest.getEmail()`
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        // ✅ Return both token & user info
+        Map<String, Object> response = new HashMap<>();
+        response.put("token", token);
+        response.put("user", Map.of(
+                "id", user.getId(),
+                "username", user.getUsername()
+        ));
+
+        return ResponseEntity.ok(response);
     }
+
 
     /**
      * ✅ Logout User by Invalidating Token

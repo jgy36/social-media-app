@@ -15,4 +15,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     // ✅ Fetch all posts (for "For You" tab)
     List<Post> findAllByOrderByCreatedAtDesc();
+
+    // ✅ Query to find posts by a specific user
+    List<Post> findByAuthorId(Long userId);
+
+
 }

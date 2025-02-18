@@ -106,4 +106,12 @@ public class PostController {
         String message = postService.likePost(postId);
         return ResponseEntity.ok(message);
     }
+
+    @GetMapping("/user/{userId}") // ✅ Ensure this matches the frontend request
+    public ResponseEntity<List<Post>> getUserPosts(@PathVariable Long userId) {
+        List<Post> posts = postService.getPostsByUserId(userId);
+        return ResponseEntity.ok(posts);
+    }
+
+
 }
