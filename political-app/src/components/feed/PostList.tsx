@@ -24,7 +24,8 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
     }
 
     const loadPosts = async () => {
-      if (!token && activeTab === "following") return; // ✅ Prevent API call if no token
+      const authToken = token || localStorage.getItem("token"); // ✅ Get token from storage
+      if (!authToken && activeTab === "following") return; // ✅ Prevent API call if no token
 
       setLoading(true);
       const endpoint =
@@ -40,7 +41,8 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
     };
 
     loadPosts();
-  }, [activeTab, token, router]); // ✅ Ensures hooks are called in the correct order
+  }, [activeTab, token, router]);
+  // ✅ Ensures hooks are called in the correct order
 
   if (!token && activeTab === "following") return null; // ✅ Prevent rendering before redirecting
   if (loading) return <p>Loading posts...</p>;

@@ -1,17 +1,24 @@
 import { useState } from "react";
 import { PostType } from "@/types/post";
-import { likePost } from "@/utils/api"; // ✅ Import likePost function
+import { likePost } from "@/utils/api";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Heart, MessageCircle, Share2, Bookmark } from "lucide-react"; // ✅ Social Icons
 
 interface PostProps {
   post: PostType;
 }
 
 const Post = ({ post }: PostProps) => {
-  const [likes, setLikes] = useState(post.likes); // Track likes locally
+  const [likes, setLikes] = useState(post.likes);
   const [isLiking, setIsLiking] = useState(false);
+  const [comments, setComments] = useState(post.comments || 0);
+  const [shares, setShares] = useState(post.shares || 0);
+  const [saved, setSaved] = useState(false);
 
   const handleLike = async () => {
-    if (isLiking) return; // Prevent multiple clicks
+    if (isLiking) return;
     setIsLiking(true);
 
     try {
@@ -24,21 +31,54 @@ const Post = ({ post }: PostProps) => {
     setIsLiking(false);
   };
 
+  const handleSave = () => {
+    setSaved(!saved);
+  };
+
   return (
-    <div className="border rounded-lg p-4 shadow-sm bg-white dark:bg-gray-800">
-      <h3 className="font-semibold">{post.author}</h3>
-      <p>{post.content}</p>
-      <div className="flex items-center gap-2 mt-2">
-        <button
-          onClick={handleLike}
-          className="px-2 py-1 text-sm font-medium text-white bg-blue-500 rounded-md hover:bg-blue-600"
-          disabled={isLiking}
-        >
-          {isLiking ? "Liking..." : "Like"}
-        </button>
-        <span>{likes} Likes</span>
+    <Card className="p-4 shadow-md border border-border transition-all hover:shadow-lg">
+      {/* ✅ Post Author & Content */}
+      <div>
+        <h3 className="font-semibold text-lg">{post.author}</h3>
+        <p className="text-sm text-muted-foreground">{post.content}</p>
       </div>
-    </div>
+
+      {/* ✅ Post Actions */}
+      <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
+        {/* 🔥 Like Button */}
+        <Button
+          variant="ghost"
+          onClick={handleLike}
+          disabled={isLiking}
+          className="flex items-center gap-1 hover:text-red-500 transition-all"
+        >
+          {isLiking ? <Skeleton className="h-4 w-16" /> : <Heart className="h-4 w-4" />}
+          {likes}
+        </Button>
+
+        {/* 💬 Comment Button */}
+        <Button variant="ghost" className="flex items-center gap-1 hover:text-blue-500 transition-all">
+          <MessageCircle className="h-4 w-4" />
+          {comments}
+        </Button>
+
+        {/* 🔁 Share Button */}
+        <Button variant="ghost" className="flex items-center gap-1 hover:text-green-500 transition-all">
+          <Share2 className="h-4 w-4" />
+          {shares}
+        </Button>
+
+        {/* 🔖 Save Button */}
+        <Button
+          variant="ghost"
+          onClick={handleSave}
+          className={`flex items-center gap-1 transition-all ${saved ? "text-yellow-500" : ""}`}
+        >
+          <Bookmark className="h-4 w-4" />
+          {saved ? "Saved" : "Save"}
+        </Button>
+      </div>
+    </Card>
   );
 };
 

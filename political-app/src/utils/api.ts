@@ -63,11 +63,11 @@ export const fetchWithToken = async (
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
   body?: Record<string, unknown>
 ) => {
-  const token = getCookie("token"); // ✅ Get token
+  const token = getCookie("token") || localStorage.getItem("token"); // ✅ Try local storage too
 
   if (!token) {
     console.warn(`🚨 No auth token found! Skipping request: ${endpoint}`);
-    return null; // ✅ Prevents app crashes after logout
+    return null; // ✅ Prevents unnecessary API calls
   }
 
   const headers: HeadersInit = {
