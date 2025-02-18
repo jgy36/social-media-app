@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { signIn, useSession } from "next-auth/react";
-import Image from "next/image";
+import { SiGoogle } from "react-icons/si";
 
 const LandingPage = () => {
   const router = useRouter();
@@ -22,13 +22,8 @@ const LandingPage = () => {
           className="w-full flex items-center justify-center bg-white text-gray-800 border border-gray-300 px-4 py-2 rounded-md shadow-sm hover:bg-gray-200"
           onClick={() => signIn("google")}
         >
-          <Image
-            src="/google-icon.svg"
-            alt="Google"
-            width={20}
-            height={20}
-            className="h-5 w-5 mr-2"
-          />
+          <SiGoogle className="h-5 w-5 mr-2 text-red-500" />{" "}
+          {/* ✅ Google Icon */}
           Sign Up with Google
         </button>
 

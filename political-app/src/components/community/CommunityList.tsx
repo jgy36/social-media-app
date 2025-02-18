@@ -1,16 +1,18 @@
+import { Card, CardContent } from "@/components/ui/card";
+
 const communities = ["Democrat", "Republican", "Libertarian", "Independent", "Conservative", "Socialist"];
 
 const CommunityList = () => {
   return (
     <div>
-      <h2 className="text-lg font-bold">Communities</h2>
-      <ul>
+      <h2 className="text-lg font-bold mb-3">Communities</h2>
+      <div className="space-y-2">
         {communities.map((community) => (
-          <li key={community} className="border p-2 my-1 rounded bg-white">
-            {community}
-          </li>
+          <Card key={community} className="shadow-sm transition hover:shadow-md">
+            <CardContent className="p-3 text-sm font-medium">{community}</CardContent>
+          </Card>
         ))}
-      </ul>
+      </div>
     </div>
   );
 };
