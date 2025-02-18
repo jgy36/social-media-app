@@ -42,15 +42,23 @@ export const createPost = async (
 // ✅ Like a post by ID (Requires Auth Token)
 export const likePost = async (postId: number) => {
   try {
-    const token = getCookie("token"); // ✅ Ensure user is authenticated
+    const token = getCookie("token");
     if (!token) throw new Error("No token found. Please log in.");
 
-    const response = await fetchWithToken(`/posts/${postId}/like`, "POST");
+    const response = await fetch(`${API_BASE_URL}/posts/${postId}/like`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-    if (!response.ok)
-      throw new Error(`Failed to like post: ${response.status}`);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to like post: ${errorData.message || response.status}`);
+    }
 
-    return await response.json();
+    return await response.json(); // ✅ Return the parsed response
   } catch (error) {
     console.error("Error liking post:", error);
     throw error;
