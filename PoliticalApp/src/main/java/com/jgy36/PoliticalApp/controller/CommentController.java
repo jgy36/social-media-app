@@ -8,8 +8,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/comments")
 public class CommentController {
@@ -18,12 +16,6 @@ public class CommentController {
 
     public CommentController(CommentService commentService) {
         this.commentService = commentService;
-    }
-
-    // ✅ Public: Get all comments for a specific politician
-    @GetMapping("/politician/{politicianId}")
-    public ResponseEntity<List<Comment>> getCommentsByPolitician(@PathVariable Long politicianId) {
-        return ResponseEntity.ok(commentService.getCommentsByPolitician(politicianId));
     }
 
     // ✅ Users: Add a comment to a politician

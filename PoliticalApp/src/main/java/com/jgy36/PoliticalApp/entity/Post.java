@@ -24,17 +24,22 @@ public class Post {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @ManyToOne(fetch = FetchType.LAZY) // ✅ Optimize query performance
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore // 🚀 PREVENT INFINITE LOOP
+    @JsonIgnore
     private User author;
 
-    @Column(nullable = false, updatable = false) // ✅ Immutable after creation
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<PostLike> likes = new HashSet<PostLike>(); // ✅ Explicit type declaration
+    private Set<PostLike> likes = new HashSet<>();
 
+    @ManyToMany
+    private Set<User> likedUsers = new HashSet<>(); // ✅ Ensure users can like posts
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<Comment> comments = new HashSet<>(); // ✅ Add comments field
 
     public Post(String content, User author) {
         this.content = content;
@@ -43,6 +48,6 @@ public class Post {
     }
 
     public int getLikeCount() {
-        return likes.size(); // ✅ Like count is now dynamically calculated
+        return likes.size();
     }
 }
