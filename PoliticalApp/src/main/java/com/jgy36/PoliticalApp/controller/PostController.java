@@ -1,6 +1,8 @@
 package com.jgy36.PoliticalApp.controller;
 
+import com.jgy36.PoliticalApp.dto.CommentRequest;
 import com.jgy36.PoliticalApp.dto.PostDTO;
+import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.UserRepository;
@@ -13,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -30,9 +33,7 @@ public class PostController {
         this.userRepository = userRepository;
     }
 
-    /**
-     * ✅ Get all posts
-     */
+    // ✅ Get all posts
     @GetMapping("/for-you")
     public ResponseEntity<List<PostDTO>> getAllPosts() {
         return ResponseEntity.ok(postService.getAllPosts());
@@ -77,19 +78,14 @@ public class PostController {
         return ResponseEntity.ok(posts);
     }
 
-
-    /**
-     * ✅ Create a new post
-     */
+    // ✅ Create a new post
     @PostMapping
     @PreAuthorize("isAuthenticated()") // Requires authentication
     public ResponseEntity<Post> createPost(@RequestBody String content) {
         return ResponseEntity.ok(postService.createPost(content));
     }
 
-    /**
-     * ✅ Delete a post (Only author can delete their own post)
-     */
+    // ✅ Delete a post (Only author can delete their own post)
     @DeleteMapping("/{postId}")
     @PreAuthorize("isAuthenticated()") // Requires authentication
     public ResponseEntity<String> deletePost(@PathVariable Long postId) {
@@ -97,21 +93,48 @@ public class PostController {
         return ResponseEntity.ok("Post deleted successfully");
     }
 
-    /**
-     * ✅ Like a post
-     */
-    @PostMapping("/{postId}/like")
-    @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<String> likePost(@PathVariable Long postId) {
-        String message = postService.likePost(postId);
-        return ResponseEntity.ok(message);
-    }
-
+    // ✅ Get all posts by a user
     @GetMapping("/user/{userId}") // ✅ Ensure this matches the frontend request
     public ResponseEntity<List<Post>> getUserPosts(@PathVariable Long userId) {
         List<Post> posts = postService.getPostsByUserId(userId);
         return ResponseEntity.ok(posts);
     }
 
+    // ✅ Like/Unlike a post
+    @PostMapping("/{postId}/like")
+    public ResponseEntity<Map<String, Integer>> likePost(@PathVariable Long postId, Authentication auth) {
+        int likeCount = postService.toggleLike(postId, auth.getName());
+        return ResponseEntity.ok(Map.of("likesCount", likeCount));
+    }
 
+    // ✅ Get users who liked a post
+    @GetMapping("/{postId}/likes")
+    public ResponseEntity<List<String>> getPostLikes(@PathVariable Long postId) {
+        return ResponseEntity.ok(postService.getPostLikes(postId));
+    }
+
+    // ✅ Add a comment to a post
+    @PostMapping("/{postId}/comment")
+    public ResponseEntity<Comment> commentOnPost(@PathVariable Long postId, @RequestBody CommentRequest request, Authentication auth) {
+        return ResponseEntity.ok(postService.addComment(postId, auth.getName(), request.getText()));
+    }
+
+    // ✅ Get all comments for a post
+    @GetMapping("/{postId}/comments")
+    public ResponseEntity<List<Comment>> getComments(@PathVariable Long postId) {
+        return ResponseEntity.ok(postService.getPostComments(postId));
+    }
+
+    // ✅ Save/Unsave a post
+    @PostMapping("/{postId}/save")
+    public ResponseEntity<String> savePost(@PathVariable Long postId, Authentication auth) {
+        postService.toggleSavePost(postId, auth.getName());
+        return ResponseEntity.ok("Post saved successfully");
+    }
+
+    // ✅ Get all saved posts for a user
+    @GetMapping("/saved")
+    public ResponseEntity<List<Post>> getSavedPosts(Authentication auth) {
+        return ResponseEntity.ok(postService.getSavedPosts(auth.getName()));
+    }
 }

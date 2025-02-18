@@ -49,6 +49,8 @@ public class User {
             inverseJoinColumns = @JoinColumn(name = "following_id")
     )
     private Set<User> following = new HashSet<>(); // Users this user is following
+    @OneToMany
+    private Set<Post> savedPosts;
 
     public User() {
         this.verificationToken = UUID.randomUUID().toString();
@@ -71,5 +73,4 @@ public class User {
     public void unfollow(User user) {
         following.remove(user);
     }
-
 }
