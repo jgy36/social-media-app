@@ -126,4 +126,10 @@ public class PostService {
             return "Post liked successfully.";
         }
     }
+
+    // ✅ Add this method to retrieve posts by user ID
+    public List<Post> getPostsByUserId(Long userId) {
+        return postRepository.findByAuthorId(userId);
+    }
+
 }

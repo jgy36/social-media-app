@@ -54,5 +54,18 @@ public class FollowService {
                 .map(User::getId)
                 .collect(Collectors.toList()); // ✅ FIXED HERE
     }
+
+    public int getFollowerCount(Long userId) {
+        return userRepository.countFollowers(userId);
+    }
+
+    public int getFollowingCount(Long userId) {
+        return userRepository.countFollowing(userId);
+    }
+
+    public int getPostCount(Long userId) {
+        return userRepository.countPosts(userId);
+    }
+
 }
 
