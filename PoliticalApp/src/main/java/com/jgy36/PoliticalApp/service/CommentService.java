@@ -8,12 +8,13 @@ import com.jgy36.PoliticalApp.repository.CommentLikeRepository;
 import com.jgy36.PoliticalApp.repository.CommentRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -26,7 +27,8 @@ public class CommentService {
     private final NotificationService notificationService;
     private final CommentLikeRepository commentLikeRepository;
 
-    public CommentService(CommentRepository commentRepository, UserRepository userRepository, PostRepository postRepository, NotificationService notificationService, CommentLikeRepository commentLikeRepository) {
+    public CommentService(CommentRepository commentRepository, UserRepository userRepository, PostRepository postRepository,
+                          NotificationService notificationService, CommentLikeRepository commentLikeRepository) {
         this.commentRepository = commentRepository;
         this.userRepository = userRepository;
         this.postRepository = postRepository;
@@ -34,24 +36,29 @@ public class CommentService {
         this.commentLikeRepository = commentLikeRepository;
     }
 
+    // ✅ Fetch all comments for a given post
+    @Transactional(readOnly = true)
     public List<Comment> getCommentsByPost(Long postId) {
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+                .orElseThrow(() -> new NoSuchElementException("Post not found with ID: " + postId));
+
         return commentRepository.findByPost(post);
     }
 
+    // ✅ Add a new comment to a post
+    @Transactional
     public Comment addComment(Long postId, String content) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new NoSuchElementException("User not found with email: " + auth.getName()));
 
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found"));
+                .orElseThrow(() -> new NoSuchElementException("Post not found with ID: " + postId));
 
         Comment comment = new Comment(content, user, post);
         Comment savedComment = commentRepository.save(comment);
 
-        // Notify users who previously commented
+        // ✅ Notify users who previously commented
         commentRepository.findByPost(post).stream()
                 .filter(prevComment -> !prevComment.getUser().equals(user))
                 .forEach(prevComment -> notificationService.createNotification(
@@ -59,7 +66,7 @@ public class CommentService {
                         user.getUsername() + " also commented on a post you interacted with"
                 ));
 
-        // Detect Mentions and Notify Users
+        // ✅ Detect Mentions and Notify Users
         Matcher matcher = Pattern.compile("@(\\w+)").matcher(content);
         while (matcher.find()) {
             String mentionedUsername = matcher.group(1);
@@ -73,13 +80,15 @@ public class CommentService {
         return savedComment;
     }
 
+    // ✅ Like a comment
+    @Transactional
     public void likeComment(Long commentId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
 
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new IllegalArgumentException("Comment not found"));
+                .orElseThrow(() -> new NoSuchElementException("Comment not found"));
 
         if (commentLikeRepository.existsByUserAndComment(user, comment)) {
             throw new IllegalArgumentException("You already liked this comment.");
@@ -88,48 +97,43 @@ public class CommentService {
         CommentLike like = new CommentLike(user, comment);
         commentLikeRepository.save(like);
 
-        if (!comment.getUser().equals(user))
-            if (!comment.getUser().equals(user)) { // ✅ Ensure `getUser()` is correctly used
-                User commentOwner = comment.getUser(); // ✅ Explicitly define the user
-                notificationService.createNotification(
-                        commentOwner,
-                        user.getUsername() + " liked your comment: \"" + comment.getContent() + "\""
-                );
-            }
+        // ✅ Notify comment owner
+        if (!comment.getUser().equals(user)) {
+            notificationService.createNotification(
+                    comment.getUser(),
+                    user.getUsername() + " liked your comment: \"" + comment.getContent() + "\""
+            );
+        }
     }
 
+    // ✅ Reply to a comment
+    @Transactional
     public Comment replyToComment(Long parentCommentId, String content) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
 
         Comment parentComment = commentRepository.findById(parentCommentId)
-                .orElseThrow(() -> new IllegalArgumentException("Parent comment not found"));
+                .orElseThrow(() -> new NoSuchElementException("Parent comment not found"));
 
         Comment reply = new Comment(content, user, parentComment.getPost());
         reply.setParentComment(parentComment);
-        Comment savedReply = commentRepository.save(reply);
-
-        if (!parentComment.getUser().equals(user)) {
-            notificationService.createNotification(
-                    parentComment.getUser(),
-                    user.getUsername() + " replied to your comment: \"" + content + "\""
-            );
-        }
-        return savedReply;
+        return commentRepository.save(reply);
     }
 
+    // ✅ Delete a comment
+    @Transactional
     public void deleteComment(Long commentId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User user = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
 
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new IllegalArgumentException("Comment not found"));
+                .orElseThrow(() -> new NoSuchElementException("Comment not found"));
 
-        if (!comment.getUser().getEmail().equals(email) && !user.getRole().equals("ROLE_ADMIN")) {
-            throw new AccessDeniedException("You are not allowed to delete this comment.");
+        // ✅ Only allow deletion if the user is the owner or an admin
+        if (!comment.getUser().equals(user) && !user.getRole().equals("ROLE_ADMIN")) {
+            throw new SecurityException("You are not allowed to delete this comment.");
         }
 
         commentRepository.delete(comment);

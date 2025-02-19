@@ -1,5 +1,7 @@
 package com.jgy36.PoliticalApp.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,6 +26,7 @@ public class Comment {
 
     @ManyToOne
     @JoinColumn(name = "post_id", nullable = true)
+    @JsonBackReference // ✅ Prevent infinite recursion (Post -> Comment -> Post)
     private Post post; // ✅ Each comment belongs to a post
 
     @Column(nullable = false, length = 1000) // Max comment length: 1000 chars
@@ -34,6 +37,7 @@ public class Comment {
 
     @ManyToOne
     @JoinColumn(name = "parent_comment_id")
+    @JsonIgnore // ✅ Prevents recursive loop in nested comments
     private Comment parentComment;
 
     // ✅ Constructor needed for new Comment(text, user, post)

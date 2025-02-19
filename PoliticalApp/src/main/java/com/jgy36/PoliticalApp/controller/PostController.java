@@ -1,8 +1,6 @@
 package com.jgy36.PoliticalApp.controller;
 
-import com.jgy36.PoliticalApp.dto.CommentRequest;
 import com.jgy36.PoliticalApp.dto.PostDTO;
-import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.UserRepository;
@@ -111,18 +109,6 @@ public class PostController {
     @GetMapping("/{postId}/likes")
     public ResponseEntity<List<String>> getPostLikes(@PathVariable Long postId) {
         return ResponseEntity.ok(postService.getPostLikes(postId));
-    }
-
-    // ✅ Add a comment to a post
-    @PostMapping("/{postId}/comment")
-    public ResponseEntity<Comment> commentOnPost(@PathVariable Long postId, @RequestBody CommentRequest request, Authentication auth) {
-        return ResponseEntity.ok(postService.addComment(postId, auth.getName(), request.getText()));
-    }
-
-    // ✅ Get all comments for a post
-    @GetMapping("/{postId}/comments")
-    public ResponseEntity<List<Comment>> getComments(@PathVariable Long postId) {
-        return ResponseEntity.ok(postService.getPostComments(postId));
     }
 
     // ✅ Save/Unsave a post
