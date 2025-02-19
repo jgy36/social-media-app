@@ -4,7 +4,7 @@ export interface PostType {
   content: string;
   likes: number;
   createdAt: string; // 📌 Java LocalDateTime will be a string
-  comments?: number; // ✅ Added comments count as optional
-  shares?: number; // ✅ Added shares count as optional
+  commentsCount?: number; // ✅ Changed to commentsCount
+  sharesCount?: number; // ✅ Changed to sharesCount
+  isSaved?: boolean; // ✅ Added isSaved to track saved state
 }
-

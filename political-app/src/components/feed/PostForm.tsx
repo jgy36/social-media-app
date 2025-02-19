@@ -1,29 +1,29 @@
 import { useState } from "react";
-import api from "@/utils/api"; // ✅ Import pre-configured Axios instance
-import { PostType } from "@/types/post";
+import { createPost } from "@/utils/api"; // ✅ Uses the correct API function
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 
-const PostForm = ({
-  onPostCreated,
-}: {
-  onPostCreated: (post: PostType) => void;
-}) => {
+const PostForm = ({ onPostCreated }: { onPostCreated: () => void }) => {
   const [content, setContent] = useState("");
-  const [username, setUsername] = useState(""); // In a real app, fetch from auth state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const user = useSelector((state: RootState) => state.user); // ✅ Get user from Redux
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user.token) {
+      setError("You must be logged in to post.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const response = await api.post<PostType>("/posts", {
-        content,
-        username,
-      });
-      onPostCreated(response.data);
-      setContent(""); // Clear input after posting
+      await createPost({ content }, user.token); // ✅ API now handles the user
+      setContent(""); // ✅ Clear input after posting
+      onPostCreated(); // ✅ Refresh post list
     } catch (error) {
       console.error("Error creating post:", error);
       setError("Failed to create post. Please try again.");
@@ -38,14 +38,6 @@ const PostForm = ({
       {error && <p className="text-red-500">{error}</p>}
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="w-full p-2 border rounded"
-          required
-        />
         <textarea
           placeholder="What's on your mind?"
           value={content}
