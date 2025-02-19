@@ -1,15 +1,18 @@
 package com.jgy36.PoliticalApp.controller;
 
+import com.jgy36.PoliticalApp.dto.CommentRequest;
 import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.service.CommentService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/comments")
+@RequestMapping("/api/posts") // ✅ Clearer API Structure
 public class CommentController {
 
     private final CommentService commentService;
@@ -18,43 +21,47 @@ public class CommentController {
         this.commentService = commentService;
     }
 
-    // ✅ Users: Add a comment to a politician
-    @PostMapping("/politician/{politicianId}")
-    @PreAuthorize("hasAuthority('ROLE_USER') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<Comment> addComment(@PathVariable Long politicianId, @RequestBody String content) {
-        return ResponseEntity.ok(commentService.addComment(politicianId, content));
+    @PostMapping("/{postId}/comment")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> addComment(
+            @PathVariable Long postId,
+            @RequestBody CommentRequest commentRequest,
+            Authentication auth) {
+
+        Comment comment = commentService.addComment(postId, commentRequest.getContent());
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Comment added successfully",
+                "comment", comment
+        ));
     }
 
-    // ✅ Users or Admins: Delete a comment by ID
-    @DeleteMapping("/delete/{commentId}")
+    @GetMapping("/{postId}/comments")
+    public ResponseEntity<List<Comment>> getComments(@PathVariable Long postId) {
+        return ResponseEntity.ok(commentService.getCommentsByPost(postId));
+    }
+
+    @DeleteMapping("/comments/{commentId}")
     @PreAuthorize("hasAuthority('ROLE_USER') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<String> deleteComment(@PathVariable Long commentId) {
         commentService.deleteComment(commentId);
         return ResponseEntity.ok("Comment deleted successfully.");
     }
 
-    // ✅ Like a comment (Requires JWT Token)
-    @PostMapping("/like/{commentId}")
-    public ResponseEntity<String> likeComment(@PathVariable Long commentId, Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("❌ Authentication required");
-        }
-
+    @PostMapping("/comments/{commentId}/like")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<String> likeComment(@PathVariable Long commentId) {
         commentService.likeComment(commentId);
         return ResponseEntity.ok("Comment liked successfully!");
     }
 
-    @PostMapping("/reply/{commentId}")
+    @PostMapping("/comments/{commentId}/reply")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Comment> replyToComment(@PathVariable Long commentId,
-                                                  @RequestBody String content,
+                                                  @RequestBody CommentRequest commentRequest,
                                                   Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(null);
-        }
 
-        Comment reply = commentService.replyToComment(commentId, content);
+        Comment reply = commentService.replyToComment(commentId, commentRequest.getContent());
         return ResponseEntity.ok(reply);
     }
-
 }
-

@@ -66,13 +66,17 @@ public class SecurityConfig {
                         // ✅ Public Endpoints
                         .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
-                        .requestMatchers(HttpMethod.GET, "/api/politicians/**").permitAll()  // Public GET Politicians
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()  // Public GET Comments
+                        .requestMatchers(HttpMethod.GET, "/api/politicians/**").permitAll()  // Public GET Politicians
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // ✅ Allow CORS Preflight
 
                         // ✅ PROTECTED Endpoints (Require JWT Token)
-                        .requestMatchers("/api/comments/**").authenticated()  // Require authentication for posting/liking comments
-                        .requestMatchers("/api/follow/**").authenticated()  // ✅ Secure Follow API (Users must be logged in)
-                        .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")  // Only Admins
+                        .requestMatchers(HttpMethod.POST, "/api/comments/**").authenticated()  // ✅ Require authentication for posting/liking comments
+                        .requestMatchers(HttpMethod.POST, "/api/follow/**").authenticated()  // ✅ Secure Follow API (Users must be logged in)
+                        .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()  // ✅ Users must be logged in to create a post
+
+                        // ✅ Admin Only
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // ✅ Use hasRole instead of hasAuthority
 
                         .anyRequest().authenticated() // ✅ Everything else requires authentication
                 )
@@ -81,6 +85,4 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-
 }

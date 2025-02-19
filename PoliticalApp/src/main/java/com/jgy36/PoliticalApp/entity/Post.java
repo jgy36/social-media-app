@@ -1,6 +1,7 @@
 package com.jgy36.PoliticalApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -39,6 +40,7 @@ public class Post {
     private Set<User> likedUsers = new HashSet<>(); // ✅ Ensure users can like posts
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference // ✅ Prevents infinite loop by managing Comment -> Post serialization
     private Set<Comment> comments = new HashSet<>(); // ✅ Add comments field
 
     public Post(String content, User author) {
