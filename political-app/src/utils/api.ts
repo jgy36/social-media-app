@@ -25,13 +25,19 @@ export const fetchPosts = async (endpoint: string): Promise<PostType[]> => {
 
 // ✅ Create a new post (Requires Auth Token)
 export const createPost = async (
-  postData: { content: string; username: string },
+  postData: { content: string },
   token: string
 ) => {
   try {
-    const response = await axios.post(`${API_BASE_URL}/posts`, postData, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    const username = getCookie("username") || localStorage.getItem("username"); // ✅ Auto-fetch username
+    if (!username) throw new Error("No username found. Please log in.");
+
+    const response = await axios.post(
+      `${API_BASE_URL}/posts`,
+      { ...postData, username }, // ✅ Automatically include username
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+
     return response.data as PostType;
   } catch (error) {
     console.error("Error creating post:", error);
@@ -55,7 +61,9 @@ export const likePost = async (postId: number) => {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(`Failed to like post: ${errorData.message || response.status}`);
+      throw new Error(
+        `Failed to like post: ${errorData.message || response.status}`
+      );
     }
 
     return await response.json(); // ✅ Return the parsed response
@@ -127,4 +135,41 @@ export const registerUserAPI = async (
   password: string
 ) => {
   return fetchWithToken("auth/register", "POST", { username, email, password });
+};
+
+// ✅ Fetch comments for a post
+export const getPostComments = async (postId: number) => {
+  try {
+    const response = await fetchWithToken(`/posts/${postId}/comments`);
+    return response || [];
+  } catch (error) {
+    console.error("Error fetching post comments:", error);
+    throw error;
+  }
+};
+
+// ✅ Fetch a single post by ID
+export const getPostById = async (postId: number) => {
+  try {
+    const response = await fetchWithToken(`/posts/${postId}`);
+    return response;
+  } catch (error) {
+    console.error("Error fetching post:", error);
+    throw error;
+  }
+};
+
+// ✅ Add a comment (Fix: No need to pass user.token separately)
+export const addComment = async (postId: number, content: string) => {
+  return fetchWithToken(`/posts/${postId}/comment`, "POST", { content });
+};
+
+// ✅ Save a post (Fix: No need to pass user.token separately)
+export const savePost = async (postId: number) => {
+  return fetchWithToken(`/posts/${postId}/save`, "POST");
+};
+
+// ✅ Share a post (Fix: No need to pass user.token separately)
+export const sharePost = async (postId: number) => {
+  return fetchWithToken(`/posts/${postId}/share`, "POST");
 };
