@@ -1,38 +1,40 @@
 import { useState } from "react";
-import { sharePost } from "@/utils/api";
-import { Share2 } from "lucide-react";
+import { Share2, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface ShareButtonProps {
   postId: number;
-  sharesCount: number;
+  sharesCount?: number; // ✅ Make it optional to prevent errors
 }
 
-const ShareButton = ({ postId, sharesCount }: ShareButtonProps) => {
-  const [shares, setShares] = useState(sharesCount);
-  const user = useSelector((state: RootState) => state.user);
 
-  const handleShare = async () => {
-    if (!user.token) return;
-    try {
-      await sharePost(postId);
-      setShares((prev) => prev + 1);
-    } catch (error) {
-      console.error("Error sharing post:", error);
-    }
+const ShareButton = ({ postId }: ShareButtonProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleCopyLink = () => {
+    const postUrl = `${window.location.origin}/posts/${postId}`;
+    navigator.clipboard.writeText(postUrl);
+    alert("Link copied to clipboard!");
   };
 
   return (
-    <Button
-      variant="ghost"
-      onClick={handleShare}
-      className="flex items-center gap-1 hover:text-green-500 transition-all"
-    >
-      <Share2 className="h-4 w-4" />
-      {shares}
-    </Button>
+    <>
+      <Button variant="ghost" onClick={() => setIsOpen(true)} className="flex items-center gap-1">
+        <Share2 className="h-4 w-4" />
+      </Button>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Share Post</DialogTitle>
+          </DialogHeader>
+          <Button onClick={handleCopyLink} className="w-full flex items-center gap-2">
+            <Copy className="h-4 w-4" /> Copy Link
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
