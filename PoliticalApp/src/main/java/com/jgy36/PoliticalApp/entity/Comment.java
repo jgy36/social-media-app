@@ -8,6 +8,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -28,6 +30,9 @@ public class Comment {
     @JoinColumn(name = "post_id", nullable = true)
     @JsonBackReference // ✅ Prevent infinite recursion (Post -> Comment -> Post)
     private Post post; // ✅ Each comment belongs to a post
+
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<CommentLike> commentLikes = new HashSet<>();
 
     @Column(nullable = false, length = 1000) // Max comment length: 1000 chars
     private String content;
