@@ -18,16 +18,18 @@ interface PostProps {
 const Post = ({ post }: PostProps) => {
   const user = useSelector((state: RootState) => state.user);
   const [likes, setLikes] = useState(post.likes || 0);
+  const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
   const router = useRouter();
 
   const handleLike = async () => {
-    if (isLiking || !user.token) return;
+    if (!user.token || isLiking) return;
     setIsLiking(true);
 
     try {
       const updatedPost = await likePost(post.id);
+      setIsLiked(!isLiked);
       setLikes(updatedPost.likes || likes);
     } catch (error) {
       console.error("Error liking post:", error);
@@ -54,7 +56,7 @@ const Post = ({ post }: PostProps) => {
           variant="ghost"
           onClick={handleLike}
           disabled={isLiking}
-          className="flex items-center gap-1 hover:text-red-500 transition-all"
+          className={`flex items-center gap-1 ${isLiked ? "text-red-500" : ""}`}
         >
           <Heart className="h-4 w-4" />
           {likes}
@@ -74,7 +76,7 @@ const Post = ({ post }: PostProps) => {
         <SaveButton postId={post.id} isSaved={post.isSaved ?? false} />
 
         {/* 🔁 Share Button */}
-        <ShareButton postId={post.id} sharesCount={post.sharesCount || 0} />
+        <ShareButton postId={post.id} sharesCount={post.sharesCount ?? 0} />
       </div>
 
       {/* ✅ Comment Modal */}

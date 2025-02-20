@@ -46,27 +46,20 @@ export const createPost = async (
 };
 
 // ✅ Like a post by ID (Requires Auth Token)
-export const likePost = async (postId: number) => {
+export const likePost = async (postId: number): Promise<PostType> => {
   try {
-    const token = getCookie("token");
+    const token = getCookie("token"); // Ensure user is authenticated
     if (!token) throw new Error("No token found. Please log in.");
 
-    const response = await fetch(`${API_BASE_URL}/posts/${postId}/like`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const response = await axios.post(
+      `${API_BASE_URL}/posts/${postId}/like`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(
-        `Failed to like post: ${errorData.message || response.status}`
-      );
-    }
-
-    return await response.json(); // ✅ Return the parsed response
+    return response.data as PostType;
   } catch (error) {
     console.error("Error liking post:", error);
     throw error;
@@ -173,3 +166,20 @@ export const savePost = async (postId: number) => {
 export const sharePost = async (postId: number) => {
   return fetchWithToken(`/posts/${postId}/share`, "POST");
 };
+
+// ✅ Fetch saved posts
+export const getSavedPosts = async (token: string): Promise<PostType[]> => {
+  try {
+    if (!token) throw new Error("No authentication token found.");
+
+    const response = await axios.get(`${API_BASE_URL}/users/saved-posts`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    return response.data as PostType[];
+  } catch (error) {
+    console.error("Error fetching saved posts:", error);
+    return [];
+  }
+};
+
