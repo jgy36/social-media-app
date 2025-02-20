@@ -1,11 +1,12 @@
 package com.jgy36.PoliticalApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Cascade;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -34,13 +35,21 @@ public class Post {
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties("post") // ✅ Prevent infinite recursion
     private Set<PostLike> likes = new HashSet<>();
 
     @ManyToMany
+    @JoinTable(
+            name = "posts_liked_users",
+            joinColumns = @JoinColumn(name = "post_id"),
+            inverseJoinColumns = @JoinColumn(name = "liked_users_id")
+    )
+    @Cascade(org.hibernate.annotations.CascadeType.ALL)
+    @JsonIgnoreProperties("post")
     private Set<User> likedUsers = new HashSet<>(); // ✅ Ensure users can like posts
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference // ✅ Prevents infinite loop by managing Comment -> Post serialization
+    @JsonIgnoreProperties("post") // ✅ Prevents infinite loop by managing Comment -> Post serialization
     private Set<Comment> comments = new HashSet<>(); // ✅ Add comments field
 
     public Post(String content, User author) {

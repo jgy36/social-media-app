@@ -34,9 +34,7 @@ public class PostService {
 
     }
 
-    /**
-     * ✅ Get posts for "For You" tab (all posts sorted by newest first)
-     */
+    // ✅ Get posts for "For You" tab (all posts sorted by newest first)
     public List<PostDTO> getAllPosts() {
         List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
         return posts.stream()
@@ -127,6 +125,12 @@ public class PostService {
     // ✅ Add this method to retrieve posts by user ID
     public List<Post> getPostsByUserId(Long userId) {
         return postRepository.findByAuthorId(userId);
+    }
+
+    // ✅ Fetch a post by ID
+    public Post getPostById(Long postId) {
+        return postRepository.findById(postId)
+                .orElseThrow(() -> new NoSuchElementException("Post not found with ID: " + postId));
     }
 
     // ✅ Like/Unlike a post

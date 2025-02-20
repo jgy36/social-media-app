@@ -83,6 +83,13 @@ public class PostController {
         return ResponseEntity.ok(postService.createPost(content));
     }
 
+    // ✅ Get a post by its ID
+    @GetMapping("/{postId}")
+    public ResponseEntity<Post> getPostById(@PathVariable Long postId) {
+        Post post = postService.getPostById(postId);
+        return ResponseEntity.ok(post);
+    }
+
     // ✅ Delete a post (Only author can delete their own post)
     @DeleteMapping("/{postId}")
     @PreAuthorize("isAuthenticated()") // Requires authentication
