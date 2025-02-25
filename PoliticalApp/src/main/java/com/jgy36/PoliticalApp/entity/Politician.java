@@ -7,14 +7,16 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
-@Table(name = "politicians")
+@Table(name = "politicians", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"name", "state", "county"})
+})
 public class Politician {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
@@ -23,12 +25,18 @@ public class Politician {
     @Column(nullable = false)
     private String state;
 
+    @Column(nullable = true)
+    private String county;
+
     @Column(nullable = false)
-    private String position; // e.g., "Senator", "Governor", "Representative"
+    private String position;
 
     @Column(nullable = false)
     private int yearsServed;
 
     @Column(nullable = false)
     private int termLength;
+
+    @Column(nullable = true)
+    private String photoUrl;
 }
