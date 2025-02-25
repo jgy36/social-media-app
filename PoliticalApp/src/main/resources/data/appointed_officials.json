@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Antony Blinken",
+    "position": "Secretary of State",
+    "department": "Department of State",
+    "appointed_by": "Joe Biden",
+    "appointment_date": "2021-01-26"
+  },
+  {
+    "name": "Janet Yellen",
+    "position": "Secretary of the Treasury",
+    "department": "Department of the Treasury",
+    "appointed_by": "Joe Biden",
+    "appointment_date": "2021-01-26"
+  },
+  {
+    "name": "Merrick Garland",
+    "position": "Attorney General",
+    "department": "Department of Justice",
+    "appointed_by": "Joe Biden",
+    "appointment_date": "2021-03-11"
+  }
+]
