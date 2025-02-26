@@ -13,8 +13,24 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout }) => {
   const user = useSelector((state: RootState) => state.user);
   const [savedPosts, setSavedPosts] = useState<PostType[]>([]);
 
-  useEffect(() => {
-    if (user.token) {
+  useEffect(() => {<div className="mt-6">
+  <h2 className="text-xl font-bold">Project Overview</h2>
+  <p className="mt-2">This project is a social media platform that allows users to create and share posts.</p>
+  <ul className="mt-4 list-disc list-inside">
+    <li>Users can create and manage their own profiles.</li>
+    <li>Users can create and share posts with others.</li>
+    <li>Users can save posts for later.</li>
+  </ul>
+</div>
+    if (user.token) {<div className="mt-6">
+  <h2 className="text-xl font-bold">Project Overview</h2>
+  <p className="mt-2">This project is a social media platform that allows users to create and share posts.</p>
+  <ul className="mt-4 list-disc list-inside">
+    <li>Users can create and manage their own profiles.</li>
+    <li>Users can create and share posts with others.</li>
+    <li>Users can save posts for later.</li>
+  </ul>
+</div>
       getSavedPosts(user.token).then(setSavedPosts);
     }
   }, [user.token]);

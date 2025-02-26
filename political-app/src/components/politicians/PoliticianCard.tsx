@@ -1,32 +1,61 @@
+import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Image from 'next/image';
 import { Politician } from "@/types/politician";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge"; // ✅ Badge for Party Affiliation
 
-const PoliticianCard = ({ politician }: { politician: Politician }) => {
-  // ✅ Party Badge Colors
-  const partyColors: Record<string, string> = {
-    Democrat: "bg-blue-500 text-white",
-    Republican: "bg-red-500 text-white",
-    Libertarian: "bg-yellow-500 text-black",
-    Independent: "bg-gray-500 text-white",
-    Conservative: "bg-purple-500 text-white",
-    Socialist: "bg-green-500 text-white",
+interface PoliticianCardProps {
+  politician: Politician;
+}
+
+const PoliticianCard: React.FC<PoliticianCardProps> = ({ politician }) => {
+  // Get party color
+  const getPartyColor = (party: string) => {
+    switch (party.toLowerCase()) {
+      case 'republican':
+        return 'bg-red-100 border-red-500';
+      case 'democrat':
+      case 'democratic':
+        return 'bg-blue-100 border-blue-500';
+      case 'independent':
+        return 'bg-yellow-100 border-yellow-500';
+      default:
+        return 'bg-gray-100 border-gray-500';
+    }
   };
 
   return (
-    <Card className="shadow-md transition hover:shadow-lg">
-      <CardContent className="p-4">
-        {/* ✅ Name & Party Badge */}
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-bold">{politician.name}</h2>
-          <Badge className={partyColors[politician.party] || "bg-muted text-foreground"}>
-            {politician.party}
-          </Badge>
+    <Card className={`overflow-hidden shadow-md ${getPartyColor(politician.party)} border-l-4`}>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-bold">{politician.name}</CardTitle>
+        <div className="text-sm text-gray-600">{politician.position}</div>
+      </CardHeader>
+      <CardContent className="flex items-center space-x-4">
+        <div className="flex-shrink-0">
+          {politician.photoUrl ? (
+            <div className="rounded-full h-16 w-16 overflow-hidden">
+              <Image
+                src={politician.photoUrl}
+                alt={politician.name}
+                width={64}
+                height={64}
+                className="object-cover"
+              />
+            </div>
+          ) : (
+            <div className="rounded-full h-16 w-16 bg-gray-300 flex items-center justify-center text-gray-600">
+              {politician.name.charAt(0)}
+            </div>
+          )}
         </div>
-
-        {/* ✅ Position & State */}
-        <p className="text-sm text-muted-foreground">Position: {politician.position}</p>
-        <p className="text-sm text-muted-foreground">State: {politician.state}</p>
+        <div>
+          <div className="font-medium">{politician.party}</div>
+          <div className="text-sm">
+            {politician.county ? `${politician.county}, ${politician.state}` : politician.state}
+          </div>
+          <div className="text-xs text-gray-500">
+            {politician.yearsServed} {politician.yearsServed === 1 ? 'year' : 'years'} served
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
