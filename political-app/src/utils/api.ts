@@ -1,6 +1,7 @@
 import axios from "axios";
 import type { PostType } from "@/types/post";
 import { getCookie } from "cookies-next"; // ✅ Ensure correct import
+import { Politician } from "@/types/politician";
 
 const API_BASE_URL = "http://localhost:8080/api"; // ✅ No trailing slash
 
@@ -101,6 +102,45 @@ export const fetchWithToken = async (
   return response.json();
 };
 
+// ✅ Modified fetchWithToken for politician endpoints - uses direct URL without /api prefix
+export const fetchPoliticianData = async (
+  endpoint: string,
+  method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
+  body?: Record<string, unknown>
+) => {
+  const token = getCookie("token") || localStorage.getItem("token");
+
+  if (!token) {
+    console.warn(`🚨 No auth token found! Skipping request: ${endpoint}`);
+    return null;
+  }
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+
+  // The difference is here - we're using the base URL without the /api prefix
+  // because your PoliticianController doesn't include that prefix
+  const BASE_URL = "http://localhost:8080"; // No /api here
+  
+  const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+  console.log(`Making request to: ${url}`);
+
+  const response = await fetch(url, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!response.ok) {
+    console.error(`🚨 HTTP Error: ${response.status}`);
+    throw new Error(`HTTP Error! Status: ${response.status}`);
+  }
+
+  return response.json();
+};
+
 // ✅ Login User API
 export const loginUserAPI = async (email: string, password: string) => {
   return fetchWithToken("auth/login", "POST", { email, password });
@@ -183,3 +223,51 @@ export const getSavedPosts = async (token: string): Promise<PostType[]> => {
   }
 };
 
+// Fetch politicians by county - using fetchPoliticianData
+export const getPoliticiansByCounty = async (county: string, state: string): Promise<Politician[]> => {
+  try {
+    const endpoint = `/politicians/county/${encodeURIComponent(county)}/${encodeURIComponent(state)}`;
+    console.log(`Fetching county politicians from: ${endpoint}`);
+    
+    const response = await fetchPoliticianData(endpoint);
+    return response || [];
+  } catch (error) {
+    console.error("Error fetching politicians by county:", error);
+    return [];
+  }
+};
+
+// Fetch all politicians for a state - using fetchPoliticianData
+export const getPoliticiansByState = async (state: string): Promise<Politician[]> => {
+  try {
+    const endpoint = `/politicians/state/${encodeURIComponent(state)}`;
+    console.log(`Fetching state politicians from: ${endpoint}`);
+    
+    const response = await fetchPoliticianData(endpoint);
+    return response || [];
+  } catch (error) {
+    console.error("Error fetching politicians by state:", error);
+    return [];
+  }
+};
+
+// Combined function to get all relevant politicians for a county
+export const getAllRelevantPoliticians = async (county: string, state: string): Promise<Politician[]> => {
+  try {
+    console.log(`Getting all relevant politicians for ${county}, ${state}`);
+    
+    // Get county-specific politicians
+    const countyPoliticians = await getPoliticiansByCounty(county, state);
+    console.log(`Found ${countyPoliticians.length} county politicians`);
+    
+    // Get state-level politicians (governor, senators, etc.)
+    const statePoliticians = await getPoliticiansByState(state);
+    console.log(`Found ${statePoliticians.length} state politicians`);
+    
+    // Combine both lists with county politicians first
+    return [...countyPoliticians, ...statePoliticians];
+  } catch (error) {
+    console.error("Error fetching all relevant politicians:", error);
+    return [];
+  }
+};
