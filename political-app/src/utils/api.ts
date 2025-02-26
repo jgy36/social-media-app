@@ -123,8 +123,10 @@ export const fetchPoliticianData = async (
   // The difference is here - we're using the base URL without the /api prefix
   // because your PoliticianController doesn't include that prefix
   const BASE_URL = "http://localhost:8080"; // No /api here
-  
-  const url = `${BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  const url = `${BASE_URL}${
+    endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+  }`;
   console.log(`Making request to: ${url}`);
 
   const response = await fetch(url, {
@@ -223,13 +225,41 @@ export const getSavedPosts = async (token: string): Promise<PostType[]> => {
   }
 };
 
-// Fetch politicians by county - using fetchPoliticianData
-export const getPoliticiansByCounty = async (county: string, state: string): Promise<Politician[]> => {
+// Fetch politicians by county with format handling
+export const getPoliticiansByCounty = async (
+  county: string,
+  state: string
+): Promise<Politician[]> => {
   try {
-    const endpoint = `/politicians/county/${encodeURIComponent(county)}/${encodeURIComponent(state)}`;
-    console.log(`Fetching county politicians from: ${endpoint}`);
-    
+    // Format the county name to match the database format: "Morgan County" instead of "Morgan"
+    const formattedCounty = county.toLowerCase().endsWith(" county")
+      ? county
+      : `${county} County`;
+
+    console.log(
+      `Looking up politicians for county "${formattedCounty}" in state "${state}"`
+    );
+
+    const endpoint = `/politicians/county/${encodeURIComponent(
+      formattedCounty
+    )}/${encodeURIComponent(state)}`;
+    console.log(`Making request to: ${endpoint}`);
+
     const response = await fetchPoliticianData(endpoint);
+
+    // Special case for Anchorage, Alaska which has a different format
+    if (
+      (!response || response.length === 0) &&
+      county === "Anchorage" &&
+      state === "Alaska"
+    ) {
+      const anchorageEndpoint = `/politicians/county/${encodeURIComponent(
+        "Anchorage, Municipality of"
+      )}/${encodeURIComponent(state)}`;
+      console.log(`Trying special case for Anchorage: ${anchorageEndpoint}`);
+      return (await fetchPoliticianData(anchorageEndpoint)) || [];
+    }
+
     return response || [];
   } catch (error) {
     console.error("Error fetching politicians by county:", error);
@@ -238,11 +268,13 @@ export const getPoliticiansByCounty = async (county: string, state: string): Pro
 };
 
 // Fetch all politicians for a state - using fetchPoliticianData
-export const getPoliticiansByState = async (state: string): Promise<Politician[]> => {
+export const getPoliticiansByState = async (
+  state: string
+): Promise<Politician[]> => {
   try {
     const endpoint = `/politicians/state/${encodeURIComponent(state)}`;
     console.log(`Fetching state politicians from: ${endpoint}`);
-    
+
     const response = await fetchPoliticianData(endpoint);
     return response || [];
   } catch (error) {
@@ -252,18 +284,21 @@ export const getPoliticiansByState = async (state: string): Promise<Politician[]
 };
 
 // Combined function to get all relevant politicians for a county
-export const getAllRelevantPoliticians = async (county: string, state: string): Promise<Politician[]> => {
+export const getAllRelevantPoliticians = async (
+  county: string,
+  state: string
+): Promise<Politician[]> => {
   try {
     console.log(`Getting all relevant politicians for ${county}, ${state}`);
-    
+
     // Get county-specific politicians
     const countyPoliticians = await getPoliticiansByCounty(county, state);
     console.log(`Found ${countyPoliticians.length} county politicians`);
-    
+
     // Get state-level politicians (governor, senators, etc.)
     const statePoliticians = await getPoliticiansByState(state);
     console.log(`Found ${statePoliticians.length} state politicians`);
-    
+
     // Combine both lists with county politicians first
     return [...countyPoliticians, ...statePoliticians];
   } catch (error) {
