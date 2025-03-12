@@ -135,7 +135,7 @@ public class PostService {
 
     // ✅ Fetch a post by ID
     public Post getPostById(Long postId) {
-        return postRepository.findById(postId)
+        return postRepository.findByIdWithDetails(postId)
                 .orElseThrow(() -> new NoSuchElementException("Post not found with ID: " + postId));
     }
 

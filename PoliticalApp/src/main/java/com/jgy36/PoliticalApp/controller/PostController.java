@@ -83,11 +83,12 @@ public class PostController {
         return ResponseEntity.ok(postService.createPost(content));
     }
 
-    // ✅ Get a post by its ID
+    // In PostController.java
     @GetMapping("/{postId}")
-    public ResponseEntity<Post> getPostById(@PathVariable Long postId) {
+    public ResponseEntity<PostDTO> getPostById(@PathVariable Long postId) {
         Post post = postService.getPostById(postId);
-        return ResponseEntity.ok(post);
+        PostDTO dto = new PostDTO(post);
+        return ResponseEntity.ok(dto);
     }
 
     // ✅ Delete a post (Only author can delete their own post)
