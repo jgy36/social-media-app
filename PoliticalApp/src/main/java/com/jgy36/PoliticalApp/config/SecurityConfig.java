@@ -63,6 +63,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Allow access to static resources without authentication
+                        .requestMatchers("/images/**", "/css/**", "/js/**").permitAll()
                         // ✅ Public Endpoints
                         .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
