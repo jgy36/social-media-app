@@ -17,7 +17,7 @@ interface PostProps {
 
 const Post = ({ post }: PostProps) => {
   const user = useSelector((state: RootState) => state.user);
-  const [likes, setLikes] = useState(post.likes || 0);
+  const [likesCount, setLikesCount] = useState(post.likes || 0);
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
@@ -28,9 +28,16 @@ const Post = ({ post }: PostProps) => {
     setIsLiking(true);
 
     try {
-      const updatedPost = await likePost(post.id);
-      setIsLiked(!isLiked);
-      setLikes(updatedPost.likes || likes);
+      const response = await likePost(post.id);
+      
+      // Toggle the liked state
+      const newIsLiked = !isLiked;
+      setIsLiked(newIsLiked);
+      
+      // Update likes count - increment if liked, decrement if unliked
+      setLikesCount(prevCount => newIsLiked ? prevCount + 1 : Math.max(0, prevCount - 1));
+      
+      console.log('Like response:', response);
     } catch (error) {
       console.error("Error liking post:", error);
     }
@@ -39,7 +46,7 @@ const Post = ({ post }: PostProps) => {
   };
 
   return (
-    <Card className="p-4 shadow-md border border-border transition-all hover:shadow-lg">
+    <Card className="p-4 shadow-md border border-border transition-all hover:shadow-lg mb-4">
       {/* ✅ Clicking opens full post view */}
       <div
         onClick={() => router.push(`/post/${post.id}`)}
@@ -54,18 +61,24 @@ const Post = ({ post }: PostProps) => {
         {/* 🔥 Like Button */}
         <Button
           variant="ghost"
-          onClick={handleLike}
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent navigating to post details
+            handleLike();
+          }}
           disabled={isLiking}
           className={`flex items-center gap-1 ${isLiked ? "text-red-500" : ""}`}
         >
-          <Heart className="h-4 w-4" />
-          {likes}
+          <Heart className={`h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
+          {likesCount}
         </Button>
 
         {/* 💬 Comment Button */}
         <Button
           variant="ghost"
-          onClick={() => setCommentModalOpen(true)}
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent navigating to post details
+            setCommentModalOpen(true);
+          }}
           className="flex items-center gap-1 hover:text-blue-500 transition-all"
         >
           <MessageCircle className="h-4 w-4" />

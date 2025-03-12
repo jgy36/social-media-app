@@ -30,29 +30,30 @@ export const createPost = async (
   token: string
 ) => {
   try {
-    if (!token) throw new Error("No authentication token found. Please log in.");
+    if (!token)
+      throw new Error("No authentication token found. Please log in.");
 
     // Use direct fetch with explicit URL
     const API_BASE_URL = "http://localhost:8080/api"; // Ensure this matches your server
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json", 
-        "Authorization": `Bearer ${token}`
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
       },
       // Just send the content as a string - the backend should handle initialization
-      body: JSON.stringify({ 
-        content: postData.content
-      })
+      body: JSON.stringify({
+        content: postData.content,
+      }),
     });
 
     // Log response details for debugging
-    console.log('Response status:', response.status);
-    
+    console.log("Response status:", response.status);
+
     // Check if response is ok
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Error response:', errorText);
+      console.error("Error response:", errorText);
       throw new Error(`Server error: ${response.status} - ${errorText}`);
     }
 
@@ -64,20 +65,28 @@ export const createPost = async (
 };
 
 // ✅ Like a post by ID (Requires Auth Token)
-export const likePost = async (postId: number): Promise<PostType> => {
+export const likePost = async (
+  postId: number
+): Promise<{ likesCount: number }> => {
   try {
-    const token = getCookie("token"); // Ensure user is authenticated
+    const token = getCookie("token") || localStorage.getItem("token");
     if (!token) throw new Error("No token found. Please log in.");
 
-    const response = await axios.post(
-      `${API_BASE_URL}/posts/${postId}/like`,
-      {},
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    const response = await fetch(`${API_BASE_URL}/posts/${postId}/like`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-    return response.data as PostType;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to like post: ${errorText}`);
+    }
+
+    // The backend should return the updated like count
+    return await response.json();
   } catch (error) {
     console.error("Error liking post:", error);
     throw error;
@@ -200,14 +209,60 @@ export const getPostComments = async (postId: number) => {
   }
 };
 
-// ✅ Fetch a single post by ID
-export const getPostById = async (postId: number) => {
+// ✅ Fetch a single post by ID with detailed debugging
+export const getPostById = async (postId: number): Promise<PostType | null> => {
   try {
-    const response = await fetchWithToken(`/posts/${postId}`);
-    return response;
+    console.log(`[DEBUG] Fetching post with ID: ${postId}`);
+    const API_BASE_URL = "http://localhost:8080/api";
+    const token = getCookie("token") || localStorage.getItem("token");
+    
+    // Create headers with or without token
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+    };
+    
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+    
+    console.log(`[DEBUG] Request URL: ${API_BASE_URL}/posts/${postId}`);
+    console.log(`[DEBUG] Using auth token: ${token ? 'Yes' : 'No'}`);
+    
+    const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+      method: "GET",
+      headers: headers
+    });
+    
+    console.log(`[DEBUG] Response status:`, response.status);
+    
+    if (!response.ok) {
+      // Try to get error details if available
+      let errorDetails = "";
+      try {
+        const errorText = await response.text();
+        errorDetails = errorText;
+        console.error(`[DEBUG] Error response body:`, errorText);
+      } catch (e) {
+        console.error(`[DEBUG] Could not read error response:`, e);
+      }
+      
+      console.error(`[DEBUG] Error fetching post ${postId}: Status ${response.status}`, errorDetails);
+      return null;
+    }
+    
+    const data = await response.json();
+    console.log(`[DEBUG] Post data retrieved:`, data);
+    
+    // Basic validation to ensure the data is shaped like a post
+    if (!data || typeof data !== 'object' || !('id' in data)) {
+      console.error(`[DEBUG] Invalid post data format:`, data);
+      return null;
+    }
+    
+    return data;
   } catch (error) {
-    console.error("Error fetching post:", error);
-    throw error;
+    console.error(`[DEBUG] Exception in getPostById(${postId}):`, error);
+    return null;
   }
 };
 
