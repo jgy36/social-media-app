@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -69,6 +70,11 @@ public class PostService {
         post.setContent(content);
         post.setAuthor(user);
         post.setCreatedAt(java.time.LocalDateTime.now());
+
+        // Make sure these collections are initialized
+        post.setLikes(new HashSet<>());
+        post.setLikedUsers(new HashSet<>());
+        post.setComments(new HashSet<>());
 
         return postRepository.save(post);
     }

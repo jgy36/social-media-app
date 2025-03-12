@@ -35,4 +35,22 @@ public interface PoliticianRepository extends JpaRepository<Politician, Long> {
     List<Object[]> findAllStoredCounties();
 
     boolean existsByStateAndCounty(String state, String county);
+
+    // Find politicians by county and state
+    List<Politician> findByCountyAndState(String county, String state);
+
+    // Find politicians by state where county is null (state-level officials)
+    List<Politician> findByStateAndCountyIsNull(String state);
+
+    // Find politicians by partial county name match
+    List<Politician> findByCountyContaining(String county);
+
+    // Find politicians by partial county name and exact state
+    List<Politician> findByCountyContainingAndState(String county, String state);
+
+    // Check if politician exists by name and position
+    boolean existsByNameAndPosition(String name, String position);
+
+    // Find federal-level politicians (cabinet members)
+    List<Politician> findByStateAndPositionContaining(String state, String position);
 }
