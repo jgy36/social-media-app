@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
@@ -19,5 +20,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // ✅ Query to find posts by a specific user
     List<Post> findByAuthorId(Long userId);
 
-
+    // In PostRepository.java
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.likes WHERE p.id = :postId")
+    Optional<Post> findByIdWithDetails(@Param("postId") Long postId);
 }
