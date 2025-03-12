@@ -1,9 +1,4 @@
-// Import the Politician interface
-import { Politician } from '../types/politician';
-import Image from 'next/image';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-
-// Wikipedia API Utility for fetching politician images
+// WikipediaImageFetcher.ts
 class WikipediaImageFetcher {
   private baseUrl: string;
   private cache: Map<string, string>;
@@ -16,31 +11,31 @@ class WikipediaImageFetcher {
   /**
    * Fetches a politician's image from Wikipedia based on their name
    * @param {string} politicianName - The name of the politician
-   * @returns {Promise<string>} - URL of the politician's image or a placeholder
+   * @returns {Promise<string>} - URL of the politician's image or null if not found
    */
-  async fetchPoliticianImage(politicianName: string): Promise<string> {
+  async fetchPoliticianImage(politicianName: string): Promise<string | null> {
     // Check cache first
     if (this.cache.has(politicianName)) {
-      return this.cache.get(politicianName) || this.getPlaceholderImage();
+      return this.cache.get(politicianName) || null;
     }
 
     try {
       // First search for the page
       const pageData = await this.searchWikipedia(politicianName);
       if (!pageData) {
-        return this.getPlaceholderImage();
+        return null;
       }
 
       // Then fetch image from the page
       const imageUrl = await this.getImageFromPage(pageData.title);
       
       // Cache the result
-      this.cache.set(politicianName, imageUrl || this.getPlaceholderImage());
+      this.cache.set(politicianName, imageUrl || "");
       
-      return this.cache.get(politicianName) || this.getPlaceholderImage();
+      return imageUrl;
     } catch (error) {
       console.error(`Error fetching image for ${politicianName}:`, error);
-      return this.getPlaceholderImage();
+      return null;
     }
   }
 
@@ -100,85 +95,6 @@ class WikipediaImageFetcher {
     
     return null;
   }
-
-  /**
-   * Get a placeholder image when no Wikipedia image is available
-   * @returns {string} - URL of a placeholder image
-   */
-  private getPlaceholderImage(): string {
-    return 'https://via.placeholder.com/150?text=No+Image';
-  }
 }
 
-// Politician Card Component
-interface PoliticianCardProps {
-  politician: Politician;
-}
-
-const PoliticianCard: React.FC<PoliticianCardProps> = ({ politician }) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  
-  // Create imageFetcher with useMemo to avoid recreating it on each render
-  const imageFetcher = useMemo(() => new WikipediaImageFetcher(), []);
-  
-  // Use useCallback to memoize the fetchImage function
-  const fetchImage = useCallback(async () => {
-    // If politician already has a photoUrl, use that instead of fetching
-    if (politician.photoUrl) {
-      setImageUrl(politician.photoUrl);
-      return;
-    }
-    
-    const url = await imageFetcher.fetchPoliticianImage(politician.name);
-    setImageUrl(url);
-  }, [politician.name, politician.photoUrl, imageFetcher]);
-  
-  useEffect(() => {
-    fetchImage();
-  }, [fetchImage]);
-  
-  return (
-    <div className="politician-card">
-      <div className="politician-image">
-        {imageUrl ? (
-          <Image 
-            src={imageUrl} 
-            alt={`${politician.name}`} 
-            width={150} 
-            height={150}
-            priority={false}
-          />
-        ) : (
-          <div className="loading-image">Loading...</div>
-        )}
-      </div>
-      <div className="politician-info">
-        <h3>{politician.name}</h3>
-        <p>{politician.position} - {politician.party}</p>
-        <p>{politician.state}{politician.county ? `, ${politician.county}` : ''}</p>
-        <p>Years served: {politician.yearsServed}</p>
-        <p>Term length: {politician.termLength} years</p>
-      </div>
-    </div>
-  );
-};
-
-// Politician List Component
-interface PoliticianListProps {
-  politicians: Politician[];
-}
-
-const PoliticianList: React.FC<PoliticianListProps> = ({ politicians }) => {
-  return (
-    <div className="politician-list">
-      {politicians.map(politician => (
-        <PoliticianCard 
-          key={politician.id} 
-          politician={politician} 
-        />
-      ))}
-    </div>
-  );
-};
-
-export { WikipediaImageFetcher, PoliticianCard, PoliticianList };
+export { WikipediaImageFetcher };

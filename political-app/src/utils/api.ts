@@ -24,22 +24,39 @@ export const fetchPosts = async (endpoint: string): Promise<PostType[]> => {
   }
 };
 
-// ✅ Create a new post (Requires Auth Token)
+// Direct implementation of createPost with explicit URL
 export const createPost = async (
   postData: { content: string },
   token: string
 ) => {
   try {
-    const username = getCookie("username") || localStorage.getItem("username"); // ✅ Auto-fetch username
-    if (!username) throw new Error("No username found. Please log in.");
+    if (!token) throw new Error("No authentication token found. Please log in.");
 
-    const response = await axios.post(
-      `${API_BASE_URL}/posts`,
-      { ...postData, username }, // ✅ Automatically include username
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    // Use direct fetch with explicit URL
+    const API_BASE_URL = "http://localhost:8080/api"; // Ensure this matches your server
+    const response = await fetch(`${API_BASE_URL}/posts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json", 
+        "Authorization": `Bearer ${token}`
+      },
+      // Just send the content as a string - the backend should handle initialization
+      body: JSON.stringify({ 
+        content: postData.content
+      })
+    });
 
-    return response.data as PostType;
+    // Log response details for debugging
+    console.log('Response status:', response.status);
+    
+    // Check if response is ok
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response:', errorText);
+      throw new Error(`Server error: ${response.status} - ${errorText}`);
+    }
+
+    return await response.json();
   } catch (error) {
     console.error("Error creating post:", error);
     throw error;
@@ -303,6 +320,60 @@ export const getAllRelevantPoliticians = async (
     return [...countyPoliticians, ...statePoliticians];
   } catch (error) {
     console.error("Error fetching all relevant politicians:", error);
+    return [];
+  }
+};
+
+// Fetch cabinet members
+export const getCabinetMembers = async (): Promise<Politician[]> => {
+  try {
+    const endpoint = "/politicians/cabinet";
+    console.log(`Fetching cabinet members from: ${endpoint}`);
+
+    const response = await fetchPoliticianData(endpoint);
+
+    // Ensure consistent party naming for styling
+    const formattedCabinet = response
+      ? response.map((politician: Politician) => {
+          // Inline party name standardization
+          let standardizedParty = politician.party;
+
+          if (politician.party) {
+            const partyLower = politician.party.toLowerCase();
+            if (partyLower.includes("republican")) {
+              standardizedParty = "Republican Party";
+            } else if (partyLower.includes("democrat")) {
+              standardizedParty = "Democratic Party";
+            } else if (partyLower.includes("independent")) {
+              standardizedParty = "Independent";
+            }
+          }
+
+          return {
+            ...politician,
+            party: standardizedParty || "Unknown",
+          };
+        })
+      : [];
+
+    console.log(`Found ${formattedCabinet.length} cabinet members`);
+    return formattedCabinet;
+  } catch (error) {
+    console.error("Error fetching cabinet members:", error);
+    return [];
+  }
+};
+
+// Fetch all politicians
+export const getAllPoliticians = async (): Promise<Politician[]> => {
+  try {
+    const endpoint = "/politicians";
+    console.log(`Fetching all politicians from: ${endpoint}`);
+
+    const response = await fetchPoliticianData(endpoint);
+    return response || [];
+  } catch (error) {
+    console.error("Error fetching all politicians:", error);
     return [];
   }
 };
