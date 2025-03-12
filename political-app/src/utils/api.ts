@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import type { PostType } from "@/types/post";
-import { getCookie } from "cookies-next"; // ✅ Ensure correct import
+import { getCookie, deleteCookie } from "cookies-next"; // ✅ Ensure correct import
 import { Politician } from "@/types/politician";
+import { getToken } from "./tokenUtils";
 
 const API_BASE_URL = "http://localhost:8080/api"; // ✅ No trailing slash
 
@@ -96,36 +98,95 @@ export const likePost = async (
 // ✅ Generic function for requests with authentication
 export const fetchWithToken = async (
   endpoint: string,
-  method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
-  body?: Record<string, unknown>
+  method = "GET",
+  body?: any
 ) => {
-  const token = getCookie("token") || localStorage.getItem("token"); // ✅ Try local storage too
+  const token = getToken();
 
-  if (!token) {
-    console.warn(`🚨 No auth token found! Skipping request: ${endpoint}`);
-    return null; // ✅ Prevents unnecessary API calls
+  if (!token && endpoint !== "/auth/login") {
+    console.warn("No token available for API request");
+    return null;
   }
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
   };
 
-  const response = await fetch(
-    `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`,
-    {
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      console.error(`API Error: ${response.status}`);
+      return null;
     }
-  );
 
-  if (!response.ok) {
-    console.error(`🚨 HTTP Error: ${response.status}`);
-    throw new Error(`HTTP Error! Status: ${response.status}`);
+    return await response.json();
+  } catch (error) {
+    console.error("API request failed:", error);
+    return null;
   }
+};
 
-  return response.json();
+// Add a fix for the API calls that might be causing the 500 error
+export const checkAuthStatus = async () => {
+  try {
+    // Don't use fetchWithToken here to avoid circular dependency
+    const token =
+      typeof window !== "undefined"
+        ? localStorage.getItem("token") ||
+          (getCookie("token") as string) ||
+          null
+        : null;
+
+    if (!token) return { authenticated: false };
+
+    // Use a simple fetch to check token validity without complex logic
+    console.log("🔍 API: Checking auth status");
+
+    try {
+      // Only make this request if needed - consider removing it and just
+      // assuming token is valid to avoid the initial API call
+      const response = await axios.get(`${API_BASE_URL}/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 5000, // 5 second timeout
+      });
+
+      return {
+        authenticated: true,
+        user: response.data,
+      };
+    } catch (apiError) {
+      console.error("❌ API: Error checking auth status:", apiError);
+
+      // Clear stored auth data if authentication failed
+      localStorage.removeItem("token");
+      localStorage.removeItem("username");
+      localStorage.removeItem("userId");
+
+      try {
+        if (typeof deleteCookie === "function") {
+          deleteCookie("token");
+          deleteCookie("username");
+          deleteCookie("userId");
+        }
+      } catch (cookieError) {
+        console.error("❌ API: Error clearing cookies:", cookieError);
+      }
+
+      return { authenticated: false };
+    }
+  } catch (error) {
+    console.error("❌ API: Uncaught error in checkAuthStatus:", error);
+    return { authenticated: false };
+  }
 };
 
 // ✅ Modified fetchWithToken for politician endpoints - uses direct URL without /api prefix
@@ -215,26 +276,26 @@ export const getPostById = async (postId: number): Promise<PostType | null> => {
     console.log(`[DEBUG] Fetching post with ID: ${postId}`);
     const API_BASE_URL = "http://localhost:8080/api";
     const token = getCookie("token") || localStorage.getItem("token");
-    
+
     // Create headers with or without token
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };
-    
+
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
-    
+
     console.log(`[DEBUG] Request URL: ${API_BASE_URL}/posts/${postId}`);
-    console.log(`[DEBUG] Using auth token: ${token ? 'Yes' : 'No'}`);
-    
+    console.log(`[DEBUG] Using auth token: ${token ? "Yes" : "No"}`);
+
     const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
       method: "GET",
-      headers: headers
+      headers: headers,
     });
-    
+
     console.log(`[DEBUG] Response status:`, response.status);
-    
+
     if (!response.ok) {
       // Try to get error details if available
       let errorDetails = "";
@@ -245,20 +306,23 @@ export const getPostById = async (postId: number): Promise<PostType | null> => {
       } catch (e) {
         console.error(`[DEBUG] Could not read error response:`, e);
       }
-      
-      console.error(`[DEBUG] Error fetching post ${postId}: Status ${response.status}`, errorDetails);
+
+      console.error(
+        `[DEBUG] Error fetching post ${postId}: Status ${response.status}`,
+        errorDetails
+      );
       return null;
     }
-    
+
     const data = await response.json();
     console.log(`[DEBUG] Post data retrieved:`, data);
-    
+
     // Basic validation to ensure the data is shaped like a post
-    if (!data || typeof data !== 'object' || !('id' in data)) {
+    if (!data || typeof data !== "object" || !("id" in data)) {
       console.error(`[DEBUG] Invalid post data format:`, data);
       return null;
     }
-    
+
     return data;
   } catch (error) {
     console.error(`[DEBUG] Exception in getPostById(${postId}):`, error);
