@@ -18,7 +18,7 @@ const MapPage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Using underscore prefix to indicate intentionally unused parameter
-   
+
   const handleCountySelected = async (
     county: string,
     state: string,
@@ -83,6 +83,7 @@ const MapPage = () => {
               </CardContent>
             </Card>
           </div>
+          
 
           {/* Politicians Column - Takes 1/3 on large screens */}
           <div className="lg:col-span-1">
