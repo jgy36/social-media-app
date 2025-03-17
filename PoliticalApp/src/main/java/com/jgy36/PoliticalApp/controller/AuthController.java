@@ -10,6 +10,7 @@ import com.jgy36.PoliticalApp.service.TokenBlacklistService;
 import com.jgy36.PoliticalApp.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -126,4 +127,51 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse(token));
     }
 
+    /**
+     * ✅ Refresh token endpoint
+     * Gets a new token using an existing valid token
+     */
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refreshToken(HttpServletRequest request) {
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No valid token provided");
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            // Validate existing token before refreshing
+            String username = jwtTokenUtil.getUsernameFromToken(token);
+
+            // Check if token is blacklisted
+            if (tokenBlacklistService.isTokenBlacklisted(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token has been invalidated");
+            }
+
+            // Check if token is expired
+            if (jwtTokenUtil.isTokenExpired(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token has expired");
+            }
+
+            // Generate new token
+            String newToken = jwtTokenUtil.generateToken(username);
+
+            User user = userRepository.findByEmail(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            // Return both token & user info
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", newToken);
+            response.put("user", Map.of(
+                    "id", user.getId(),
+                    "username", user.getUsername()
+            ));
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
+        }
+    }
 }

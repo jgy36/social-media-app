@@ -69,7 +69,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()  // Public GET Comments
-                        .requestMatchers(HttpMethod.GET, "/api/politicians/**").permitAll()  // Public GET Politicians
+
+                        // ✅ FIX: Also allow access to politician endpoints without /api prefix
+                        .requestMatchers(HttpMethod.GET, "/politicians/**").permitAll()  // Public GET Politicians
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // ✅ Allow CORS Preflight
 
                         // ✅ PROTECTED Endpoints (Require JWT Token)
