@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// components/feed/Post.tsx - Updated with clickable hashtags
 import { useState } from "react";
 import { PostType } from "@/types/post";
 import { likePost } from "@/utils/api";
@@ -15,13 +17,44 @@ interface PostProps {
   post: PostType;
 }
 
+// Function to parse and render content with clickable hashtags
+const renderContentWithHashtags = (content: string, router: any) => {
+  // Regular expression to match hashtags
+  const hashtagRegex = /(#[a-zA-Z0-9_]+)/g;
+  
+  // Split content by hashtags
+  const parts = content.split(hashtagRegex);
+  
+  return parts.map((part, index) => {
+    // Check if this part is a hashtag
+    if (part.match(hashtagRegex)) {
+      const hashtag = part.substring(1); // Remove the # symbol
+      return (
+        <span 
+          key={index}
+          className="text-primary hover:underline cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation(); // Prevent navigating to post details
+            router.push(`/hashtag/${hashtag}`);
+          }}
+        >
+          {part}
+        </span>
+      );
+    }
+    
+    // Return regular text
+    return <span key={index}>{part}</span>;
+  });
+};
+
 const Post = ({ post }: PostProps) => {
+  const router = useRouter();
   const user = useSelector((state: RootState) => state.user);
   const [likesCount, setLikesCount] = useState(post.likes || 0);
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
-  const router = useRouter();
 
   const handleLike = async () => {
     if (!user.token || isLiking) return;
@@ -45,20 +78,35 @@ const Post = ({ post }: PostProps) => {
     setIsLiking(false);
   };
 
+  const handleAuthorClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigating to post details
+    router.push(`/profile/${post.author}`);
+  };
+
   return (
     <Card className="p-4 shadow-md border border-border transition-all hover:shadow-lg mb-4">
-      {/* ✅ Clicking opens full post view */}
+      {/* Post Content - Clickable to view full post */}
       <div
         onClick={() => router.push(`/post/${post.id}`)}
         className="cursor-pointer"
       >
-        <h3 className="font-semibold text-lg">{post.author}</h3>
-        <p className="text-sm text-muted-foreground">{post.content}</p>
+        {/* Author with link to profile */}
+        <h3 
+          className="font-semibold text-lg hover:text-primary hover:underline"
+          onClick={handleAuthorClick}
+        >
+          {post.author}
+        </h3>
+        
+        {/* Post content with clickable hashtags */}
+        <p className="text-sm text-muted-foreground mt-1">
+          {renderContentWithHashtags(post.content, router)}
+        </p>
       </div>
 
-      {/* ✅ Post Actions */}
+      {/* Post Actions */}
       <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
-        {/* 🔥 Like Button */}
+        {/* Like Button */}
         <Button
           variant="ghost"
           onClick={(e) => {
@@ -72,7 +120,7 @@ const Post = ({ post }: PostProps) => {
           {likesCount}
         </Button>
 
-        {/* 💬 Comment Button */}
+        {/* Comment Button */}
         <Button
           variant="ghost"
           onClick={(e) => {
@@ -85,14 +133,14 @@ const Post = ({ post }: PostProps) => {
           {post.commentsCount || 0}
         </Button>
 
-        {/* 🔖 Save Button */}
+        {/* Save Button */}
         <SaveButton postId={post.id} isSaved={post.isSaved ?? false} />
 
-        {/* 🔁 Share Button */}
+        {/* Share Button */}
         <ShareButton postId={post.id} sharesCount={post.sharesCount ?? 0} />
       </div>
 
-      {/* ✅ Comment Modal */}
+      {/* Comment Modal */}
       <CommentModal
         postId={post.id}
         isOpen={isCommentModalOpen}
