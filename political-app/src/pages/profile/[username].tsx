@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
 import { User as UserIcon, Users, Calendar, Mail, MessagesSquare } from "lucide-react";
@@ -52,14 +51,14 @@ const UserProfilePage = () => {
       
       try {
         // Fetch user profile
-        const profileResponse = await axios.get(`${API_BASE_URL}/users/profile/${username}`, {
+        const profileResponse = await axios.get<UserProfile>(`${API_BASE_URL}/users/profile/${username}`, {
           headers: currentUser.token ? { Authorization: `Bearer ${currentUser.token}` } : {}
         });
         
         setProfile(profileResponse.data);
         
         // Fetch user posts
-        const postsResponse = await axios.get(`${API_BASE_URL}/users/profile/${username}/posts`);
+        const postsResponse = await axios.get<PostType[]>(`${API_BASE_URL}/users/profile/${username}/posts`);
         setPosts(postsResponse.data);
       } catch (err) {
         console.error("Error fetching profile:", err);
@@ -241,7 +240,7 @@ const UserProfilePage = () => {
               <Card className="p-8 text-center">
                 <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">No posts yet</h3>
-                <p className="text-muted-foreground">This user hasn't posted anything.</p>
+                <p className="text-muted-foreground">This user hasn&#39;t posted anything.</p>
               </Card>
             )}
           </TabsContent>

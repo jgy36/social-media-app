@@ -55,14 +55,14 @@ const CommunityPage = () => {
         
         try {
           // Fetch community details
-          const communityResponse = await axios.get(`${API_BASE_URL}/communities/${id}`, {
+          const communityResponse = await axios.get<CommunityData>(`${API_BASE_URL}/communities/${id}`, {
             headers: currentUser.token ? { Authorization: `Bearer ${currentUser.token}` } : {}
           });
           
           setCommunity(communityResponse.data);
           
           // Fetch posts for this community
-          const postsResponse = await axios.get(`${API_BASE_URL}/communities/${id}/posts`);
+          const postsResponse = await axios.get<PostType[]>(`${API_BASE_URL}/communities/${id}/posts`);
           setPosts(postsResponse.data);
           
         } catch (err) {
@@ -129,30 +129,31 @@ const CommunityPage = () => {
   };
 
   const handleSubmitPost = async () => {
-    if (!newPostContent.trim() || !isAuthenticated || !community) return;
-    
-    setIsSubmitting(true);
-    
-    try {
-      // Create post in the community
-      const response = await axios.post(`${API_BASE_URL}/posts/community`, {
-        communityId: community.id,
-        content: newPostContent
-      }, {
-        headers: { Authorization: `Bearer ${currentUser.token}` }
-      });
-      
-      // Add the new post to the list
-      setPosts([response.data, ...posts]);
-      
-      // Clear the input
-      setNewPostContent("");
-    } catch (error) {
-      console.error("Error creating post:", error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  if (!newPostContent.trim() || !isAuthenticated || !community) return;
+  
+  setIsSubmitting(true);
+  
+  try {
+    // Create post in the community
+    const response = await axios.post<PostType>(`${API_BASE_URL}/posts/community`, {
+      communityId: community.id,
+      content: newPostContent
+    }, {
+      headers: { Authorization: `Bearer ${currentUser.token}` }
+    });
+
+    // Add the new post to the list
+    setPosts([response.data, ...posts]); // ❌ Error occurs here
+
+    // Clear the input
+    setNewPostContent("");
+  } catch (error) {
+    console.error("Error creating post:", error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   // Loading state
   if (isLoading) {
