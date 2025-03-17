@@ -8,12 +8,9 @@ import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { 
   Users, 
-  TrendingUp,
   Star,
-  User,
   Search,
   Plus
 } from "lucide-react";
@@ -47,7 +44,7 @@ const CommunitiesPage = () => {
       setError(null);
       
       try {
-        const response = await axios.get(`${API_BASE_URL}/communities`, {
+        const response = await axios.get<Community[]>(`${API_BASE_URL}/communities`, {
           headers: currentUser.token ? { Authorization: `Bearer ${currentUser.token}` } : {}
         });
         
@@ -284,7 +281,7 @@ const CommunitiesPage = () => {
                   ))
               ) : (
                 <div className="col-span-full text-center py-8">
-                  <p className="text-muted-foreground">You haven't joined any communities yet</p>
+                  <p className="text-muted-foreground">You haven&apos;t joined any communities yet</p>
                 </div>
               )}
             </div>

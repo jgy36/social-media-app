@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // pages/community/create.tsx
 import { useState } from 'react';
 import { useRouter } from 'next/router';
@@ -21,6 +22,7 @@ type ValidationErrors = {
   name?: string;
   description?: string;
   rules?: string;
+  general?: string; // Added general error field
 };
 
 const CreateCommunityPage = () => {
@@ -100,7 +102,7 @@ const CreateCommunityPage = () => {
       };
       
       // Send to backend
-      const response = await axios.post(
+      const response = await axios.post<{ id: string }>(
         `${API_BASE_URL}/communities`, 
         newCommunity,
         { headers: { Authorization: `Bearer ${user.token}` } }
@@ -117,8 +119,9 @@ const CreateCommunityPage = () => {
       console.error('Error creating community:', error);
       
       // Handle API errors
-      if (axios.isAxiosError(error) && error.response) {
-        if (error.response.status === 400) {
+      const axiosError = error as any;
+      if (axiosError.response) {
+        if (axiosError.response.status === 400) {
           setErrors(prev => ({
             ...prev,
             id: 'Community ID already exists. Please choose another one.'
@@ -126,7 +129,7 @@ const CreateCommunityPage = () => {
         } else {
           setErrors(prev => ({
             ...prev,
-            general: `Error: ${error.response?.data?.error || 'Failed to create community'}`
+            general: `Error: ${axiosError.response?.data?.error || 'Failed to create community'}`
           }));
         }
       } else {

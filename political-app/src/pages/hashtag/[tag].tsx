@@ -9,7 +9,8 @@ import { Hash, TrendingUp, Calendar, MessagesSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
 const HashtagPage = () => {
   const router = useRouter();
@@ -18,37 +19,45 @@ const HashtagPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "trending">("recent");
-  
+
   // Format tag for display (remove # if present)
-  const displayTag = typeof tag === "string" 
-    ? tag.startsWith("#") ? tag : `#${tag}`
-    : "";
-  
+  const displayTag =
+    typeof tag === "string" ? (tag.startsWith("#") ? tag : `#${tag}`) : "";
+
   // Format tag for API (remove # if present)
-  const apiTag = typeof tag === "string"
-    ? tag.startsWith("#") ? tag.substring(1) : tag
-    : "";
-  
+  const apiTag =
+    typeof tag === "string"
+      ? tag.startsWith("#")
+        ? tag.substring(1)
+        : tag
+      : "";
+
   useEffect(() => {
     if (!apiTag) return;
-    
+
     const fetchHashtagPosts = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const response = await axios.get(`${API_BASE_URL}/hashtags/${apiTag}`);
-        
+
+        // Explicitly type response.data as PostType[]
+        const fetchedPosts = response.data as PostType[];
+
         // Sort based on current preference
-        let sortedPosts = [...response.data];
+        let sortedPosts: PostType[] = [];
         if (sortBy === "trending") {
-          sortedPosts = sortedPosts.sort((a, b) => (b.likes || 0) - (a.likes || 0));
+          sortedPosts = [...fetchedPosts].sort(
+            (a, b) => (b.likes || 0) - (a.likes || 0)
+          );
         } else {
-          sortedPosts = sortedPosts.sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          sortedPosts = [...fetchedPosts].sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
         }
-        
+
         setPosts(sortedPosts);
       } catch (err) {
         console.error("Error fetching hashtag posts:", err);
@@ -57,7 +66,7 @@ const HashtagPage = () => {
         setIsLoading(false);
       }
     };
-    
+
     fetchHashtagPosts();
   }, [apiTag, sortBy]);
 
@@ -77,7 +86,7 @@ const HashtagPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
-      
+
       <div className="max-w-3xl mx-auto p-4 md:p-6">
         {/* Hashtag Header */}
         <Card className="mb-6 shadow-md">
@@ -93,18 +102,18 @@ const HashtagPage = () => {
                 <MessagesSquare className="h-4 w-4 mr-1" />
                 <span>{posts.length} posts</span>
               </div>
-              
+
               <div className="flex gap-2">
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant={sortBy === "recent" ? "default" : "outline"}
                   onClick={() => setSortBy("recent")}
                 >
                   <Calendar className="h-4 w-4 mr-2" />
                   Recent
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant={sortBy === "trending" ? "default" : "outline"}
                   onClick={() => setSortBy("trending")}
                 >
@@ -115,7 +124,7 @@ const HashtagPage = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Posts */}
         {error ? (
           <Card className="p-6 text-center">
