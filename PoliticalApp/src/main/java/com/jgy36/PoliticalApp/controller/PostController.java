@@ -99,11 +99,14 @@ public class PostController {
         return ResponseEntity.ok("Post deleted successfully");
     }
 
-    // ✅ Get all posts by a user
-    @GetMapping("/user/{userId}") // ✅ Ensure this matches the frontend request
-    public ResponseEntity<List<Post>> getUserPosts(@PathVariable Long userId) {
+    // In PostController.java
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<PostDTO>> getUserPosts(@PathVariable Long userId) {
         List<Post> posts = postService.getPostsByUserId(userId);
-        return ResponseEntity.ok(posts);
+        List<PostDTO> postDTOs = posts.stream()
+                .map(post -> new PostDTO(post))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(postDTOs);
     }
 
     // ✅ Like/Unlike a post
