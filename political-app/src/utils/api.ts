@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import type { PostType } from "@/types/post";
@@ -10,8 +11,11 @@ const API_BASE_URL = "http://localhost:8080/api"; // ✅ No trailing slash
 // ✅ Fetch posts dynamically based on the endpoint
 export const fetchPosts = async (endpoint: string): Promise<PostType[]> => {
   try {
-    console.log(`Fetching posts from: ${API_BASE_URL}${endpoint}`); // ✅ Debugging output
-    const response = await fetchWithToken(endpoint);
+    // Ensure endpoint starts with a slash
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    console.log(`Fetching posts from: ${API_BASE_URL}${normalizedEndpoint}`); // ✅ Debugging output
+    
+    const response = await fetchWithToken(normalizedEndpoint);
 
     if (!response) {
       console.warn("No data received from API");
@@ -116,8 +120,11 @@ export const fetchWithToken = async (
     headers.Authorization = `Bearer ${token}`;
   }
 
+  // Ensure endpoint starts with a slash for proper URL construction
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
@@ -211,9 +218,10 @@ export const fetchPoliticianData = async (
   // because your PoliticianController doesn't include that prefix
   const BASE_URL = "http://localhost:8080"; // No /api here
 
-  const url = `${BASE_URL}${
-    endpoint.startsWith("/") ? endpoint : `/${endpoint}`
-  }`;
+  // Ensure endpoint starts with slash
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const url = `${BASE_URL}${normalizedEndpoint}`;
+  
   console.log(`Making request to: ${url}`);
 
   const response = await fetch(url, {
@@ -232,7 +240,7 @@ export const fetchPoliticianData = async (
 
 // ✅ Login User API
 export const loginUserAPI = async (email: string, password: string) => {
-  return fetchWithToken("auth/login", "POST", { email, password });
+  return fetchWithToken("/auth/login", "POST", { email, password });
 };
 
 export const logoutUserAPI = async () => {
@@ -256,7 +264,7 @@ export const registerUserAPI = async (
   email: string,
   password: string
 ) => {
-  return fetchWithToken("auth/register", "POST", { username, email, password });
+  return fetchWithToken("/auth/register", "POST", { username, email, password });
 };
 
 // ✅ Fetch comments for a post

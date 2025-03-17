@@ -9,12 +9,16 @@ interface UserState {
   id: number | null;
   token: string | null;
   username: string | null;
+  loading: boolean;
+  error: string | null;
 }
 
 const initialState: UserState = {
   id: null,
   token: null,
   username: null,
+  loading: false,
+  error: null
 };
 
 // Restore auth state from local storage/cookies
@@ -22,8 +26,6 @@ export const restoreAuthState = createAsyncThunk(
   "user/restoreAuthState",
   async (_, { rejectWithValue }) => {
     try {
-      console.log('🔍 userSlice: Starting to restore auth state');
-      
       // First try to get token from localStorage (for better persistence)
       let token = null;
       let username = null;
@@ -35,8 +37,6 @@ export const restoreAuthState = createAsyncThunk(
         username = localStorage.getItem("username");
         const storedId = localStorage.getItem("userId");
         userId = storedId ? parseInt(storedId) : null;
-        
-        console.log('🔍 userSlice: From localStorage:', { token, username, userId });
       }
       
       // If not in localStorage, try cookies
@@ -46,52 +46,19 @@ export const restoreAuthState = createAsyncThunk(
           username = getCookie("username") as string || null;
           const cookieId = getCookie("userId");
           userId = cookieId ? Number(cookieId) : null;
-          
-          console.log('🔍 userSlice: From cookies:', { token, username, userId });
         } catch (cookieError) {
-          console.error('❌ userSlice: Error reading cookies:', cookieError);
+          console.error('Error reading cookies:', cookieError);
         }
       }
       
-      // If token exists, validate it silently (optional)
-      if (token) {
-        try {
-          // Instead of making an API call, just log and return the data for now
-          console.log('✅ userSlice: Found stored auth data:', { userId, token: token?.substring(0, 10) + '...' });
-          
-          return {
-            id: userId,
-            token,
-            username: username || "User", 
-          };
-        } catch (error) {
-          console.error('❌ userSlice: Error in token validation:', error);
-          
-          // Clear invalid tokens but don't throw - just return empty state
-          if (typeof window !== "undefined") {
-            localStorage.removeItem("token");
-            localStorage.removeItem("username");
-            localStorage.removeItem("userId");
-          }
-          
-          try {
-            if (typeof deleteCookie === "function") {
-              deleteCookie("token");
-              deleteCookie("username");
-              deleteCookie("userId");
-            }
-          } catch (cookieError) {
-            console.error('❌ userSlice: Error clearing cookies:', cookieError);
-          }
-          
-          return { id: null, token: null, username: null };
-        }
-      }
-      
-      console.log('🔍 userSlice: No stored auth data found');
-      return { id: null, token: null, username: null };
+      // Return the auth data
+      return {
+        id: userId,
+        token,
+        username: username || "User", 
+      };
     } catch (error) {
-      console.error('❌ userSlice: Uncaught error in restoreAuthState:', error);
+      console.error('Uncaught error in restoreAuthState:', error);
       return rejectWithValue("Failed to restore authentication state");
     }
   }
@@ -105,8 +72,6 @@ export const loginUser = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      console.log("Attempting to log in...");
-
       const response = await fetch("http://localhost:8080/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -114,10 +79,21 @@ export const loginUser = createAsyncThunk(
       });
 
       const data = await response.json();
-      console.log("Login response:", data);
 
       if (!response.ok || !data.user) {
         throw new Error(data.message || "Login failed");
+      }
+
+      // Persist data immediately after successful login
+      if (typeof window !== "undefined") {
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("username", data.user.username || "User");
+        localStorage.setItem("userId", String(data.user.id));
+        
+        // Also set cookies as fallback
+        setCookie("token", data.token, { path: "/" });
+        setCookie("username", data.user.username || "User", { path: "/" });
+        setCookie("userId", String(data.user.id), { path: "/" });
       }
 
       return {
@@ -176,8 +152,6 @@ const persistAuthData = (id: number | null, token: string | null, username: stri
         setCookie("token", token, { path: "/" });
         setCookie("username", username, { path: "/" });
         setCookie("userId", String(id), { path: "/" });
-        
-        console.log('✅ userSlice: Auth data persisted successfully');
       } else {
         // Clear data
         localStorage.removeItem("token");
@@ -186,11 +160,9 @@ const persistAuthData = (id: number | null, token: string | null, username: stri
         deleteCookie("token");
         deleteCookie("username");
         deleteCookie("userId");
-        
-        console.log('✅ userSlice: Auth data cleared successfully');
       }
     } catch (error) {
-      console.error('❌ userSlice: Error persisting auth data:', error);
+      console.error('Error persisting auth data:', error);
     }
   }
 };
@@ -204,6 +176,8 @@ const userSlice = createSlice({
       state.id = null;
       state.token = null;
       state.username = null;
+      state.loading = false;
+      state.error = null;
       
       // Clear persisted data
       persistAuthData(null, null, null);
@@ -211,7 +185,12 @@ const userSlice = createSlice({
   },
 
   extraReducers: (builder) => {
-    // Handle login success
+    // Login states
+    builder.addCase(loginUser.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    
     builder.addCase(
       loginUser.fulfilled,
       (
@@ -221,13 +200,22 @@ const userSlice = createSlice({
         state.id = action.payload.id;
         state.token = action.payload.token;
         state.username = action.payload.username;
-
-        // Persist auth data
-        persistAuthData(action.payload.id, action.payload.token, action.payload.username);
+        state.loading = false;
+        state.error = null;
       }
     );
     
-    // Handle restore auth state
+    builder.addCase(loginUser.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload as string || "Login failed";
+    });
+    
+    // Restore auth state
+    builder.addCase(restoreAuthState.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    
     builder.addCase(
       restoreAuthState.fulfilled,
       (
@@ -237,16 +225,17 @@ const userSlice = createSlice({
         state.id = action.payload.id;
         state.token = action.payload.token;
         state.username = action.payload.username;
+        state.loading = false;
+        state.error = null;
       }
     );
     
-    // Handle restore auth state error
-    builder.addCase(restoreAuthState.rejected, (state) => {
-      // If restoration fails, ensure state is cleared
+    builder.addCase(restoreAuthState.rejected, (state, action) => {
       state.id = null;
       state.token = null;
       state.username = null;
-      console.log('❌ userSlice: Auth restoration failed, state cleared');
+      state.loading = false;
+      state.error = action.payload as string || "Failed to restore auth state";
     });
   },
 });
