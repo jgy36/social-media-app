@@ -13,8 +13,9 @@ interface PostListProps {
 const PostList: React.FC<PostListProps> = ({ activeTab }) => {
   const [posts, setPosts] = useState<PostType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const token = useSelector((state: RootState) => state.user.token); // ✅ Get token from Redux
+  const token = useSelector((state: RootState) => state.user.token);
 
   useEffect(() => {
     if (!token && activeTab === "following") {
@@ -24,32 +25,51 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
     }
 
     const loadPosts = async () => {
-      const authToken = token || localStorage.getItem("token"); // ✅ Get token from storage
-      if (!authToken && activeTab === "following") return; // ✅ Prevent API call if no token
+      // If we're already on "following" tab with no auth, just return early without setting loading
+      if (!token && activeTab === "following") return;
 
       setLoading(true);
+      setError(null);
+      
+      // Properly format endpoints with leading slash
       const endpoint =
-        activeTab === "for-you" ? "posts/for-you" : "posts/following";
+        activeTab === "for-you" ? "/posts/for-you" : "/posts/following";
 
       try {
+        console.log(`Fetching posts from endpoint: ${endpoint}`);
         const data = await fetchPosts(endpoint);
         setPosts(data);
-      } catch (error) {
-        console.error("Failed to load posts:", error);
+      } catch (err) {
+        console.error("Failed to load posts:", err);
+        setError("Failed to load posts. Please try again later.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     loadPosts();
   }, [activeTab, token, router]);
-  // ✅ Ensures hooks are called in the correct order
+
+  if (error) {
+    return (
+      <div className="p-6 bg-red-50 text-red-500 rounded-md">
+        <p>{error}</p>
+        <button 
+          onClick={() => router.reload()}
+          className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (!token && activeTab === "following") return null; // ✅ Prevent rendering before redirecting
-  if (loading) return <p>Loading posts...</p>;
-  if (posts.length === 0) return <p>No posts available.</p>;
+  if (loading) return <p className="p-4 text-center">Loading posts...</p>;
+  if (posts.length === 0) return <p className="p-4 text-center">No posts available.</p>;
 
   return (
-    <div>
+    <div className="space-y-4">
       {posts.map((post) => (
         <Post key={post.id} post={post} />
       ))}

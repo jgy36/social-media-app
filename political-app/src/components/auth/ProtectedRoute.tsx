@@ -2,46 +2,57 @@
 
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const token = useSelector((state: RootState) => state.user.token);
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [redirectInProgress, setRedirectInProgress] = useState(false);
 
   useEffect(() => {
-    // Only redirect after authentication state is determined (not loading)
-    if (!isLoading) {
-      if (!isAuthenticated) {
-        console.log('⚠️ ProtectedRoute: User not authenticated, redirecting to login');
-        router.push('/login');
-      } else {
-        console.log('✅ ProtectedRoute: User authenticated, allowing access');
-      }
+    // Set timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
+    // Check if token exists (we're authenticated)
+    if (!token && !redirectInProgress) {
+      console.log('⚠️ ProtectedRoute: User not authenticated, redirecting to login');
+      setRedirectInProgress(true);
+      router.push('/login');
+    } else if (token) {
+      console.log('✅ ProtectedRoute: User authenticated, allowing access');
+      setIsLoading(false);
     }
-  }, [isAuthenticated, isLoading, router]);
 
-  // Add simple error boundary
-  useEffect(() => {
+    // Add simple error boundary
     const handleError = () => {
       console.error('❌ ProtectedRoute: Error detected');
       setHasError(true);
+      setIsLoading(false);
     };
 
     window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
-  }, []);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      clearTimeout(timeoutId);
+    };
+  }, [token, router, redirectInProgress]);
 
   // Show loading state while determining authentication
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
-        <p className="text-sm text-muted-foreground">Verifying your session...</p>
+        <p className="text-sm text-muted-foreground">Verifying your access...</p>
       </div>
     );
   }
@@ -64,8 +75,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
+  // If we're redirecting, show a loading indicator
+  if (redirectInProgress) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+        <p className="text-sm text-muted-foreground">Redirecting to login...</p>
+      </div>
+    );
+  }
+
   // If authenticated, render children
-  return isAuthenticated ? <>{children}</> : null;
+  return token ? <>{children}</> : null;
 };
 
 export default ProtectedRoute;

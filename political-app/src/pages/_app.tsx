@@ -5,71 +5,78 @@ import "@/styles/globals.css";
 import { AppProps } from "next/app";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { useDispatch } from "react-redux";
+import { restoreAuthState } from "@/redux/slices/userSlice";
+import { AppDispatch } from "@/redux/store";
 
-// Simple auth checker component
+// Improved auth checker component
 function AuthPersistence({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(true);
+  const [authAttempted, setAuthAttempted] = useState(false);
 
   useEffect(() => {
-    // Simple function to check if user is logged in based on token existence
-    const checkAuth = () => {
+    // Skip auth check for public routes immediately
+    const publicRoutes = ["/login", "/register", "/", "/community", "/map", "/politicians"];
+    const isPublicRoute = publicRoutes.includes(router.pathname);
+    
+    if (isPublicRoute) {
+      console.log("Public route detected, skipping auth check:", router.pathname);
+      setIsLoading(false);
+      return;
+    }
+
+    // Function to check if user is logged in based on token existence
+    const checkAuth = async () => {
       try {
         console.log("Checking auth status for path:", router.pathname);
-
-        const token = localStorage.getItem("token");
-
-        // Skip auth check for public routes
-        const publicRoutes = [
-          "/login",
-          "/register",
-          "/",
-          "/community",
-          "/map",
-          "/politicians",
-        ];
-        const isPublicRoute = publicRoutes.includes(router.pathname);
-
-        console.log(
-          "Is public route:",
-          isPublicRoute,
-          "Token exists:",
-          !!token
-        );
-
-        if (isPublicRoute) {
-          // If on a public route, no need to check auth
+        
+        // Only attempt to restore auth once
+        if (!authAttempted) {
+          const result = await dispatch(restoreAuthState()).unwrap();
+          setAuthAttempted(true);
+          
+          // If we didn't get a token but are on a protected route, redirect to login
+          if (!result.token && !isPublicRoute) {
+            console.log("No token found, redirecting to login");
+            router.push("/login");
+            return;
+          }
+          
+          console.log("Auth check complete, allowing access");
           setIsLoading(false);
-          return;
+        } else {
+          // Already attempted auth once, don't keep loading
+          setIsLoading(false);
         }
-
-        // If no token and trying to access protected route, redirect to login
-        if (!token) {
-          console.log("No token found, redirecting to login");
-          router.push("/login");
-          return;
-        }
-
-        console.log("Token exists, allowing access to protected route");
-        // Token exists, allow access to protected route
-        setIsLoading(false);
       } catch (error) {
         console.error("Error checking auth:", error);
         setIsLoading(false);
+        
+        // On error, redirect to login for protected routes
+        if (!isPublicRoute) {
+          router.push("/login");
+        }
       }
     };
 
-    // Call checkAuth immediately
+    // Call checkAuth immediately 
     checkAuth();
 
     // Add a safety timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
       console.log("Force-ending loading state after timeout");
       setIsLoading(false);
+      
+      // If still loading after timeout and on protected route, redirect to login
+      if (!authAttempted && !isPublicRoute) {
+        router.push("/login");
+      }
     }, 3000); // 3 seconds max
 
     return () => clearTimeout(timeoutId);
-  }, [router, router.pathname]); // Include both router and router.pathname
+  }, [router, router.pathname, dispatch, authAttempted]);
 
   // Show loading state with a cancel button
   if (isLoading) {
@@ -93,14 +100,21 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Redux-connected AuthPersistence wrapper
+function ConnectedAuthPersistence({ children }: { children: React.ReactNode }) {
+  return (
+    <Provider store={store}>
+      <AuthPersistence>{children}</AuthPersistence>
+    </Provider>
+  );
+}
+
 function MyApp({ Component, pageProps }: AppProps) {
   return (
     <SessionProvider session={pageProps.session}>
-      <Provider store={store}>
-        <AuthPersistence>
-          <Component {...pageProps} />
-        </AuthPersistence>
-      </Provider>
+      <ConnectedAuthPersistence>
+        <Component {...pageProps} />
+      </ConnectedAuthPersistence>
     </SessionProvider>
   );
 }
