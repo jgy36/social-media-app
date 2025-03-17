@@ -1,10 +1,11 @@
 import dynamic from "next/dynamic";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import PoliticianList from "@/components/politicians/PoliticianList";
+import { PoliticianList } from "@/components/politicians/PoliticianList";
 import { Politician } from "@/types/politician";
 import { getAllRelevantPoliticians } from "@/utils/api";
+import { AlertCircle } from "lucide-react";
 
 // ✅ Dynamically Import ElectionMap to Disable SSR
 const ElectionMap = dynamic(() => import("@/components/map/ElectionMap"), {
@@ -16,42 +17,47 @@ const MapPage = () => {
   const [selectedState, setSelectedState] = useState<string>("");
   const [politicians, setPoliticians] = useState<Politician[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Using underscore prefix to indicate intentionally unused parameter
+  // Function to fetch politicians data
+  const fetchPoliticians = useCallback(async (county: string, state: string) => {
+    if (!county || !state) return;
 
-  const handleCountySelected = async (
-    county: string,
-    state: string,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _fips: string
-  ) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log(`Fetching politicians for ${county}, ${state}`);
+      const relevantPoliticians = await getAllRelevantPoliticians(county, state);
+      setPoliticians(relevantPoliticians);
+    } catch (err) {
+      console.error("Error fetching politicians:", err);
+      setError("Failed to load politicians data. Please try again later.");
+      setPoliticians([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // County selection handler
+  const handleCountySelected = useCallback((county: string, state: string) => {
     setSelectedCounty(county);
     setSelectedState(state);
-    // We're not using fips yet, but may use it in future features
-  };
+  }, []);
 
   // Fetch politicians when county/state selection changes
   useEffect(() => {
-    const fetchPoliticians = async () => {
-      if (!selectedCounty || !selectedState) return;
+    if (selectedCounty && selectedState) {
+      fetchPoliticians(selectedCounty, selectedState);
+    }
+  }, [selectedCounty, selectedState, fetchPoliticians]);
 
-      setIsLoading(true);
-      try {
-        const relevantPoliticians = await getAllRelevantPoliticians(
-          selectedCounty,
-          selectedState
-        );
-        setPoliticians(relevantPoliticians);
-      } catch (error) {
-        console.error("Error fetching politicians:", error);
-        setPoliticians([]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPoliticians();
-  }, [selectedCounty, selectedState]);
+  // Retry handler
+  const handleRetry = useCallback(() => {
+    if (selectedCounty && selectedState) {
+      fetchPoliticians(selectedCounty, selectedState);
+    }
+  }, [selectedCounty, selectedState, fetchPoliticians]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -62,6 +68,17 @@ const MapPage = () => {
         <h1 className="text-3xl font-bold text-center mb-6">
           Political Representatives by County
         </h1>
+
+        {/* Network error alert */}
+        {error && (
+          <div className="mb-6 bg-destructive/10 text-destructive p-4 rounded-md flex items-start">
+            <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <div>
+              <h3 className="font-medium">Error</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+          </div>
+        )}
 
         {/* Two-column layout on larger screens */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -84,7 +101,6 @@ const MapPage = () => {
             </Card>
           </div>
           
-
           {/* Politicians Column - Takes 1/3 on large screens */}
           <div className="lg:col-span-1">
             <Card className="shadow-sm border border-border h-full">
@@ -101,6 +117,8 @@ const MapPage = () => {
                   selectedCounty={selectedCounty}
                   selectedState={selectedState}
                   isLoading={isLoading}
+                  error={error || undefined}
+                  onRetry={handleRetry}
                 />
               </CardContent>
             </Card>

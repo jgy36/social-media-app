@@ -1,34 +1,141 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import type { PostType } from "@/types/post";
-import { getCookie, deleteCookie } from "cookies-next"; // ✅ Ensure correct import
+import { getCookie, setCookie, deleteCookie } from "cookies-next";
 import { Politician } from "@/types/politician";
-import { getToken } from "./tokenUtils";
+import { getToken, setToken } from "./tokenUtils";
 
-const API_BASE_URL = "http://localhost:8080/api"; // ✅ No trailing slash
+// Base URLs
+const API_BASE_URL = "http://localhost:8080/api";
+const BASE_URL = "http://localhost:8080";
 
-// ✅ Fetch posts dynamically based on the endpoint
-export const fetchPosts = async (endpoint: string): Promise<PostType[]> => {
-  try {
-    // Ensure endpoint starts with a slash
-    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    console.log(`Fetching posts from: ${API_BASE_URL}${normalizedEndpoint}`); // ✅ Debugging output
+// Configure axios instance
+const api = axios.create({
+  baseURL: BASE_URL,
+  timeout: 10000
+});
+
+// Variable to track if a token refresh is in progress
+let isRefreshing = false;
+// Queue of failed requests to retry after token refresh
+let failedQueue: any[] = [];
+
+// Process the queue of failed requests
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  
+  failedQueue = [];
+};
+
+// Add request interceptor to automatically add token
+api.interceptors.request.use(
+  (config) => {
+    const token = getToken();
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Add response interceptor for token refresh
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
     
-    const response = await fetchWithToken(normalizedEndpoint);
+    // If error is 401 Unauthorized and we haven't already tried to refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If refresh already in progress, add to queue
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(token => {
+            originalRequest.headers["Authorization"] = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch(err => {
+            return Promise.reject(err);
+          });
+      }
 
-    if (!response) {
-      console.warn("No data received from API");
-      return []; // ✅ Ensure an empty array is returned instead of error
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      // Try to refresh the token
+      try {
+        const token = getToken();
+        
+        // Only attempt refresh if we have a token
+        if (!token) {
+          processQueue(new Error("No token available"));
+          return Promise.reject(error);
+        }
+        
+        const response = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        const newToken = (response.data as { token: string }).token;
+        
+        if (newToken) {
+          // Update token in storage
+          setToken(newToken);
+          
+          // Update auth header for the original request
+          originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+          
+          // Process any queued requests with the new token
+          processQueue(null, newToken);
+          
+          // Retry the original request
+          return api(originalRequest);
+        } else {
+          processQueue(new Error("Token refresh failed"));
+          return Promise.reject(error);
+        }
+      } catch (refreshError) {
+        processQueue(refreshError);
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
-    console.log("Fetched posts:", response); // ✅ Debugging output
-    return response as PostType[];
+    return Promise.reject(error);
+  }
+);
+
+// Export the api instance and other utility functions
+export { api };
+
+// Rest of your API utility functions using the api instance instead of axios directly
+export const fetchPosts = async (endpoint: string): Promise<PostType[]> => {
+  try {
+    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const response = await api.get(`${API_BASE_URL}${normalizedEndpoint}`);
+    return response.data as PostType[];
   } catch (error) {
     console.error("Error fetching posts:", error);
     return [];
   }
 };
+
+// ... other API functions using the api instance ...
+
+// The rest of your existing api.ts exports
+
 
 // Direct implementation of createPost with explicit URL
 export const createPost = async (
@@ -196,26 +303,27 @@ export const checkAuthStatus = async () => {
   }
 };
 
-// ✅ Modified fetchWithToken for politician endpoints - uses direct URL without /api prefix
+// ✅ FIXED: Modified fetchPoliticianData to allow public access
 export const fetchPoliticianData = async (
   endpoint: string,
   method: "GET" | "POST" | "PUT" | "DELETE" = "GET",
-  body?: Record<string, unknown>
+  body?: Record<string, unknown>,
+  requireAuth: boolean = false // New parameter to make auth optional
 ) => {
-  const token = getCookie("token") || localStorage.getItem("token");
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
 
-  if (!token) {
-    console.warn(`🚨 No auth token found! Skipping request: ${endpoint}`);
+  // Only add auth if required or available
+  const token = getCookie("token") || localStorage.getItem("token");
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else if (requireAuth) {
+    console.warn(`🚨 Auth required but no token found! Skipping request: ${endpoint}`);
     return null;
   }
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-
-  // The difference is here - we're using the base URL without the /api prefix
-  // because your PoliticianController doesn't include that prefix
+  // Use the base URL without the /api prefix for politician endpoints
   const BASE_URL = "http://localhost:8080"; // No /api here
 
   // Ensure endpoint starts with slash
@@ -223,19 +331,26 @@ export const fetchPoliticianData = async (
   const url = `${BASE_URL}${normalizedEndpoint}`;
   
   console.log(`Making request to: ${url}`);
+  console.log(`Using auth: ${headers.Authorization ? 'Yes' : 'No'}`);
 
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  try {
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
 
-  if (!response.ok) {
-    console.error(`🚨 HTTP Error: ${response.status}`);
-    throw new Error(`HTTP Error! Status: ${response.status}`);
+    if (!response.ok) {
+      console.error(`🚨 HTTP Error: ${response.status}`);
+      console.error(`URL: ${url}`);
+      throw new Error(`HTTP Error! Status: ${response.status}`);
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error(`Error fetching data from ${url}:`, error);
+    throw error;
   }
-
-  return response.json();
 };
 
 // ✅ Login User API
@@ -369,7 +484,7 @@ export const getSavedPosts = async (token: string): Promise<PostType[]> => {
   }
 };
 
-// Fetch politicians by county with format handling
+// ✅ FIXED: Use the updated fetchPoliticianData without requiring auth
 export const getPoliticiansByCounty = async (
   county: string,
   state: string
@@ -411,7 +526,7 @@ export const getPoliticiansByCounty = async (
   }
 };
 
-// Fetch all politicians for a state - using fetchPoliticianData
+// ✅ FIXED: Use the updated fetchPoliticianData without requiring auth
 export const getPoliticiansByState = async (
   state: string
 ): Promise<Politician[]> => {
@@ -451,7 +566,7 @@ export const getAllRelevantPoliticians = async (
   }
 };
 
-// Fetch cabinet members
+// ✅ FIXED: Use the updated fetchPoliticianData without requiring auth
 export const getCabinetMembers = async (): Promise<Politician[]> => {
   try {
     const endpoint = "/politicians/cabinet";
@@ -491,7 +606,7 @@ export const getCabinetMembers = async (): Promise<Politician[]> => {
   }
 };
 
-// Fetch all politicians
+// ✅ FIXED: Use the updated fetchPoliticianData without requiring auth
 export const getAllPoliticians = async (): Promise<Politician[]> => {
   try {
     const endpoint = "/politicians";
