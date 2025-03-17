@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
+import axios from 'axios';
 import Navbar from '@/components/navbar/Navbar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,8 +13,11 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Users, Check, Info } from 'lucide-react';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+
 // Form validation helper
 type ValidationErrors = {
+  id?: string;
   name?: string;
   description?: string;
   rules?: string;
@@ -24,11 +28,12 @@ const CreateCommunityPage = () => {
   const user = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!user.token;
   
+  const [id, setId] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [rules, setRules] = useState('');
+  const [color, setColor] = useState('#3b82f6'); // Default blue color
   const [errors, setErrors] = useState<ValidationErrors>({});
-  const [isPrivate, setIsPrivate] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
 
@@ -41,14 +46,22 @@ const CreateCommunityPage = () => {
   const validateForm = (): boolean => {
     const newErrors: ValidationErrors = {};
     
+    if (!id.trim()) {
+      newErrors.id = 'Community ID is required';
+    } else if (id.length < 3) {
+      newErrors.id = 'Community ID must be at least 3 characters';
+    } else if (id.length > 30) {
+      newErrors.id = 'Community ID must be less than 30 characters';
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+      newErrors.id = 'Only letters, numbers, underscores and hyphens are allowed';
+    }
+    
     if (!name.trim()) {
       newErrors.name = 'Community name is required';
     } else if (name.length < 3) {
       newErrors.name = 'Community name must be at least 3 characters';
-    } else if (name.length > 21) {
-      newErrors.name = 'Community name must be less than 22 characters';
-    } else if (!/^[a-zA-Z0-9_]+$/.test(name)) {
-      newErrors.name = 'Only letters, numbers, and underscores are allowed';
+    } else if (name.length > 50) {
+      newErrors.name = 'Community name must be less than 50 characters';
     }
     
     if (!description.trim()) {
@@ -67,7 +80,7 @@ const CreateCommunityPage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -76,29 +89,55 @@ const CreateCommunityPage = () => {
     
     setIsCreating(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      // In a real app, this would be an API call to create the community
-      // For now, let's just show a success message
-      
-      // Create community object 
+    try {
+      // Create community object
       const newCommunity = {
-        id: name.toLowerCase(),
+        id,
         name,
         description,
         rules: rules.split('\n').filter(rule => rule.trim().length > 0),
-        members: 1,
-        created: new Date().toISOString(),
-        moderators: [user.username || 'Anonymous'],
+        color
       };
       
-      // Show success state and redirect after a delay
+      // Send to backend
+      const response = await axios.post(
+        `${API_BASE_URL}/communities`, 
+        newCommunity,
+        { headers: { Authorization: `Bearer ${user.token}` } }
+      );
+      
+      // Show success alert
       setShowSuccessAlert(true);
       
+      // Redirect after a delay
       setTimeout(() => {
-        router.push(`/community/${newCommunity.id}`);
+        router.push(`/community/${response.data.id}`);
       }, 2000);
-    }, 1000);
+    } catch (error) {
+      console.error('Error creating community:', error);
+      
+      // Handle API errors
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 400) {
+          setErrors(prev => ({
+            ...prev,
+            id: 'Community ID already exists. Please choose another one.'
+          }));
+        } else {
+          setErrors(prev => ({
+            ...prev,
+            general: `Error: ${error.response?.data?.error || 'Failed to create community'}`
+          }));
+        }
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          general: 'An unexpected error occurred. Please try again.'
+        }));
+      }
+      
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -123,6 +162,13 @@ const CreateCommunityPage = () => {
           </Alert>
         )}
         
+        {errors.general && (
+          <Alert className="mb-6 bg-destructive/20 text-destructive">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{errors.general}</AlertDescription>
+          </Alert>
+        )}
+        
         <Card className="shadow-md">
           <form onSubmit={handleSubmit}>
             <CardHeader>
@@ -133,6 +179,35 @@ const CreateCommunityPage = () => {
             </CardHeader>
             
             <CardContent className="space-y-6">
+              {/* Community ID */}
+              <div className="space-y-2">
+                <Label htmlFor="id" className="text-base">
+                  Community ID
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="id"
+                    value={id}
+                    onChange={e => setId(e.target.value)}
+                    placeholder="e.g. political-discussion"
+                    maxLength={30}
+                    className={errors.id ? "border-destructive" : ""}
+                    disabled={isCreating}
+                  />
+                  {!errors.id && id && (
+                    <div className="absolute right-3 top-3 text-sm text-muted-foreground">
+                      {30 - id.length} characters left
+                    </div>
+                  )}
+                </div>
+                {errors.id && (
+                  <p className="text-sm text-destructive">{errors.id}</p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  This will be used in your community URL: /community/{id || 'example'}
+                </p>
+              </div>
+              
               {/* Community Name */}
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-base">
@@ -143,14 +218,14 @@ const CreateCommunityPage = () => {
                     id="name"
                     value={name}
                     onChange={e => setName(e.target.value)}
-                    placeholder="e.g. PoliticsDiscussion"
-                    maxLength={21}
+                    placeholder="e.g. Political Discussion"
+                    maxLength={50}
                     className={errors.name ? "border-destructive" : ""}
                     disabled={isCreating}
                   />
                   {!errors.name && name && (
                     <div className="absolute right-3 top-3 text-sm text-muted-foreground">
-                      {21 - name.length} characters left
+                      {50 - name.length} characters left
                     </div>
                   )}
                 </div>
@@ -158,7 +233,7 @@ const CreateCommunityPage = () => {
                   <p className="text-sm text-destructive">{errors.name}</p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Community names cannot be changed once created
+                  Display name for your community
                 </p>
               </div>
               
@@ -205,45 +280,37 @@ const CreateCommunityPage = () => {
                 </p>
               </div>
               
-              {/* Community Type */}
-              <div className="rounded-md border border-border p-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <h4 className="text-base font-medium">Community Type</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Choose whether your community is public or private
-                    </p>
-                  </div>
-                  <div className="flex items-center">
-                    <Button
-                      type="button"
-                      variant={isPrivate ? "outline" : "default"}
-                      className="mr-2"
-                      onClick={() => setIsPrivate(false)}
-                      disabled={isCreating}
-                    >
-                      Public
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={!isPrivate ? "outline" : "default"}
-                      onClick={() => setIsPrivate(true)}
-                      disabled={isCreating || true} // Disabled for demo
-                    >
-                      Private
-                    </Button>
-                  </div>
+              {/* Community Color */}
+              <div className="space-y-2">
+                <Label htmlFor="color" className="text-base">
+                  Community Color
+                </Label>
+                <div className="flex items-center gap-4">
+                  <Input
+                    id="color"
+                    type="color"
+                    value={color}
+                    onChange={e => setColor(e.target.value)}
+                    className="w-20 h-10 p-1"
+                    disabled={isCreating}
+                  />
+                  <div 
+                    className="w-full h-10 rounded-md"
+                    style={{ backgroundColor: color }}
+                  ></div>
                 </div>
-                
-                <div className="mt-4 rounded-md bg-muted p-3">
-                  <div className="flex">
-                    <Info className="h-5 w-5 text-muted-foreground mr-2 flex-shrink-0" />
-                    <p className="text-sm text-muted-foreground">
-                      {isPrivate 
-                        ? "Private communities are only visible to approved members."
-                        : "Anyone can view, post, and comment in public communities."}
-                    </p>
-                  </div>
+                <p className="text-xs text-muted-foreground">
+                  Choose a theme color for your community
+                </p>
+              </div>
+              
+              <div className="rounded-md border border-border p-4">
+                <div className="flex">
+                  <Info className="h-5 w-5 text-muted-foreground mr-2 flex-shrink-0" />
+                  <p className="text-sm text-muted-foreground">
+                    By creating a community, you agree to moderate it according to platform guidelines.
+                    You&apos;ll automatically become its first member and moderator.
+                  </p>
                 </div>
               </div>
             </CardContent>
