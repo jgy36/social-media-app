@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ import {
   Flag,
   User,
   Building2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import Navbar from "@/components/navbar/Navbar";
 import PoliticianCard from "@/components/politicians/PoliticianCard";
@@ -43,6 +45,7 @@ const PoliticiansPage = () => {
   const [partyFilter, setPartyFilter] = useState<string>("all");
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // States for filter options
   const [availableStates, setAvailableStates] = useState<string[]>([]);
@@ -55,79 +58,84 @@ const PoliticiansPage = () => {
   // State for the active tab
   const [activeTab, setActiveTab] = useState("all");
 
+  // Define fetchData function with useCallback
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Fetch all politicians
+      console.log("Fetching all politicians...");
+      const politicians = await getAllPoliticians();
+      setAllPoliticians(politicians);
+
+      // Fetch cabinet members
+      console.log("Fetching cabinet members...");
+      const cabinet = await getCabinetMembers();
+
+      // Map cabinet data to match Politician format if needed
+      const formattedCabinet = cabinet.map((member) => {
+        // Ensure all required fields exist for PoliticianCard component
+        return {
+          ...member,
+          // Set default values for any potentially missing fields
+          state: member.state || "Federal",
+          yearsServed: member.yearsServed || 0,
+          // If you need to map photoUrl from your JSON
+          photoUrl: member.photoUrl === "N/A" ? null : member.photoUrl,
+        };
+      });
+
+      setCabinetMembers(formattedCabinet);
+      console.log("Cabinet members loaded:", formattedCabinet.length);
+
+      // Categorize politicians - exclude cabinet members from federal
+      const cabinetIds = new Set(cabinet.map((c) => c.id));
+
+      const federal = politicians.filter(
+        (p) => p.state === "Federal" && !cabinetIds.has(p.id)
+      );
+
+      const state = politicians.filter(
+        (p) => p.county === null && p.state !== "Federal"
+      );
+
+      const county = politicians.filter((p) => p.county !== null);
+
+      setFederalPoliticians(federal);
+      setStatePoliticians(state);
+      setCountyPoliticians(county);
+
+      // Extract available filter options including cabinet
+      const allPoliticiansWithCabinet = [
+        ...politicians,
+        ...cabinet.filter((c) => !politicians.some((p) => p.id === c.id)),
+      ];
+
+      const states = [...new Set(allPoliticiansWithCabinet.map((p) => p.state))]
+        .filter(Boolean)
+        .sort();
+
+      const parties = [
+        ...new Set(allPoliticiansWithCabinet.map((p) => p.party)),
+      ]
+        .filter(Boolean)
+        .sort();
+
+      setAvailableStates(states);
+      setAvailableParties(parties);
+    } catch (error) {
+      console.error("Error fetching politicians:", error);
+      setError("Failed to load politicians data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   // Load politicians data
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch all politicians
-        const politicians = await getAllPoliticians();
-        setAllPoliticians(politicians);
-
-        // Fetch cabinet members
-        const cabinet = await getCabinetMembers();
-        // Map cabinet data to match Politician format if needed
-        const formattedCabinet = cabinet.map((member) => {
-          // Ensure all required fields exist for PoliticianCard component
-          return {
-            ...member,
-            // Set default values for any potentially missing fields
-            state: member.state || "Federal",
-            yearsServed: member.yearsServed || 0,
-            // If you need to map photoUrl from your JSON
-            photoUrl: member.photoUrl === "N/A" ? null : member.photoUrl,
-          };
-        });
-        setCabinetMembers(formattedCabinet);
-
-        console.log("Cabinet members loaded:", cabinet);
-
-        // Categorize politicians - exclude cabinet members from federal
-        const cabinetIds = new Set(cabinet.map((c) => c.id));
-
-        const federal = politicians.filter(
-          (p) => p.state === "Federal" && !cabinetIds.has(p.id)
-        );
-
-        const state = politicians.filter(
-          (p) => p.county === null && p.state !== "Federal"
-        );
-
-        const county = politicians.filter((p) => p.county !== null);
-
-        setFederalPoliticians(federal);
-        setStatePoliticians(state);
-        setCountyPoliticians(county);
-
-        // Extract available filter options including cabinet
-        const allPoliticiansWithCabinet = [
-          ...politicians,
-          ...cabinet.filter((c) => !politicians.some((p) => p.id === c.id)),
-        ];
-
-        const states = [
-          ...new Set(allPoliticiansWithCabinet.map((p) => p.state)),
-        ]
-          .filter(Boolean)
-          .sort();
-
-        const parties = [
-          ...new Set(allPoliticiansWithCabinet.map((p) => p.party)),
-        ]
-          .filter(Boolean)
-          .sort();
-
-        setAvailableStates(states);
-        setAvailableParties(parties);
-      } catch (error) {
-        console.error("Error fetching politicians:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -223,12 +231,37 @@ const PoliticiansPage = () => {
     setCurrentPage(1);
   };
 
+  // Function to retry data fetch
+  const handleRetry = () => {
+    fetchData();
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <h1 className="text-3xl font-bold mb-6">Politicians Directory</h1>
+
+        {/* Error message */}
+        {error && (
+          <div className="mb-6 bg-destructive/10 text-destructive p-4 rounded-md flex items-start">
+            <AlertCircle className="h-5 w-5 mr-2 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-medium">Error Loading Data</h3>
+              <p className="text-sm">{error}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRetry}
+              className="ml-4"
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        )}
 
         {/* Search and Filter Section */}
         <Card className="mb-6">
@@ -248,10 +281,15 @@ const PoliticiansPage = () => {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="flex-1"
+                    disabled={isLoading || !!error}
                   />
                 </div>
 
-                <Select value={partyFilter} onValueChange={setPartyFilter}>
+                <Select
+                  value={partyFilter}
+                  onValueChange={setPartyFilter}
+                  disabled={isLoading || !!error}
+                >
                   <SelectTrigger className="w-[180px]">
                     <span className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
@@ -270,7 +308,11 @@ const PoliticiansPage = () => {
                   </SelectContent>
                 </Select>
 
-                <Select value={stateFilter} onValueChange={setStateFilter}>
+                <Select
+                  value={stateFilter}
+                  onValueChange={setStateFilter}
+                  disabled={isLoading || !!error}
+                >
                   <SelectTrigger className="w-[180px]">
                     <span className="flex items-center gap-2">
                       <Flag className="h-4 w-4" />
@@ -294,6 +336,7 @@ const PoliticiansPage = () => {
                 variant="outline"
                 onClick={resetFilters}
                 className="flex items-center gap-2"
+                disabled={isLoading || !!error}
               >
                 <Filter className="h-4 w-4" />
                 Reset Filters
@@ -301,222 +344,218 @@ const PoliticiansPage = () => {
             </div>
 
             {/* Filter summary */}
-            <div className="mt-4 flex flex-wrap gap-2">
-              {searchQuery && (
-                <Badge variant="secondary" className="text-xs">
-                  Search: {searchQuery}
-                </Badge>
-              )}
-              {partyFilter !== "all" && (
-                <Badge variant="secondary" className="text-xs">
-                  Party: {partyFilter}
-                </Badge>
-              )}
-              {stateFilter !== "all" && (
-                <Badge variant="secondary" className="text-xs">
-                  State: {stateFilter}
-                </Badge>
-              )}
-            </div>
+            {!isLoading && !error && (
+              <div className="mt-4 flex flex-wrap gap-2">
+                {searchQuery && (
+                  <Badge variant="secondary" className="text-xs">
+                    Search: {searchQuery}
+                  </Badge>
+                )}
+                {partyFilter !== "all" && (
+                  <Badge variant="secondary" className="text-xs">
+                    Party: {partyFilter}
+                  </Badge>
+                )}
+                {stateFilter !== "all" && (
+                  <Badge variant="secondary" className="text-xs">
+                    State: {stateFilter}
+                  </Badge>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Politicians Tabs */}
-        <Tabs
-          defaultValue="all"
-          className="w-full"
-          onValueChange={(tab) => {
-            setActiveTab(tab);
-            setCurrentPage(1); // Reset to page 1 when changing tabs
-          }}
-        >
-          <TabsList className="grid grid-cols-5 mb-6">
-            <TabsTrigger value="all" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">All</span>
-              <Badge variant="secondary" className="ml-1">
-                {filteredAll.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="cabinet" className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4" />
-              <span className="hidden sm:inline">Cabinet</span>
-              <Badge variant="secondary" className="ml-1">
-                {filteredCabinet.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="federal" className="flex items-center gap-2">
-              <Flag className="h-4 w-4" />
-              <span className="hidden sm:inline">Federal</span>
-              <Badge variant="secondary" className="ml-1">
-                {filteredFederal.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="state" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">State</span>
-              <Badge variant="secondary" className="ml-1">
-                {filteredState.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="county" className="flex items-center gap-2">
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">County</span>
-              <Badge variant="secondary" className="ml-1">
-                {filteredCounty.length}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
+        {/* Loading state */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            <p className="mt-4 text-muted-foreground">Loading politicians...</p>
+          </div>
+        ) : (
+          /* Politicians Tabs */
+          <Tabs
+            defaultValue="all"
+            className="w-full"
+            onValueChange={(tab) => {
+              setActiveTab(tab);
+              setCurrentPage(1); // Reset to page 1 when changing tabs
+            }}
+          >
+            <TabsList className="grid grid-cols-5 mb-6">
+              <TabsTrigger value="all" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">All</span>
+                <Badge variant="secondary" className="ml-1">
+                  {filteredAll.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="cabinet" className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                <span className="hidden sm:inline">Cabinet</span>
+                <Badge variant="secondary" className="ml-1">
+                  {filteredCabinet.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="federal" className="flex items-center gap-2">
+                <Flag className="h-4 w-4" />
+                <span className="hidden sm:inline">Federal</span>
+                <Badge variant="secondary" className="ml-1">
+                  {filteredFederal.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="state" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                <span className="hidden sm:inline">State</span>
+                <Badge variant="secondary" className="ml-1">
+                  {filteredState.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="county" className="flex items-center gap-2">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">County</span>
+                <Badge variant="secondary" className="ml-1">
+                  {filteredCounty.length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Loading state */}
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-              <p className="mt-4 text-muted-foreground">
-                Loading politicians...
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* All Politicians Tab */}
-              <TabsContent value="all">
-                <h2 className="text-2xl font-bold mb-4">All Politicians</h2>
-                {filteredAll.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {paginatedAll.map((politician) => (
-                        <PoliticianCard
-                          key={politician.id}
-                          politician={politician}
-                        />
-                      ))}
-                    </div>
+            {/* All Politicians Tab */}
+            <TabsContent value="all">
+              <h2 className="text-2xl font-bold mb-4">All Politicians</h2>
+              {filteredAll.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paginatedAll.map((politician) => (
+                      <PoliticianCard
+                        key={politician.id}
+                        politician={politician}
+                      />
+                    ))}
+                  </div>
 
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={allPages}
-                      onPageChange={setCurrentPage}
-                    />
-                  </>
-                ) : (
-                  <p className="text-center py-12 text-muted-foreground">
-                    No politicians match your filters
-                  </p>
-                )}
-              </TabsContent>
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={allPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </>
+              ) : (
+                <p className="text-center py-12 text-muted-foreground">
+                  No politicians match your filters
+                </p>
+              )}
+            </TabsContent>
 
-              {/* Cabinet Members Tab */}
-              <TabsContent value="cabinet">
-                <h2 className="text-2xl font-bold mb-4">
-                  Presidential Cabinet
-                </h2>
-                {filteredCabinet.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {paginatedCabinet.map((politician) => (
-                        <PoliticianCard
-                          key={politician.id}
-                          politician={politician}
-                        />
-                      ))}
-                    </div>
+            {/* Cabinet Members Tab */}
+            <TabsContent value="cabinet">
+              <h2 className="text-2xl font-bold mb-4">Presidential Cabinet</h2>
+              {filteredCabinet.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paginatedCabinet.map((politician) => (
+                      <PoliticianCard
+                        key={politician.id}
+                        politician={politician}
+                      />
+                    ))}
+                  </div>
 
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={cabinetPages}
-                      onPageChange={setCurrentPage}
-                    />
-                  </>
-                ) : (
-                  <p className="text-center py-12 text-muted-foreground">
-                    No cabinet members match your filters
-                  </p>
-                )}
-              </TabsContent>
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={cabinetPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </>
+              ) : (
+                <p className="text-center py-12 text-muted-foreground">
+                  No cabinet members match your filters
+                </p>
+              )}
+            </TabsContent>
 
-              {/* Federal Politicians Tab */}
-              <TabsContent value="federal">
-                <h2 className="text-2xl font-bold mb-4">Federal Officials</h2>
-                {filteredFederal.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {paginatedFederal.map((politician) => (
-                        <PoliticianCard
-                          key={politician.id}
-                          politician={politician}
-                        />
-                      ))}
-                    </div>
+            {/* Federal Politicians Tab */}
+            <TabsContent value="federal">
+              <h2 className="text-2xl font-bold mb-4">Federal Officials</h2>
+              {filteredFederal.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paginatedFederal.map((politician) => (
+                      <PoliticianCard
+                        key={politician.id}
+                        politician={politician}
+                      />
+                    ))}
+                  </div>
 
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={federalPages}
-                      onPageChange={setCurrentPage}
-                    />
-                  </>
-                ) : (
-                  <p className="text-center py-12 text-muted-foreground">
-                    No federal officials match your filters
-                  </p>
-                )}
-              </TabsContent>
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={federalPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </>
+              ) : (
+                <p className="text-center py-12 text-muted-foreground">
+                  No federal officials match your filters
+                </p>
+              )}
+            </TabsContent>
 
-              {/* State Politicians Tab */}
-              <TabsContent value="state">
-                <h2 className="text-2xl font-bold mb-4">State Officials</h2>
-                {filteredState.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {paginatedState.map((politician) => (
-                        <PoliticianCard
-                          key={politician.id}
-                          politician={politician}
-                        />
-                      ))}
-                    </div>
+            {/* State Politicians Tab */}
+            <TabsContent value="state">
+              <h2 className="text-2xl font-bold mb-4">State Officials</h2>
+              {filteredState.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paginatedState.map((politician) => (
+                      <PoliticianCard
+                        key={politician.id}
+                        politician={politician}
+                      />
+                    ))}
+                  </div>
 
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={statePages}
-                      onPageChange={setCurrentPage}
-                    />
-                  </>
-                ) : (
-                  <p className="text-center py-12 text-muted-foreground">
-                    No state officials match your filters
-                  </p>
-                )}
-              </TabsContent>
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={statePages}
+                    onPageChange={setCurrentPage}
+                  />
+                </>
+              ) : (
+                <p className="text-center py-12 text-muted-foreground">
+                  No state officials match your filters
+                </p>
+              )}
+            </TabsContent>
 
-              {/* County Politicians Tab */}
-              <TabsContent value="county">
-                <h2 className="text-2xl font-bold mb-4">County Officials</h2>
-                {filteredCounty.length > 0 ? (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {paginatedCounty.map((politician) => (
-                        <PoliticianCard
-                          key={politician.id}
-                          politician={politician}
-                        />
-                      ))}
-                    </div>
+            {/* County Politicians Tab */}
+            <TabsContent value="county">
+              <h2 className="text-2xl font-bold mb-4">County Officials</h2>
+              {filteredCounty.length > 0 ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paginatedCounty.map((politician) => (
+                      <PoliticianCard
+                        key={politician.id}
+                        politician={politician}
+                      />
+                    ))}
+                  </div>
 
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={countyPages}
-                      onPageChange={setCurrentPage}
-                    />
-                  </>
-                ) : (
-                  <p className="text-center py-12 text-muted-foreground">
-                    No county officials match your filters
-                  </p>
-                )}
-              </TabsContent>
-            </>
-          )}
-        </Tabs>
+                  <PaginationControls
+                    currentPage={currentPage}
+                    totalPages={countyPages}
+                    onPageChange={setCurrentPage}
+                  />
+                </>
+              ) : (
+                <p className="text-center py-12 text-muted-foreground">
+                  No county officials match your filters
+                </p>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
       </div>
     </div>
   );

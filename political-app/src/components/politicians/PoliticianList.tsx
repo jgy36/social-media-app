@@ -4,23 +4,65 @@ import { Politician } from '@/types/politician';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { RefreshCw } from "lucide-react";
 
 interface PoliticianListProps {
   politicians: Politician[];
   selectedCounty: string;
   selectedState: string;
   isLoading: boolean;
+  error?: string; // Add optional error prop
+  onRetry?: () => void; // Add optional retry handler
 }
 
-const PoliticianList: React.FC<PoliticianListProps> = ({
+export const PoliticianList: React.FC<PoliticianListProps> = ({
   politicians,
   selectedCounty,
   selectedState,
   isLoading,
+  error,
+  onRetry
 }) => {
   // Group politicians by level (county and state)
   const countyPoliticians = politicians.filter(p => p.county === `${selectedCounty} County` || p.county === selectedCounty);
   const statePoliticians = politicians.filter(p => !p.county);
+
+  // If there's an error, show error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center p-4">
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          width="48" 
+          height="48" 
+          viewBox="0 0 24 24" 
+          fill="none" 
+          stroke="currentColor" 
+          strokeWidth="1" 
+          strokeLinecap="round" 
+          strokeLinejoin="round"
+          className="text-destructive mb-4"
+        >
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <p className="text-destructive font-medium mb-2">Error loading politicians</p>
+        <p className="text-muted-foreground mb-4">{error}</p>
+        {onRetry && (
+          <Button 
+            onClick={onRetry} 
+            variant="outline" 
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Try Again
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -150,5 +192,3 @@ const PoliticianList: React.FC<PoliticianListProps> = ({
     </div>
   );
 };
-
-export default PoliticianList;
