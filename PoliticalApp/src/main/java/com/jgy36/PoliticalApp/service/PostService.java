@@ -3,19 +3,18 @@ package com.jgy36.PoliticalApp.service;
 import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.entity.Post;
-import com.jgy36.PoliticalApp.entity.PostLike;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.CommentRepository;
-import com.jgy36.PoliticalApp.repository.PostLikeRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -24,38 +23,33 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
-    private final PostLikeRepository postLikeRepository;
+    private final HashtagService hashtagService;
     private final CommentRepository commentRepository;
 
-    public PostService(PostRepository postRepository, UserRepository userRepository, PostLikeRepository postLikeRepository, CommentRepository commentRepository) {
+    public PostService(PostRepository postRepository, UserRepository userRepository, HashtagService hashtagService, CommentRepository commentRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
-        this.postLikeRepository = postLikeRepository;
+        this.hashtagService = hashtagService;
         this.commentRepository = commentRepository;
-
     }
 
-    // ✅ Get posts for "For You" tab (all posts sorted by newest first)
+    // ✅ Get all posts
     public List<PostDTO> getAllPosts() {
         List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
         return posts.stream()
-                .map(PostDTO::new) // ✅ Convert Post -> PostDTO
+                .map(PostDTO::new)
                 .collect(Collectors.toList());
     }
 
-    // ✅ Get posts for "Following" tab (only posts from users that the current user follows)
+    // ✅ Get posts from users that the current user follows
     public List<PostDTO> getPostsFromFollowing(List<Long> followingIds) {
-        if (followingIds.isEmpty()) {
-            return List.of(); // ✅ Return an empty list if user follows no one
-        }
-
         List<Post> posts = postRepository.findPostsFromFollowing(followingIds);
         return posts.stream()
-                .map(PostDTO::new) // ✅ Convert Post -> PostDTO
+                .map(PostDTO::new)
                 .collect(Collectors.toList());
     }
 
-    // ✅ Create a new post (Requires authentication)
+    // ✅ Create a new post
     public Post createPost(String content) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
@@ -106,46 +100,12 @@ public class PostService {
     }
 
     // ✅ Like/Unlike a post
-    public String likePost(Long postId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        User user = userRepository.findByEmail(auth.getName())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+    public int toggleLike(Long postId, String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email: " + email));
 
         Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("Post not found"));
-
-        Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
-
-        if (existingLike.isPresent()) {
-            postLikeRepository.deleteByPostAndUser(post, user);
-            return "Post unliked successfully.";
-        } else {
-            PostLike like = new PostLike();
-            like.setPost(post);
-            like.setUser(user);
-            postLikeRepository.save(like);
-            return "Post liked successfully.";
-        }
-    }
-
-    // ✅ Add this method to retrieve posts by user ID
-    public List<Post> getPostsByUserId(Long userId) {
-        return postRepository.findByAuthorId(userId);
-    }
-
-    // ✅ Fetch a post by ID
-    public Post getPostById(Long postId) {
-        return postRepository.findByIdWithDetails(postId)
-                .orElseThrow(() -> new NoSuchElementException("Post not found with ID: " + postId));
-    }
-
-    // ✅ Like/Unlike a post
-    public int toggleLike(Long postId, String email) { // ✅ Use email, not username
-        User user = userRepository.findByEmail(email) // ✅ Search by email
-                .orElseThrow(() -> new NoSuchElementException("User not found with email: " + email));
-
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new NoSuchElementException("Post not found with ID: " + postId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
 
         if (post.getLikedUsers().contains(user)) {
             post.getLikedUsers().remove(user);
@@ -159,14 +119,21 @@ public class PostService {
 
     // ✅ Get users who liked a post
     public List<String> getPostLikes(Long postId) {
-        Post post = postRepository.findById(postId).orElseThrow();
-        return post.getLikedUsers().stream().map(User::getUsername).collect(Collectors.toList());
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
+
+        return post.getLikedUsers().stream()
+                .map(User::getUsername)
+                .collect(Collectors.toList());
     }
 
     // ✅ Add a comment to a post
     public Comment addComment(Long postId, String username, String text) {
-        User user = userRepository.findByUsername(username).orElseThrow();
-        Post post = postRepository.findById(postId).orElseThrow();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with username: " + username));
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
 
         Comment comment = new Comment(text, user, post);
         return commentRepository.save(comment);
@@ -179,8 +146,11 @@ public class PostService {
 
     // ✅ Save/Unsave a post
     public void toggleSavePost(Long postId, String username) {
-        User user = userRepository.findByUsername(username).orElseThrow();
-        Post post = postRepository.findById(postId).orElseThrow();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with username: " + username));
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
 
         if (user.getSavedPosts().contains(post)) {
             user.getSavedPosts().remove(post);
@@ -192,8 +162,53 @@ public class PostService {
 
     // ✅ Get all saved posts for a user
     public List<Post> getSavedPosts(String username) {
-        User user = userRepository.findByUsername(username).orElseThrow();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with username: " + username));
+
         return List.copyOf(user.getSavedPosts());
     }
 
+    // ✅ Fixed: Using distinct method name and correct parameter type
+    public List<Post> getPostsByTag(String hashtag) {
+        return hashtagService.getPostsByHashtag(hashtag);
+    }
+
+    // ✅ Get post by ID
+    public Post getPostById(Long postId) {
+        return postRepository.findByIdWithDetails(postId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
+    }
+
+    // ✅ Find posts by a specific user
+    public List<Post> getPostsByUserId(Long userId) {
+        return postRepository.findByAuthorId(userId);
+    }
+
+    // ✅ Create a post in a specific community
+    public Post createCommunityPost(String content, String communityId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (userOpt.isEmpty()) {
+            throw new IllegalArgumentException("User not found");
+        }
+
+        User user = userOpt.get();
+        Post post = new Post();
+        post.setContent(content);
+        post.setAuthor(user);
+        post.setCreatedAt(java.time.LocalDateTime.now());
+
+        // Initialize collections
+        post.setLikes(new HashSet<>());
+        post.setLikedUsers(new HashSet<>());
+        post.setComments(new HashSet<>());
+
+        // Here we would associate the post with a community
+        // This depends on your data model and may require additional
+        // fields in the Post entity and possibly a CommunityRepository
+
+        return postRepository.save(post);
+    }
 }

@@ -53,6 +53,20 @@ public class Post {
     @JsonIgnoreProperties("post") // ✅ Prevents infinite loop by managing Comment -> Post serialization
     private Set<Comment> comments = new HashSet<>(); // ✅ Add comments field
 
+    @ManyToMany
+    @JoinTable(
+            name = "post_hashtags",
+            joinColumns = @JoinColumn(name = "post_id"),
+            inverseJoinColumns = @JoinColumn(name = "hashtag_id")
+    )
+    private Set<Hashtag> hashtags = new HashSet<>();
+
+    // Optional community relationship - if your app has communities
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "community_id")
+    @JsonIgnore
+    private Community community;
+
     public Post(String content, User author) {
         this.content = content;
         this.author = author;
@@ -61,5 +75,27 @@ public class Post {
 
     public int getLikeCount() {
         return likes.size();
+    }
+
+    /**
+     * Adds a hashtag to this post
+     */
+    public void addHashtag(Hashtag hashtag) {
+        this.hashtags.add(hashtag);
+        // Only add this post to hashtag's posts if it's not already there
+        if (!hashtag.getPosts().contains(this)) {
+            hashtag.getPosts().add(this);
+        }
+    }
+
+    /**
+     * Removes a hashtag from this post
+     */
+    public void removeHashtag(Hashtag hashtag) {
+        this.hashtags.remove(hashtag);
+        // Only remove this post from hashtag if it contains it
+        if (hashtag.getPosts().contains(this)) {
+            hashtag.getPosts().remove(this);
+        }
     }
 }
