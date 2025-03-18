@@ -13,16 +13,15 @@ import java.util.Set;
 @Setter
 @Table(name = "communities")
 public class Community {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(unique = true, nullable = false)
-    private String name;
+    private String slug; // URL-friendly identifier
 
     @Column(unique = true, nullable = false)
-    private String slug; // URL-friendly identifier
+    private String name;
 
     @Column(columnDefinition = "TEXT")
     private String description;

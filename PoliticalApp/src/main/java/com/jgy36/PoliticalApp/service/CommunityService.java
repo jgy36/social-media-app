@@ -126,13 +126,109 @@ public class CommunityService {
         }
     }
 
+    /**
+     * Force initialization of default communities, even if some already exist
+     * This method can be called from an admin endpoint to ensure communities are created
+     */
+    @Transactional
+    public void forceInitDefaultCommunities() {
+        try {
+            // Find current user with email
+            User adminUser = userRepository.findByEmail("bigben@example.com")
+                    .orElseGet(() -> {
+                        // If specific user not found, use any user
+                        List<User> users = userRepository.findAll();
+                        if (!users.isEmpty()) {
+                            return users.get(0);
+                        }
+                        return null;
+                    });
+
+            if (adminUser == null) {
+                System.out.println("Cannot initialize communities - no users exist yet");
+                return;
+            }
+
+            // Create default political communities
+            createDefaultCommunity("democrat", "Democrat",
+                    "Discussion forum for Democratic Party supporters and policy discussions.",
+                    "#3b82f6", adminUser, // blue color
+                    Arrays.asList(
+                            "Be respectful of other members",
+                            "No hate speech or personal attacks",
+                            "Focus on policy discussion, not personal attacks",
+                            "Cite sources for claims when possible"
+                    ));
+
+            createDefaultCommunity("republican", "Republican",
+                    "Forum for Republican Party members and conservative policy discussions.",
+                    "#ef4444", adminUser, // red color
+                    Arrays.asList(
+                            "Be respectful of other members",
+                            "No hate speech or personal attacks",
+                            "Focus on policy discussion, not personal attacks",
+                            "Cite sources for claims when possible"
+                    ));
+
+            createDefaultCommunity("libertarian", "Libertarian",
+                    "Discussion of Libertarian politics, policies, and philosophy.",
+                    "#eab308", adminUser, // yellow color
+                    Arrays.asList(
+                            "Be respectful of other members",
+                            "No hate speech or personal attacks",
+                            "Focus on policy discussion, not personal attacks",
+                            "Cite sources for claims when possible"
+                    ));
+
+            createDefaultCommunity("independent", "Independent",
+                    "For politically independent voters and those seeking non-partisan discussion.",
+                    "#a855f7", adminUser, // purple color
+                    Arrays.asList(
+                            "Be respectful of other members",
+                            "No hate speech or personal attacks",
+                            "Focus on policy discussion, not personal attacks",
+                            "Cite sources for claims when possible"
+                    ));
+
+            createDefaultCommunity("conservative", "Conservative",
+                    "Discussion of conservative principles, policies, and philosophy.",
+                    "#b91c1c", adminUser, // dark red color
+                    Arrays.asList(
+                            "Be respectful of other members",
+                            "No hate speech or personal attacks",
+                            "Focus on policy discussion, not personal attacks",
+                            "Cite sources for claims when possible"
+                    ));
+
+            createDefaultCommunity("socialist", "Socialist",
+                    "Discussion of socialist politics, policies, and philosophy.",
+                    "#b91c1c", adminUser, // dark red color
+                    Arrays.asList(
+                            "Be respectful of other members",
+                            "No hate speech or personal attacks",
+                            "Focus on policy discussion, not personal attacks",
+                            "Cite sources for claims when possible"
+                    ));
+
+            System.out.println("Default communities created successfully through force initialization");
+        } catch (Exception e) {
+            System.err.println("Error creating default communities: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Error creating communities: " + e.getMessage(), e);
+        }
+    }
+
     private void createDefaultCommunity(String slug, String name, String description,
                                         String color, User creator, List<String> rules) {
+        // Only create if it doesn't exist
         if (!communityRepository.existsBySlug(slug)) {
-            Community community = new Community(slug, name, description, creator);
+            Community community = new Community(name, slug, description, creator);
             community.setColor(color);
             community.getRules().addAll(rules);
             communityRepository.save(community);
+            System.out.println("Created community: " + name);
+        } else {
+            System.out.println("Community already exists: " + name);
         }
     }
 
@@ -141,10 +237,9 @@ public class CommunityService {
         return communityRepository.findAll();
     }
 
-    // Get community by ID
-    public Community getCommunityById(Long id) {
-        return communityRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Community not found with ID: " + id));
+    // Get community by ID - now returns by slug since we want to use slugs
+    public Community getCommunityById(String slug) {
+        return getCommunityBySlug(slug);
     }
 
     // Get community by slug
@@ -165,7 +260,7 @@ public class CommunityService {
         }
 
         // Create the community
-        Community community = new Community(slug, name, description, currentUser);
+        Community community = new Community(name, slug, description, currentUser);
 
         // Add rules and color if provided
         if (rules != null && !rules.isEmpty()) {
