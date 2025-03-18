@@ -1,8 +1,9 @@
+// src/components/search/SearchResultsHandler.tsx
 import React from "react";
 import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Users, Hash, FileText, ExternalLink } from "lucide-react";
+import { User, Users, Hash, FileText, ExternalLink, Search } from "lucide-react";
 
 // Define types for search results
 export interface SearchResult {
@@ -13,6 +14,9 @@ export interface SearchResult {
   content?: string;
   author?: string;
   timestamp?: string;
+  followers?: number;
+  members?: number;
+  postCount?: number;
 }
 
 interface SearchResultsHandlerProps {
@@ -38,7 +42,7 @@ const SearchResultsHandler: React.FC<SearchResultsHandlerProps> = ({
     return (
       <div className="text-center py-12 px-4 bg-muted/20 rounded-lg">
         <div className="inline-flex items-center justify-center rounded-full bg-muted/30 p-3 mb-4">
-          <FileText className="h-6 w-6 text-muted-foreground" />
+          <Search className="h-6 w-6 text-muted-foreground" />
         </div>
         <h3 className="text-lg font-medium mb-2">No results found</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
@@ -59,20 +63,22 @@ const SearchResultsHandler: React.FC<SearchResultsHandlerProps> = ({
   );
 };
 
-// Individual Result Card
+// Individual Result Card Component
 const ResultCard: React.FC<{ result: SearchResult }> = ({ result }) => {
   const router = useRouter();
 
   const handleClick = () => {
     switch (result.type) {
       case "user":
-        router.push(`/profile/${result.id}`);
+        router.push(`/profile/${result.name}`);
         break;
       case "community":
         router.push(`/community/${result.id}`);
         break;
       case "hashtag":
-        router.push(`/hashtag/${result.id}`);
+        // Remove # if present in the name for the URL
+        const hashtagId = result.name.startsWith('#') ? result.name.substring(1) : result.name;
+        router.push(`/hashtag/${hashtagId}`);
         break;
       case "post":
         router.push(`/post/${result.id}`);
@@ -108,6 +114,36 @@ const ResultCard: React.FC<{ result: SearchResult }> = ({ result }) => {
     }
   };
 
+  // Get additional details based on result type
+  const getAdditionalDetails = () => {
+    switch (result.type) {
+      case "user":
+        return result.followers !== undefined ? (
+          <span className="text-xs text-muted-foreground">
+            {result.followers.toLocaleString()} followers
+          </span>
+        ) : null;
+      case "community":
+        return result.members !== undefined ? (
+          <span className="text-xs text-muted-foreground">
+            {result.members.toLocaleString()} members
+          </span>
+        ) : null;
+      case "hashtag":
+        return result.postCount !== undefined ? (
+          <span className="text-xs text-muted-foreground">
+            {result.postCount.toLocaleString()} posts
+          </span>
+        ) : null;
+      case "post":
+        return result.author ? (
+          <span className="text-xs text-muted-foreground">
+            by {result.author}
+          </span>
+        ) : null;
+    }
+  };
+
   return (
     <Card
       className="cursor-pointer hover:shadow-md transition-all border border-border hover:border-primary/20"
@@ -138,15 +174,10 @@ const ResultCard: React.FC<{ result: SearchResult }> = ({ result }) => {
             )}
 
             <div className="mt-2 flex items-center text-xs text-muted-foreground">
-              {result.author && (
-                <div className="flex items-center mr-3">
-                  <User className="h-3 w-3 mr-1" />
-                  <span>{result.author}</span>
-                </div>
-              )}
+              {getAdditionalDetails()}
 
               {result.timestamp && (
-                <div className="flex items-center">
+                <div className="flex items-center ml-3">
                   <span>{result.timestamp}</span>
                 </div>
               )}

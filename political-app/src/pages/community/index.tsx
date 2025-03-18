@@ -6,16 +6,15 @@ import { RootState, AppDispatch } from "@/redux/store";
 import axios from "axios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import MainLayout from "@/components/layout/MainLayout";
 import { 
-  Users, 
-  Search,
+  Users,
   Plus,
   TrendingUp
 } from "lucide-react";
 import { joinCommunity, leaveCommunity } from "@/redux/slices/communitySlice";
+import SearchComponent from "@/components/search/SearchComponent";
 
 interface Community {
   id: string;
@@ -33,7 +32,6 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 const CommunitiesPage = () => {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -139,19 +137,6 @@ const CommunitiesPage = () => {
     
     fetchCommunities();
   }, [currentUser.token, joinedCommunityIds]);
-
-  useEffect(() => {
-    // Filter communities based on search query
-    if (searchQuery.trim() === "") {
-      setFilteredCommunities(communities);
-    } else {
-      const filtered = communities.filter(community => 
-        community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        community.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredCommunities(filtered);
-    }
-  }, [searchQuery, communities]);
 
   const handleJoinCommunity = async (e: React.MouseEvent, communityId: string) => {
     e.preventDefault(); // Prevent navigation
@@ -267,13 +252,7 @@ const CommunitiesPage = () => {
           {/* Search and Create buttons */}
           <div className="flex gap-4 w-full md:w-auto">
             <div className="relative flex-1 md:flex-initial">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Search communities" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 w-full md:w-64"
-              />
+              <SearchComponent />
             </div>
             
             <Button onClick={() => router.push("/community/create")}>
@@ -329,10 +308,7 @@ const CommunitiesPage = () => {
               <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No Communities Found</h3>
               <p className="text-muted-foreground">
-                {searchQuery 
-                  ? `No communities match "${searchQuery}"`
-                  : "There are no communities available right now"
-                }
+                There are no communities available right now
               </p>
               <Button 
                 onClick={() => router.push("/community/create")}

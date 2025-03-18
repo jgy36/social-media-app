@@ -1,4 +1,4 @@
-// political-app/src/pages/hashtag/[tag].tsx - Enhanced version
+// src/pages/hashtag/[tag].tsx
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Navbar from "@/components/navbar/Navbar";
@@ -7,10 +7,23 @@ import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
 import { Hash, TrendingUp, Calendar, MessagesSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { urlParamToHashtag } from "@/utils/hashtagUtils";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getPostsByHashtag, getHashtagInfo } from "@/utils/api";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+// Helper function to format hashtag for display and API
+const formatHashtag = (tag: string | string[] | undefined): { display: string, api: string } => {
+  if (!tag) return { display: '', api: '' };
+  
+  const tagStr = Array.isArray(tag) ? tag[0] : tag;
+  
+  // Format for display (ensure it has a # prefix)
+  const display = tagStr.startsWith('#') ? tagStr : `#${tagStr}`;
+  
+  // Format for API (remove # prefix if present)
+  const api = tagStr.startsWith('#') ? tagStr.substring(1) : tagStr;
+  
+  return { display, api };
+};
 
 const HashtagPage = () => {
   const router = useRouter();
@@ -21,15 +34,7 @@ const HashtagPage = () => {
   const [sortBy, setSortBy] = useState<"recent" | "trending">("recent");
   const [hashtagInfo, setHashtagInfo] = useState<{useCount: number} | null>(null);
 
-  // Format tag for display (add # if not present)
-  const displayTag = tag && typeof tag === "string" 
-    ? urlParamToHashtag(tag)
-    : "";
-
-  // Format tag for API (remove # if present)
-  const apiTag = tag && typeof tag === "string"
-    ? (tag.startsWith("#") ? tag.substring(1) : tag)
-    : "";
+  const { display: displayTag, api: apiTag } = formatHashtag(tag);
 
   useEffect(() => {
     if (!apiTag) return;
@@ -40,32 +45,27 @@ const HashtagPage = () => {
 
       try {
         // Fetch posts with this hashtag
-        const postsResponse = await fetch(`${API_BASE_URL}/hashtags/${apiTag}`);
-        
-        if (!postsResponse.ok) {
-          throw new Error(`Failed to fetch hashtag posts: ${postsResponse.status}`);
-        }
-        
-        const postsData = await postsResponse.json() as PostType[];
+        const postsData = await getPostsByHashtag(apiTag);
         
         // Sort posts based on current preference
         const sortedPosts = [...postsData];
         if (sortBy === "trending") {
           sortedPosts.sort((a, b) => (b.likes || 0) - (a.likes || 0));
         } else {
-          sortedPosts.sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          );
+          sortedPosts.sort((a, b) => {
+            const dateA = new Date(a.createdAt).getTime();
+            const dateB = new Date(b.createdAt).getTime();
+            return dateB - dateA;
+          });
         }
         
         setPosts(sortedPosts);
         
-        // Optionally, fetch hashtag metadata if available
+        // Try to fetch hashtag metadata
         try {
-          const hashtagResponse = await fetch(`${API_BASE_URL}/hashtags/info/${apiTag}`);
-          if (hashtagResponse.ok) {
-            const hashtagData = await hashtagResponse.json();
-            setHashtagInfo(hashtagData);
+          const tagInfo = await getHashtagInfo(apiTag);
+          if (tagInfo) {
+            setHashtagInfo(tagInfo);
           }
         } catch (infoError) {
           console.error("Error fetching hashtag info:", infoError);
@@ -178,26 +178,6 @@ const HashtagPage = () => {
             </Button>
           </Card>
         )}
-        
-        {/* Related Hashtags - If we had this data */}
-        {/* 
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle className="text-lg">Related Hashtags</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2">
-            {relatedHashtags.map(tag => (
-              <Badge 
-                key={tag} 
-                className="cursor-pointer"
-                onClick={() => router.push(`/hashtag/${tag.substring(1)}`)}
-              >
-                {tag}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-        */}
       </div>
     </div>
   );

@@ -31,6 +31,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "cookies-next": "^5.1.0",
+    "lodash": "^4.17.21",
     "lucide-react": "^0.475.0",
     "mapbox-gl": "^3.9.4",
     "next": "15.1.6",
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@types/lodash": "^4.17.16",
     "@types/node": "^20.17.16",
     "@types/react": "^19.0.8",
     "@types/react-dom": "^19",
