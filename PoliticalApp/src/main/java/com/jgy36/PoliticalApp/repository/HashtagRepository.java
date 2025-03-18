@@ -13,27 +13,27 @@ import java.util.Optional;
 public interface HashtagRepository extends JpaRepository<Hashtag, Long> {
 
     // Find hashtag by name
-    Optional<Hashtag> findByName(String name);
+    Optional<Hashtag> findByTag(String tag);
 
     // Check if hashtag exists
-    boolean existsByName(String name);
+    boolean existsByTag(String tag);
 
     // Find hashtags by partial name match
-    List<Hashtag> findByNameContainingIgnoreCase(String partialName);
+    List<Hashtag> findByTagContainingIgnoreCase(String partialTag);
 
     // Find trending hashtags (by use count)
-    @Query("SELECT h FROM Hashtag h ORDER BY h.useCount DESC")
+    @Query("SELECT h FROM Hashtag h ORDER BY h.count DESC")
     List<Hashtag> findTrendingHashtags();
 
     // Find trending hashtags with limit
-    @Query("SELECT h FROM Hashtag h ORDER BY h.useCount DESC")
+    @Query("SELECT h FROM Hashtag h ORDER BY h.count DESC")
     List<Hashtag> findTrendingHashtagsWithLimit(int limit);
 
-    // Find recent hashtags
-    @Query("SELECT h FROM Hashtag h ORDER BY h.createdAt DESC")
+    // Find recent hashtags (sorted by ID since newest will have higher IDs)
+    @Query("SELECT h FROM Hashtag h ORDER BY h.id DESC")
     List<Hashtag> findRecentHashtags();
 
     // Search hashtags by name
-    @Query("SELECT h FROM Hashtag h WHERE LOWER(h.name) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
+    @Query("SELECT h FROM Hashtag h WHERE LOWER(h.tag) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<Hashtag> searchHashtags(@Param("searchTerm") String searchTerm);
 }

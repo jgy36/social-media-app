@@ -80,6 +80,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()  // ✅ Users must be logged in to create a post
 
                         // ✅ Admin Only
+                        .requestMatchers("/api/admin/init-communities").permitAll()  // Temporarily public
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")  // ✅ Use hasRole instead of hasAuthority
 
                         .anyRequest().authenticated() // ✅ Everything else requires authentication
