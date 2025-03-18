@@ -1,6 +1,8 @@
 package com.jgy36.PoliticalApp.repository;
 
+import com.jgy36.PoliticalApp.entity.Community;
 import com.jgy36.PoliticalApp.entity.Post;
+import com.jgy36.PoliticalApp.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -23,4 +25,25 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // In PostRepository.java
     @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.likes WHERE p.id = :postId")
     Optional<Post> findByIdWithDetails(@Param("postId") Long postId);
+
+    // ✅ NEW: Find posts by community ID
+    @Query("SELECT p FROM Post p WHERE p.community.id = :communityId ORDER BY p.createdAt DESC")
+    List<Post> findByCommunityIdOrderByCreatedAtDesc(@Param("communityId") String communityId);
+
+    // ✅ NEW: Find trending posts by community (most likes)
+    @Query("SELECT p FROM Post p WHERE p.community.id = :communityId ORDER BY SIZE(p.likes) DESC, p.createdAt DESC")
+    List<Post> findTrendingByCommunityId(@Param("communityId") String communityId);
+
+    // ✅ NEW: Find posts containing a specific hashtag
+    @Query("SELECT p FROM Post p WHERE p.content LIKE %:hashtag% ORDER BY p.createdAt DESC")
+    List<Post> findByContentContainingHashtag(@Param("hashtag") String hashtag);
+
+    // Find posts by community, ordered by creation date (newest first)
+    List<Post> findByCommunityOrderByCreatedAtDesc(Community community);
+
+    // Find posts by community and author
+    List<Post> findByCommunityAndAuthor(Community community, User author);
+
+    // Count posts in a community
+    long countByCommunity(Community community);
 }

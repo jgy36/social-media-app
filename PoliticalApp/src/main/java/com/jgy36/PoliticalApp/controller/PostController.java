@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.controller;
 
+import com.jgy36.PoliticalApp.dto.CommunityPostRequest;
 import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
@@ -81,6 +82,18 @@ public class PostController {
     @PreAuthorize("isAuthenticated()") // Requires authentication
     public ResponseEntity<Post> createPost(@RequestBody String content) {
         return ResponseEntity.ok(postService.createPost(content));
+    }
+
+    // ✅ NEW: Create a post in a community
+    @PostMapping("/community")
+    @PreAuthorize("isAuthenticated()") // Requires authentication
+    public ResponseEntity<Post> createCommunityPost(@RequestBody CommunityPostRequest request) {
+        try {
+            Post post = postService.createCommunityPost(request.getCommunityId(), request.getContent());
+            return ResponseEntity.ok(post);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
+        }
     }
 
     // In PostController.java
