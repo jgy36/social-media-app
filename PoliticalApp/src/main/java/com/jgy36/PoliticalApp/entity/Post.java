@@ -63,7 +63,7 @@ public class Post {
 
     // Optional community relationship - if your app has communities
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "community_id")
+    @JoinColumn(name = "community_id", referencedColumnName = "id")
     @JsonIgnore
     private Community community;
 

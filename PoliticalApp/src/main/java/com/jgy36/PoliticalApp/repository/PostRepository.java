@@ -26,9 +26,8 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.likes WHERE p.id = :postId")
     Optional<Post> findByIdWithDetails(@Param("postId") Long postId);
 
-    // ✅ NEW: Find posts by community ID
-    @Query("SELECT p FROM Post p WHERE p.community.id = :communityId ORDER BY p.createdAt DESC")
-    List<Post> findByCommunityIdOrderByCreatedAtDesc(@Param("communityId") String communityId);
+    @Query("SELECT p FROM Post p WHERE p.community.slug = :communitySlug ORDER BY p.createdAt DESC")
+    List<Post> findByCommunitySlugOrderByCreatedAtDesc(@Param("communitySlug") String communitySlug);
 
     // ✅ NEW: Find trending posts by community (most likes)
     @Query("SELECT p FROM Post p WHERE p.community.id = :communityId ORDER BY SIZE(p.likes) DESC, p.createdAt DESC")

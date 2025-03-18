@@ -86,16 +86,16 @@ public class PostController {
 
     @GetMapping
     public ResponseEntity<List<PostDTO>> getPosts(
-            @RequestParam(required = false) String communityId) {
-        if (communityId != null) {
-            // Get posts for specific community
-            List<Post> posts = postService.getPostsByCommunityId(communityId);
+            @RequestParam(required = false) String communitySlug) {
+        if (communitySlug != null) {
+            // Get posts for specific community using the slug
+            List<Post> posts = postService.getPostsByCommunitySlug(communitySlug);
             List<PostDTO> postDTOs = posts.stream()
                     .map(post -> new PostDTO(post))
                     .collect(Collectors.toList());
             return ResponseEntity.ok(postDTOs);
         } else {
-            // Get all posts if no communityId is provided
+            // Get all posts if no communitySlug is provided
             return getAllPosts();
         }
     }
