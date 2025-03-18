@@ -762,3 +762,106 @@ export const searchCommunities = async (query: string): Promise<any[]> => {
   }
 };
 
+// Function to search users
+export const searchUsers = async (query: string): Promise<any[]> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/users/search?query=${encodeURIComponent(query)}`);
+    return response.data as any[];
+  } catch (error) {
+    console.error(`Error searching users with query ${query}:`, error);
+    
+    // In development, use mock data if API fails
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Using mock user data for development');
+      
+      // Simple mock data for development
+      const mockUsers = [
+        { id: 1, username: 'JaneDoe', bio: 'Political Analyst', followersCount: 245 },
+        { id: 2, username: 'JohnSmith', bio: 'Community Organizer', followersCount: 182 },
+        { id: 3, username: 'PoliticsExpert', bio: 'Congressional Staffer', followersCount: 532 },
+        { id: 4, username: 'VoterAdvocate', bio: 'Voting rights activist', followersCount: 328 }
+      ];
+      
+      // Simple filtering for mock data
+      const lowercaseQuery = query.toLowerCase();
+      return mockUsers.filter(user => 
+        user.username.toLowerCase().includes(lowercaseQuery) || 
+        user.bio.toLowerCase().includes(lowercaseQuery)
+      );
+    }
+    
+    return [];
+  }
+};
+
+// Function to search hashtags
+export const searchHashtags = async (query: string): Promise<any[]> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/hashtags/search?query=${encodeURIComponent(query)}`);
+    return response.data as any[];
+  } catch (error) {
+    console.error(`Error searching hashtags with query ${query}:`, error);
+    
+    // In development, use mock data if API fails
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Using mock hashtag data for development');
+      
+      // Simple mock data for development
+      const mockHashtags = [
+        { id: 'election2024', tag: '#Election2024', count: 842, postCount: 842 },
+        { id: 'policy', tag: '#Policy', count: 567, postCount: 567 },
+        { id: 'debate', tag: '#Debate', count: 324, postCount: 324 },
+        { id: 'vote', tag: '#Vote', count: 756, postCount: 756 },
+        { id: 'democracy', tag: '#Democracy', count: 421, postCount: 421 }
+      ];
+      
+      // Simple filtering for mock data
+      const lowercaseQuery = query.toLowerCase();
+      return mockHashtags.filter(hashtag => 
+        hashtag.tag.toLowerCase().includes(lowercaseQuery)
+      );
+    }
+    
+    return [];
+  }
+};
+
+// Function to get unified search results (users, communities, hashtags)
+export const getUnifiedSearchResults = async (
+  query: string, 
+  type?: 'user' | 'community' | 'hashtag'
+): Promise<any[]> => {
+  try {
+    const results = [];
+    
+    // If type is specified, only fetch that type
+    if (type === 'user' || !type) {
+      const users = await searchUsers(query);
+      results.push(...users.map(user => ({
+        ...user,
+        type: 'user'
+      })));
+    }
+    
+    if (type === 'community' || !type) {
+      const communities = await searchCommunities(query);
+      results.push(...communities.map(community => ({
+        ...community,
+        type: 'community'
+      })));
+    }
+    
+    if (type === 'hashtag' || !type) {
+      const hashtags = await searchHashtags(query);
+      results.push(...hashtags.map(hashtag => ({
+        ...hashtag,
+        type: 'hashtag'
+      })));
+    }
+    
+    return results;
+  } catch (error) {
+    console.error(`Error in unified search for "${query}":`, error);
+    return [];
+  }
+};
