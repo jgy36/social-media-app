@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// components/feed/Post.tsx - Updated with clickable hashtags
+// components/feed/Post.tsx
 import { useState } from "react";
 import { PostType } from "@/types/post";
 import { likePost } from "@/utils/api";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Heart, MessageCircle } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -17,8 +17,10 @@ interface PostProps {
   post: PostType;
 }
 
-// Function to parse and render content with clickable hashtags
-const renderContentWithHashtags = (content: string, router: any) => {
+// Function to render content with clickable hashtags
+const renderContentWithHashtags = (content: string, onHashtagClick: (hashtag: string) => void) => {
+  if (!content) return content;
+  
   // Regular expression to match hashtags
   const hashtagRegex = /(#[a-zA-Z0-9_]+)/g;
   
@@ -28,14 +30,13 @@ const renderContentWithHashtags = (content: string, router: any) => {
   return parts.map((part, index) => {
     // Check if this part is a hashtag
     if (part.match(hashtagRegex)) {
-      const hashtag = part.substring(1); // Remove the # symbol
       return (
         <span 
           key={index}
           className="text-primary hover:underline cursor-pointer"
           onClick={(e) => {
             e.stopPropagation(); // Prevent navigating to post details
-            router.push(`/hashtag/${hashtag}`);
+            onHashtagClick(part);
           }}
         >
           {part}
@@ -55,6 +56,13 @@ const Post = ({ post }: PostProps) => {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
+
+  // Function to handle hashtag click
+  const handleHashtagClick = (hashtag: string) => {
+    // Remove the # prefix for URL
+    const tag = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
+    router.push(`/hashtag/${tag}`);
+  };
 
   const handleLike = async () => {
     if (!user.token || isLiking) return;
@@ -90,18 +98,52 @@ const Post = ({ post }: PostProps) => {
         onClick={() => router.push(`/post/${post.id}`)}
         className="cursor-pointer"
       >
-        {/* Author with link to profile */}
-        <h3 
-          className="font-semibold text-lg hover:text-primary hover:underline"
-          onClick={handleAuthorClick}
-        >
-          {post.author}
-        </h3>
+        {/* Author info and community badge if available */}
+        <div className="flex items-center mb-2 justify-between">
+          <h3 
+            className="font-semibold text-lg hover:text-primary hover:underline"
+            onClick={handleAuthorClick}
+          >
+            {post.author}
+          </h3>
+          
+          {post.communityName && (
+            <Badge 
+              variant="outline" 
+              className="ml-2 hover:bg-primary/10 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/community/${post.communityId}`);
+              }}
+            >
+              {post.communityName}
+            </Badge>
+          )}
+        </div>
         
         {/* Post content with clickable hashtags */}
         <p className="text-sm text-muted-foreground mt-1">
-          {renderContentWithHashtags(post.content, router)}
+          {renderContentWithHashtags(post.content, handleHashtagClick)}
         </p>
+        
+        {/* Display hashtags as badges if available */}
+        {post.hashtags && post.hashtags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {post.hashtags.map((tag, index) => (
+              <Badge 
+                key={index} 
+                variant="outline" 
+                className="text-xs bg-primary/10 text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleHashtagClick(tag);
+                }}
+              >
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Post Actions */}

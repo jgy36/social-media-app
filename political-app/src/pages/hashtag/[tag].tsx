@@ -1,16 +1,16 @@
-// pages/hashtag/[tag].tsx
+// political-app/src/pages/hashtag/[tag].tsx - Enhanced version
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
-import { Hash, TrendingUp, Calendar, MessagesSquare } from "lucide-react";
+import { Hash, TrendingUp, Calendar, MessagesSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import axios from "axios";
+import { urlParamToHashtag } from "@/utils/hashtagUtils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
 const HashtagPage = () => {
   const router = useRouter();
@@ -19,46 +19,59 @@ const HashtagPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "trending">("recent");
+  const [hashtagInfo, setHashtagInfo] = useState<{useCount: number} | null>(null);
 
-  // Format tag for display (remove # if present)
-  const displayTag =
-    typeof tag === "string" ? (tag.startsWith("#") ? tag : `#${tag}`) : "";
+  // Format tag for display (add # if not present)
+  const displayTag = tag && typeof tag === "string" 
+    ? urlParamToHashtag(tag)
+    : "";
 
   // Format tag for API (remove # if present)
-  const apiTag =
-    typeof tag === "string"
-      ? tag.startsWith("#")
-        ? tag.substring(1)
-        : tag
-      : "";
+  const apiTag = tag && typeof tag === "string"
+    ? (tag.startsWith("#") ? tag.substring(1) : tag)
+    : "";
 
   useEffect(() => {
     if (!apiTag) return;
 
-    const fetchHashtagPosts = async () => {
+    const fetchHashtagData = async () => {
       setIsLoading(true);
       setError(null);
 
       try {
-        const response = await axios.get(`${API_BASE_URL}/hashtags/${apiTag}`);
-
-        // Explicitly type response.data as PostType[]
-        const fetchedPosts = response.data as PostType[];
-
-        // Sort based on current preference
-        let sortedPosts: PostType[] = [];
+        // Fetch posts with this hashtag
+        const postsResponse = await fetch(`${API_BASE_URL}/hashtags/${apiTag}`);
+        
+        if (!postsResponse.ok) {
+          throw new Error(`Failed to fetch hashtag posts: ${postsResponse.status}`);
+        }
+        
+        const postsData = await postsResponse.json() as PostType[];
+        
+        // Sort posts based on current preference
+        const sortedPosts = [...postsData];
         if (sortBy === "trending") {
-          sortedPosts = [...fetchedPosts].sort(
-            (a, b) => (b.likes || 0) - (a.likes || 0)
-          );
+          sortedPosts.sort((a, b) => (b.likes || 0) - (a.likes || 0));
         } else {
-          sortedPosts = [...fetchedPosts].sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          sortedPosts.sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
         }
-
+        
         setPosts(sortedPosts);
+        
+        // Optionally, fetch hashtag metadata if available
+        try {
+          const hashtagResponse = await fetch(`${API_BASE_URL}/hashtags/info/${apiTag}`);
+          if (hashtagResponse.ok) {
+            const hashtagData = await hashtagResponse.json();
+            setHashtagInfo(hashtagData);
+          }
+        } catch (infoError) {
+          console.error("Error fetching hashtag info:", infoError);
+          // Don't set error state, this is optional data
+        }
+        
       } catch (err) {
         console.error("Error fetching hashtag posts:", err);
         setError("Failed to load posts for this hashtag");
@@ -67,8 +80,12 @@ const HashtagPage = () => {
       }
     };
 
-    fetchHashtagPosts();
+    fetchHashtagData();
   }, [apiTag, sortBy]);
+
+  const handleBack = () => {
+    router.back();
+  };
 
   // Loading state
   if (isLoading) {
@@ -88,6 +105,14 @@ const HashtagPage = () => {
       <Navbar />
 
       <div className="max-w-3xl mx-auto p-4 md:p-6">
+        <Button 
+          onClick={handleBack}
+          variant="ghost" 
+          className="mb-4"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+
         {/* Hashtag Header */}
         <Card className="mb-6 shadow-md">
           <CardHeader className="pb-2">
@@ -101,26 +126,25 @@ const HashtagPage = () => {
               <div className="flex items-center text-sm text-muted-foreground">
                 <MessagesSquare className="h-4 w-4 mr-1" />
                 <span>{posts.length} posts</span>
+                {hashtagInfo && (
+                  <span className="ml-4">
+                    <span className="font-medium">{hashtagInfo.useCount}</span> mentions
+                  </span>
+                )}
               </div>
 
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant={sortBy === "recent" ? "default" : "outline"}
-                  onClick={() => setSortBy("recent")}
-                >
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Recent
-                </Button>
-                <Button
-                  size="sm"
-                  variant={sortBy === "trending" ? "default" : "outline"}
-                  onClick={() => setSortBy("trending")}
-                >
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Trending
-                </Button>
-              </div>
+              <Tabs value={sortBy} onValueChange={(value) => setSortBy(value as "recent" | "trending")}>
+                <TabsList>
+                  <TabsTrigger value="recent" className="flex items-center">
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Recent
+                  </TabsTrigger>
+                  <TabsTrigger value="trending" className="flex items-center">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Popular
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </CardContent>
         </Card>
@@ -146,8 +170,34 @@ const HashtagPage = () => {
             <p className="text-muted-foreground">
               Be the first to post with the {displayTag} hashtag!
             </p>
+            <Button 
+              onClick={() => router.push("/feed")}
+              className="mt-4"
+            >
+              Back to Feed
+            </Button>
           </Card>
         )}
+        
+        {/* Related Hashtags - If we had this data */}
+        {/* 
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Related Hashtags</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {relatedHashtags.map(tag => (
+              <Badge 
+                key={tag} 
+                className="cursor-pointer"
+                onClick={() => router.push(`/hashtag/${tag.substring(1)}`)}
+              >
+                {tag}
+              </Badge>
+            ))}
+          </CardContent>
+        </Card>
+        */}
       </div>
     </div>
   );
