@@ -1,8 +1,9 @@
 // pages/community/[id].tsx - Enhanced version
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "@/redux/store";
+import { joinCommunity as joinCommunityAction, leaveCommunity as leaveCommunityAction } from "@/redux/slices/communitySlice";
 import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -49,6 +50,9 @@ const CommunityPage = () => {
   // Get current user from Redux store
   const currentUser = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!currentUser.token;
+  const dispatch = useDispatch<AppDispatch>();
+  // Get joined communities list from Redux
+  const joinedCommunityIds = useSelector((state: RootState) => state.communities.joinedCommunities);
 
   // Fetch community data when ID changes
   useEffect(() => {
@@ -58,6 +62,10 @@ const CommunityPage = () => {
         setError(null);
         
         try {
+          // Check if this community is in our joined list from Redux
+          const isInJoinedList = joinedCommunityIds.includes(id);
+          console.log(`Community ${id} in joined list: ${isInJoinedList}`);
+          
           // Fetch community details
           const communityData = await getCommunityBySlug(id);
           
@@ -66,13 +74,19 @@ const CommunityPage = () => {
           }
           
           setCommunity(communityData);
-          setIsJoined(communityData.isJoined || false);
+          // Use Redux state as source of truth for joined status 
+          setIsJoined(isInJoinedList);
           setIsNotificationsOn(communityData.isNotificationsOn || false);
           setMemberCount(communityData.members || 0);
           
           // Fetch posts for this community
-          const postsData = await getCommunityPosts(id);
-          setPosts(postsData);
+          try {
+            const postsData = await getCommunityPosts(id);
+            setPosts(postsData);
+          } catch (postsErr) {
+            console.warn("Error fetching posts, using empty array:", postsErr);
+            setPosts([]);
+          }
           
         } catch (err) {
           console.error("Error loading community:", err);
@@ -138,7 +152,7 @@ const CommunityPage = () => {
       
       loadCommunity();
     }
-  }, [id]);
+  }, [id, joinedCommunityIds]);
 
   // Handle joining/leaving the community
   const handleToggleMembership = async () => {
@@ -161,9 +175,21 @@ const CommunityPage = () => {
       if (isJoined) {
         // Leave community
         success = await leaveCommunity(community.id);
+        
+        // Update Redux store
+        if (success) {
+          dispatch(leaveCommunityAction(community.id));
+          console.log(`Left community ${community.id}, removed from Redux store`);
+        }
       } else {
         // Join community
         success = await joinCommunity(community.id);
+        
+        // Update Redux store
+        if (success) {
+          dispatch(joinCommunityAction(community.id));
+          console.log(`Joined community ${community.id}, added to Redux store`);
+        }
       }
       
       if (!success) {

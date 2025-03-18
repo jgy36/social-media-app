@@ -683,10 +683,26 @@ export const getCommunityBySlug = async (slug: string): Promise<any> => {
 // Function to get posts from a community
 export const getCommunityPosts = async (slug: string): Promise<PostType[]> => {
   try {
-    const response = await api.get(`${API_BASE_URL}/communities/${slug}/posts`);
+    // First try direct approach using the slug
+    const response = await api.get(`${API_BASE_URL}/posts`, {
+      params: { communityId: slug }
+    });
+    
     return response.data as PostType[];
   } catch (error) {
     console.error(`Error fetching posts from community ${slug}:`, error);
+    
+    // Check if it's an error with response status
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as { response?: { status?: number } };
+      if (axiosError.response?.status === 404 || axiosError.response?.status === 500) {
+        console.log(`No posts found for community ${slug}, returning empty array`);
+        return [];
+      }
+    }
+    
+    // For any other error, return empty array instead of throwing
+    console.log(`Unhandled error fetching posts for community ${slug}, returning empty array`);
     return [];
   }
 };
@@ -745,3 +761,4 @@ export const searchCommunities = async (query: string): Promise<any[]> => {
     return [];
   }
 };
+

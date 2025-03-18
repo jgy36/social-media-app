@@ -417,7 +417,7 @@ const CommunityList = () => {
             YOUR COMMUNITIES
           </h3>
 
-          {Object.entries(joinedStatus).filter(([_, isJoined]) => isJoined)
+          {Object.entries(joinedStatus).filter(([, isJoined]) => isJoined)
             .length > 0 ? (
             <div className="space-y-3">
               {communities
