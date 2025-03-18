@@ -1,8 +1,6 @@
-// Update this file: political-app/src/pages/feed.tsx
-
+// src/pages/feed.tsx
 import { useState } from "react";
 import PostList from "@/components/feed/PostList";
-import Navbar from "@/components/navbar/Navbar";
 import PostForm from "@/components/feed/PostForm";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -10,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PenSquare } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import MainLayout from "@/components/layout/MainLayout";
 
 const FeedPage = () => {
   const [activeTab, setActiveTab] = useState<"for-you" | "following">("for-you");
@@ -25,12 +24,8 @@ const FeedPage = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-background text-foreground">
-        {/* Sticky Navbar */}
-        <Navbar />
-
-        {/* Centered Feed Container */}
-        <div className="max-w-2xl mx-auto p-4 relative">
+      <MainLayout>
+        <div className="max-w-2xl mx-auto relative">
           {/* Add Post Button - Fixed at the bottom right */}
           <Button 
             onClick={() => setIsPostFormOpen(true)}
@@ -67,7 +62,7 @@ const FeedPage = () => {
             </Card>
           </Tabs>
         </div>
-      </div>
+      </MainLayout>
     </ProtectedRoute>
   );
 };

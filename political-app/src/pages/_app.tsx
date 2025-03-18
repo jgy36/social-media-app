@@ -1,3 +1,4 @@
+// src/pages/_app.tsx
 import { Provider } from "react-redux";
 import { SessionProvider } from "next-auth/react";
 import { store } from "@/redux/store";

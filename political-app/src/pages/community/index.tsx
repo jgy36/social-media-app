@@ -1,19 +1,21 @@
 // pages/community/index.tsx
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useSelector } from "react-redux";
-import { RootState } from "@/redux/store";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "@/redux/store";
 import axios from "axios";
-import Navbar from "@/components/navbar/Navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import MainLayout from "@/components/layout/MainLayout";
 import { 
   Users, 
-  Star,
   Search,
-  Plus
+  Plus,
+  TrendingUp
 } from "lucide-react";
+import { joinCommunity, leaveCommunity } from "@/redux/slices/communitySlice";
 
 interface Community {
   id: string;
@@ -23,6 +25,7 @@ interface Community {
   created: string;
   isJoined: boolean;
   color?: string;
+  trending?: boolean;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
@@ -35,7 +38,9 @@ const CommunitiesPage = () => {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const currentUser = useSelector((state: RootState) => state.user);
+  const joinedCommunityIds = useSelector((state: RootState) => state.communities.joinedCommunities);
   const isAuthenticated = !!currentUser.token;
 
   useEffect(() => {
@@ -48,18 +53,92 @@ const CommunitiesPage = () => {
           headers: currentUser.token ? { Authorization: `Bearer ${currentUser.token}` } : {}
         });
         
-        setCommunities(response.data);
-        setFilteredCommunities(response.data);
+        // Mark top 2 communities as trending
+        const communitiesWithTrending = response.data.map((community, index) => ({
+          ...community,
+          trending: index < 2, // Top 2 communities marked as trending
+          // Set isJoined based on Redux state
+          isJoined: joinedCommunityIds.includes(community.id)
+        }));
+        
+        setCommunities(communitiesWithTrending);
+        setFilteredCommunities(communitiesWithTrending);
       } catch (err) {
         console.error("Error fetching communities:", err);
         setError("Failed to load communities");
+        
+        // In development, use mock data if API fails
+        if (process.env.NODE_ENV === 'development') {
+          const MOCK_COMMUNITIES: Community[] = [
+            {
+              id: "democrat",
+              name: "Democrat",
+              description: "Democratic Party discussions",
+              members: 15243,
+              trending: true,
+              created: new Date().toISOString(),
+              isJoined: joinedCommunityIds.includes("democrat"),
+              color: "blue"
+            },
+            {
+              id: "republican",
+              name: "Republican",
+              description: "Republican Party discussions",
+              members: 14876,
+              created: new Date().toISOString(),
+              isJoined: joinedCommunityIds.includes("republican"),
+              color: "red"
+            },
+            {
+              id: "libertarian",
+              name: "Libertarian",
+              description: "Libertarian Party discussions",
+              members: 8932,
+              created: new Date().toISOString(),
+              isJoined: joinedCommunityIds.includes("libertarian"),
+              color: "yellow"
+            },
+            {
+              id: "independent",
+              name: "Independent",
+              description: "Independent voter discussions",
+              members: 10547,
+              trending: true,
+              created: new Date().toISOString(),
+              isJoined: joinedCommunityIds.includes("independent"),
+              color: "purple"
+            },
+            {
+              id: "conservative",
+              name: "Conservative",
+              description: "Conservative viewpoints",
+              members: 12765,
+              created: new Date().toISOString(),
+              isJoined: joinedCommunityIds.includes("conservative"),
+              color: "darkred"
+            },
+            {
+              id: "socialist",
+              name: "Socialist",
+              description: "Socialist perspectives",
+              members: 9876,
+              created: new Date().toISOString(),
+              isJoined: joinedCommunityIds.includes("socialist"),
+              color: "darkred"
+            }
+          ];
+          
+          setCommunities(MOCK_COMMUNITIES);
+          setFilteredCommunities(MOCK_COMMUNITIES);
+          setError(null); // Clear error if using mock data
+        }
       } finally {
         setIsLoading(false);
       }
     };
     
     fetchCommunities();
-  }, [currentUser.token]);
+  }, [currentUser.token, joinedCommunityIds]);
 
   useEffect(() => {
     // Filter communities based on search query
@@ -87,19 +166,7 @@ const CommunitiesPage = () => {
       const community = communities.find(c => c.id === communityId);
       if (!community) return;
       
-      if (community.isJoined) {
-        // Leave community
-        await axios.delete(`${API_BASE_URL}/communities/${communityId}/leave`, {
-          headers: { Authorization: `Bearer ${currentUser.token}` }
-        });
-      } else {
-        // Join community
-        await axios.post(`${API_BASE_URL}/communities/${communityId}/join`, {}, {
-          headers: { Authorization: `Bearer ${currentUser.token}` }
-        });
-      }
-      
-      // Update local state
+      // Update local state optimistically
       setCommunities(prevCommunities => 
         prevCommunities.map(c => {
           if (c.id === communityId) {
@@ -112,8 +179,41 @@ const CommunitiesPage = () => {
           return c;
         })
       );
+      
+      if (community.isJoined) {
+        // Leave community
+        await axios.delete(`${API_BASE_URL}/communities/${communityId}/leave`, {
+          headers: { Authorization: `Bearer ${currentUser.token}` }
+        });
+        
+        // Update Redux state
+        dispatch(leaveCommunity(communityId));
+      } else {
+        // Join community
+        await axios.post(`${API_BASE_URL}/communities/${communityId}/join`, {}, {
+          headers: { Authorization: `Bearer ${currentUser.token}` }
+        });
+        
+        // Update Redux state
+        dispatch(joinCommunity(communityId));
+      }
+      
     } catch (error) {
       console.error("Error toggling community membership:", error);
+      
+      // Revert local state if API call fails
+      setCommunities(prevCommunities => 
+        prevCommunities.map(c => {
+          if (c.id === communityId) {
+            return {
+              ...c,
+              isJoined: !c.isJoined, // Revert back
+              members: !c.isJoined ? c.members - 1 : c.members + 1 // Also revert
+            };
+          }
+          return c;
+        })
+      );
     }
   };
 
@@ -124,27 +224,23 @@ const CommunitiesPage = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Navbar />
+      <MainLayout>
         <div className="max-w-6xl mx-auto p-6 flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
           <p className="ml-4 text-muted-foreground">Loading communities...</p>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Navbar />
+      <MainLayout>
         <div className="max-w-6xl mx-auto p-6">
           <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="text-destructive">Error</CardTitle>
-            </CardHeader>
             <CardContent>
+              <p className="text-destructive font-medium text-lg mb-2">Error</p>
               <p>{error}</p>
               <Button 
                 onClick={() => window.location.reload()} 
@@ -155,14 +251,12 @@ const CommunitiesPage = () => {
             </CardContent>
           </Card>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Navbar />
-      
+    <MainLayout>
       <div className="max-w-6xl mx-auto p-4 md:p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
@@ -189,11 +283,6 @@ const CommunitiesPage = () => {
           </div>
         </div>
         
-        {/* Community Categories - Optional: Implement filtering by category */}
-        <div className="mb-8">
-          {/* You could add category filters here */}
-        </div>
-        
         {/* Communities Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredCommunities.length > 0 ? (
@@ -207,7 +296,14 @@ const CommunitiesPage = () => {
                 <CardContent className="p-6">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h3 className="text-lg font-medium mb-1">{community.name}</h3>
+                      <div className="flex items-center">
+                        <h3 className="text-lg font-medium mb-1 mr-2">{community.name}</h3>
+                        {community.trending && (
+                          <Badge variant="outline" className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300">
+                            <TrendingUp className="h-3 w-3 mr-1" /> Trending
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{community.description}</p>
                       
                       <div className="flex items-center text-xs text-muted-foreground">
@@ -247,48 +343,8 @@ const CommunitiesPage = () => {
             </div>
           )}
         </div>
-        
-        {/* Your Communities Section (only if authenticated) */}
-        {isAuthenticated && (
-          <div className="mt-12">
-            <h2 className="text-2xl font-bold mb-4">Your Communities</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {communities.filter(c => c.isJoined).length > 0 ? (
-                communities
-                  .filter(community => community.isJoined)
-                  .map(community => (
-                    <Card 
-                      key={`joined-${community.id}`} 
-                      className="shadow-sm hover:shadow-md transition-shadow cursor-pointer border-l-4"
-                      style={{ borderLeftColor: community.color || 'var(--primary)' }}
-                      onClick={() => navigateToCommunity(community.id)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h3 className="font-medium">{community.name}</h3>
-                            <div className="flex items-center text-xs text-muted-foreground mt-1">
-                              <Users className="h-3 w-3 mr-1" />
-                              <span>{community.members.toLocaleString()} members</span>
-                            </div>
-                          </div>
-                          
-                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-              ) : (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-muted-foreground">You haven&apos;t joined any communities yet</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+    </MainLayout>
   );
 };
 
