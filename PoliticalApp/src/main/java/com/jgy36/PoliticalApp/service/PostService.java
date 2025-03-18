@@ -5,6 +5,7 @@ import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.CommentRepository;
+import com.jgy36.PoliticalApp.repository.CommunityRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import org.springframework.http.HttpStatus;
@@ -25,12 +26,15 @@ public class PostService {
     private final UserRepository userRepository;
     private final HashtagService hashtagService;
     private final CommentRepository commentRepository;
+    private final CommunityRepository communityRepository;
 
-    public PostService(PostRepository postRepository, UserRepository userRepository, HashtagService hashtagService, CommentRepository commentRepository) {
+
+    public PostService(PostRepository postRepository, UserRepository userRepository, HashtagService hashtagService, CommentRepository commentRepository, CommunityRepository communityRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.hashtagService = hashtagService;
         this.commentRepository = commentRepository;
+        this.communityRepository = communityRepository;
     }
 
     // ✅ Get all posts
@@ -212,7 +216,8 @@ public class PostService {
         return postRepository.save(post);
     }
 
-    public List<Post> getPostsByCommunityId(String communityId) {
-        return postRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
+    public List<Post> getPostsByCommunitySlug(String communitySlug) {
+        return postRepository.findByCommunitySlugOrderByCreatedAtDesc(communitySlug);
     }
+
 }
