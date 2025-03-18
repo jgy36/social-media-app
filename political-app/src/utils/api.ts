@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import type { PostType } from "@/types/post";
-import { getCookie, setCookie, deleteCookie } from "cookies-next";
+import { getCookie, deleteCookie } from "cookies-next";
 import { Politician } from "@/types/politician";
 import { getToken, setToken } from "./tokenUtils";
 
@@ -616,6 +616,132 @@ export const getAllPoliticians = async (): Promise<Politician[]> => {
     return response || [];
   } catch (error) {
     console.error("Error fetching all politicians:", error);
+    return [];
+  }
+};
+// Function to fetch posts by hashtag
+export const getPostsByHashtag = async (hashtag: string): Promise<PostType[]> => {
+  try {
+    // Remove the # prefix if present
+    const tag = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
+    
+    const response = await api.get(`${API_BASE_URL}/hashtags/${tag}`);
+    return response.data as PostType[];
+  } catch (error) {
+    console.error("Error fetching posts by hashtag:", error);
+    return [];
+  }
+};
+
+// Function to fetch hashtag information
+export const getHashtagInfo = async (hashtag: string): Promise<any> => {
+  try {
+    // Remove the # prefix if present
+    const tag = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
+    
+    const response = await api.get(`${API_BASE_URL}/hashtags/info/${tag}`);
+    return response.data as any[];
+  } catch (error) {
+    console.error("Error fetching hashtag info:", error);
+    return null;
+  }
+};
+
+// Function to fetch trending hashtags
+export const getTrendingHashtags = async (limit: number = 10): Promise<any[]> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/hashtags/trending/${limit}`);
+    return response.data as any[];
+  } catch (error) {
+    console.error("Error fetching trending hashtags:", error);
+    return [];
+  }
+};
+
+// Function to fetch all communities
+export const getAllCommunities = async (): Promise<any[]> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/communities`);
+    return response.data as any[];
+  } catch (error) {
+    console.error("Error fetching communities:", error);
+    return [];
+  }
+};
+
+// Function to fetch a community by slug
+export const getCommunityBySlug = async (slug: string): Promise<any> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/communities/${slug}`);
+    return response.data as any[];
+  } catch (error) {
+    console.error(`Error fetching community ${slug}:`, error);
+    return null;
+  }
+};
+
+// Function to get posts from a community
+export const getCommunityPosts = async (slug: string): Promise<PostType[]> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/communities/${slug}/posts`);
+    return response.data as PostType[];
+  } catch (error) {
+    console.error(`Error fetching posts from community ${slug}:`, error);
+    return [];
+  }
+};
+
+// Function to join a community
+export const joinCommunity = async (slug: string): Promise<boolean> => {
+  try {
+    await api.post(`${API_BASE_URL}/communities/${slug}/join`);
+    return true;
+  } catch (error) {
+    console.error(`Error joining community ${slug}:`, error);
+    return false;
+  }
+};
+
+// Function to leave a community
+export const leaveCommunity = async (slug: string): Promise<boolean> => {
+  try {
+    await api.delete(`${API_BASE_URL}/communities/${slug}/leave`);
+    return true;
+  } catch (error) {
+    console.error(`Error leaving community ${slug}:`, error);
+    return false;
+  }
+};
+
+// Function to create a post in a community
+export const createCommunityPost = async (slug: string, content: string): Promise<PostType | null> => {
+  try {
+    const response = await api.post(`${API_BASE_URL}/communities/${slug}/posts`, { content });
+    return response.data as PostType;
+  } catch (error) {
+    console.error(`Error creating post in community ${slug}:`, error);
+    return null;
+  }
+};
+
+// Function to get popular communities
+export const getPopularCommunities = async (): Promise<any[]> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/communities/popular`);
+    return response.data as any[];
+  } catch (error) {
+    console.error("Error fetching popular communities:", error);
+    return [];
+  }
+};
+
+// Function to search communities
+export const searchCommunities = async (query: string): Promise<any[]> => {
+  try {
+    const response = await api.get(`${API_BASE_URL}/communities/search?query=${encodeURIComponent(query)}`);
+    return response.data as any[];
+  } catch (error) {
+    console.error(`Error searching communities with query ${query}:`, error);
     return [];
   }
 };
