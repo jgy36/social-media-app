@@ -84,6 +84,22 @@ public class PostController {
         return ResponseEntity.ok(postService.createPost(content));
     }
 
+    @GetMapping
+    public ResponseEntity<List<PostDTO>> getPosts(
+            @RequestParam(required = false) String communityId) {
+        if (communityId != null) {
+            // Get posts for specific community
+            List<Post> posts = postService.getPostsByCommunityId(communityId);
+            List<PostDTO> postDTOs = posts.stream()
+                    .map(post -> new PostDTO(post))
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(postDTOs);
+        } else {
+            // Get all posts if no communityId is provided
+            return getAllPosts();
+        }
+    }
+
     // ✅ NEW: Create a post in a community
     @PostMapping("/community")
     @PreAuthorize("isAuthenticated()") // Requires authentication

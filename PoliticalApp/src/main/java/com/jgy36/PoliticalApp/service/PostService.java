@@ -211,4 +211,8 @@ public class PostService {
 
         return postRepository.save(post);
     }
+
+    public List<Post> getPostsByCommunityId(String communityId) {
+        return postRepository.findByCommunityIdOrderByCreatedAtDesc(communityId);
+    }
 }
