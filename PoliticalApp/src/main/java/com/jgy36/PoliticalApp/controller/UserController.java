@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
@@ -190,5 +191,54 @@ public class UserController {
         response.put("followersCount", followersCount);
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Search for users by username
+     *
+     * @param query The search query to match against usernames
+     * @return List of users matching the search query
+     */
+    @GetMapping("/search")
+    public ResponseEntity<List<UserProfileDTO>> searchUsers(@RequestParam String query) {
+        // Find users with username containing the query (case insensitive)
+        List<User> users = userRepository.findByUsernameContainingIgnoreCase(query);
+
+        // Convert to UserProfileDTO objects
+        List<UserProfileDTO> userDTOs = users.stream()
+                .map(user -> {
+                    UserProfileDTO dto = new UserProfileDTO();
+                    dto.setId(user.getId());
+                    dto.setUsername(user.getUsername());
+                    dto.setJoinDate(user.getCreatedAt().toString());
+
+                    // Get follower count
+                    int followersCount = followService.getFollowerCount(user.getId());
+                    int followingCount = followService.getFollowingCount(user.getId());
+                    int postsCount = followService.getPostCount(user.getId());
+
+                    dto.setFollowersCount(followersCount);
+                    dto.setFollowingCount(followingCount);
+                    dto.setPostsCount(postsCount);
+
+                    // Check if current user is following this user
+                    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                    boolean isFollowing = false;
+
+                    if (authentication != null && !authentication.getName().equals("anonymousUser")) {
+                        Optional<User> currentUserOpt = userRepository.findByEmail(authentication.getName());
+                        if (currentUserOpt.isPresent()) {
+                            User currentUser = currentUserOpt.get();
+                            isFollowing = currentUser.getFollowing().contains(user);
+                        }
+                    }
+
+                    dto.setIsFollowing(isFollowing);
+
+                    return dto;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(userDTOs);
     }
 }

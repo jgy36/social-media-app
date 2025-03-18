@@ -2,17 +2,24 @@ package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.entity.Hashtag;
 import com.jgy36.PoliticalApp.entity.Post;
+import com.jgy36.PoliticalApp.repository.HashtagRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 public class HashtagService {
+
+    @Autowired
+    private HashtagRepository hashtagRepository;
 
     @Autowired
     private PostRepository postRepository;
@@ -92,28 +99,7 @@ public class HashtagService {
      * @return List of all hashtags
      */
     public List<Hashtag> getAllHashtags() {
-        // Get all posts
-        List<Post> allPosts = postRepository.findAll();
-
-        // Extract all hashtags from all posts
-        Map<String, Integer> hashtagCounts = new HashMap<>();
-
-        for (Post post : allPosts) {
-            if (post.getContent() != null) {
-                Set<String> hashtags = extractHashtags(post.getContent());
-                for (String hashtag : hashtags) {
-                    hashtagCounts.put(hashtag, hashtagCounts.getOrDefault(hashtag, 0) + 1);
-                }
-            }
-        }
-
-        // Convert to list of Hashtag entities and sort alphabetically
-        List<Hashtag> hashtagList = hashtagCounts.entrySet().stream()
-                .map(entry -> new Hashtag(entry.getKey(), entry.getValue()))
-                .sorted(Comparator.comparing(Hashtag::getTag))
-                .collect(Collectors.toList());
-
-        return hashtagList;
+        return hashtagRepository.findAll();
     }
 
     /**
@@ -133,26 +119,8 @@ public class HashtagService {
      * @return List of trending hashtags with counts
      */
     public List<Hashtag> getTrendingHashtags(int limit) {
-        // Get all posts
-        List<Post> allPosts = postRepository.findAll();
-
-        // Extract and count all hashtags
-        Map<String, Integer> hashtagCounts = new HashMap<>();
-
-        for (Post post : allPosts) {
-            if (post.getContent() != null) {
-                Set<String> hashtags = extractHashtags(post.getContent());
-                for (String hashtag : hashtags) {
-                    hashtagCounts.put(hashtag, hashtagCounts.getOrDefault(hashtag, 0) + 1);
-                }
-            }
-        }
-
-        // Convert to list of Hashtag entities
-        return hashtagCounts.entrySet().stream()
-                .sorted(Map.Entry.<String, Integer>comparingByValue().reversed())
+        return hashtagRepository.findTrendingHashtags().stream()
                 .limit(limit)
-                .map(entry -> new Hashtag(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toList());
     }
 
@@ -167,14 +135,26 @@ public class HashtagService {
             return Collections.emptyList();
         }
 
-        String searchTerm = query.toLowerCase();
+        // Process the query string - make it effectively final by creating a new variable
+        String cleanQuery = query.toLowerCase();
+        if (cleanQuery.startsWith("#")) {
+            cleanQuery = cleanQuery.substring(1);
+        }
 
-        // Get all hashtags
-        List<Hashtag> allHashtags = getAllHashtags();
+        // Use the final variable in the lambda expressions
+        final String finalSearchTerm = cleanQuery;
 
-        // Filter by query
-        return allHashtags.stream()
-                .filter(hashtag -> hashtag.getTag().toLowerCase().contains(searchTerm))
-                .collect(Collectors.toList());
+        // First try to use the repository method if it exists
+        try {
+            return hashtagRepository.findByTagContainingIgnoreCase(finalSearchTerm);
+        } catch (Exception e) {
+            // Fallback method if the repository method is not available
+            System.out.println("Warning: Using fallback hashtag search method. Please implement findByTagContainingIgnoreCase in HashtagRepository.");
+
+            // Get all hashtags and filter manually
+            return hashtagRepository.findAll().stream()
+                    .filter(hashtag -> hashtag.getTag().toLowerCase().contains(finalSearchTerm))
+                    .collect(Collectors.toList());
+        }
     }
 }

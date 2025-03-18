@@ -18,7 +18,7 @@ public interface HashtagRepository extends JpaRepository<Hashtag, Long> {
     // Check if hashtag exists
     boolean existsByTag(String tag);
 
-    // Find hashtags by partial name match
+    // Find hashtags by partial name match (case insensitive)
     List<Hashtag> findByTagContainingIgnoreCase(String partialTag);
 
     // Find trending hashtags (by use count)

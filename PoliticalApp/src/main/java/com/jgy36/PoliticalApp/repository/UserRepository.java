@@ -36,5 +36,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // 🔹 Use `author` instead of `user`
     int countPosts(Long userId);
 
-
+    List<User> findByUsernameContainingIgnoreCase(String query);
 }
