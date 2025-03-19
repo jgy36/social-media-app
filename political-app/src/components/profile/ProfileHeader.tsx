@@ -1,15 +1,17 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import axios from "axios";
-import { Card } from "@/components/ui/card"; // ✅ ShadCN Card
-import SettingsDropdown from "@/components/profile/SettingsDropdown";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/router";
+import { Settings } from "lucide-react";
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
   const token = useSelector((state: RootState) => state.user.token);
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // ✅ Correct backend URL
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const router = useRouter();
 
   const [stats, setStats] = useState({
     followersCount: 0,
@@ -17,11 +19,11 @@ const ProfileHeader = () => {
     postCount: 0,
   });
 
-  const [loading, setLoading] = useState(true); // ✅ Add loading state
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user?.id && token && API_BASE_URL) {
-      setLoading(true); // ✅ Show loading while fetching
+      setLoading(true);
       axios
         .get(`${API_BASE_URL}/follow/stats/${user.id}`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -34,7 +36,7 @@ const ProfileHeader = () => {
               postCount: number;
             }
           );
-          setLoading(false); // ✅ Hide loading after fetching
+          setLoading(false);
         })
         .catch((error) => {
           console.error("Error fetching stats:", error);
@@ -43,10 +45,12 @@ const ProfileHeader = () => {
     }
   }, [user?.id, token, API_BASE_URL]);
 
+  const handleEditProfile = () => {
+    router.push('/settings');
+  };
+
   return (
     <Card className="p-6 shadow-lg bg-background rounded-xl">
-      {" "}
-      {/* ✅ ShadCN Card */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-foreground">
@@ -72,7 +76,14 @@ const ProfileHeader = () => {
             </span>
           </div>
         </div>
-        <SettingsDropdown /> {/* ✅ Only one settings dropdown */}
+        <Button 
+          variant="outline" 
+          onClick={handleEditProfile}
+          className="flex items-center gap-2"
+        >
+          <Settings className="h-4 w-4" />
+          Edit Profile
+        </Button>
       </div>
     </Card>
   );

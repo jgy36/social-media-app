@@ -240,5 +240,76 @@ const userSlice = createSlice({
   },
 });
 
+// Add this new thunk to update the username
+export const updateUserProfile = createAsyncThunk(
+  "user/updateProfile",
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      if (!state.user.token) {
+        throw new Error("Not authenticated");
+      }
+      
+      // Get the latest user profile from the API
+      const response = await fetch("http://localhost:8080/api/users/me", {
+        method: "GET",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${state.user.token}`
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh user profile");
+      }
+
+      const userData = await response.json();
+      
+      // Update localStorage and cookies with newest data
+      if (typeof window !== "undefined") {
+        localStorage.setItem("username", userData.username || "User");
+        
+        // Also set cookies as fallback
+        setCookie("username", userData.username || "User", { path: "/" });
+      }
+
+      return {
+        id: userData.id || state.user.id,
+        username: userData.username || "Unknown",
+        token: state.user.token, // Keep existing token
+      };
+    } catch (error) {
+      console.error("Profile refresh error:", error);
+      return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
+// Then in the extraReducers section, add these cases:
+
+builder.addCase(updateUserProfile.pending, (state) => {
+  state.loading = true;
+  state.error = null;
+});
+
+builder.addCase(
+  updateUserProfile.fulfilled,
+  (
+    state,
+    action: PayloadAction<{ id: number; token: string; username: string }>
+  ) => {
+    state.id = action.payload.id;
+    state.username = action.payload.username;
+    // Don't change the token
+    state.loading = false;
+    state.error = null;
+  }
+);
+
+builder.addCase(updateUserProfile.rejected, (state, action) => {
+  state.loading = false;
+  state.error = action.payload as string || "Failed to update profile";
+});
+
 export const { logoutUser } = userSlice.actions;
 export default userSlice.reducer;
