@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import type { PostType } from "@/types/post";
-import { getCookie, deleteCookie } from "cookies-next";
+import { getCookie, setCookie, deleteCookie } from "cookies-next";
 import { Politician } from "@/types/politician";
 import { getToken, setToken } from "./tokenUtils";
 
@@ -926,5 +926,90 @@ export const getUnifiedSearchResults = async (
   } catch (error) {
     console.error(`Error in unified search for "${query}":`, error);
     return [];
+  }
+};
+
+export const updateUsername = async (newUsername: string): Promise<{success: boolean, message?: string}> => {
+  try {
+    // Validate the username format on client-side before sending request
+    const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
+    if (!usernameRegex.test(newUsername)) {
+      return { 
+        success: false, 
+        message: "Username must be 3-20 characters and can only contain letters, numbers, underscores, and hyphens."
+      };
+    }
+    
+    const token = getToken();
+    if (!token) {
+      return { success: false, message: "Authentication required" };
+    }
+    
+    const response = await api.put(`${API_BASE_URL}/users/update-username`, { username: newUsername }, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    // If successful, also update the username in localStorage for better UX
+    if (response.status === 200) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('username', newUsername);
+        // Also try to update in cookies as fallback
+        try {
+          setCookie('username', newUsername, { path: '/' });
+        } catch (e) {
+          console.warn('Error updating username cookie:', e);
+        }
+      }
+      
+      return { success: true };
+    }
+    
+    return { success: false, message: response.data?.message || 'Failed to update username' };
+  } catch (error: any) {
+    console.error('Error updating username:', error);
+    return { 
+      success: false, 
+      message: error.response?.data?.message || 'An error occurred while updating username'
+    };
+  }
+};
+
+/**
+ * Refresh the current user's profile data
+ * Used after making changes to ensure all components show latest data
+ */
+export const refreshUserProfile = async (): Promise<boolean> => {
+  try {
+    const token = getToken();
+    if (!token) {
+      return false;
+    }
+    
+    // Fetch fresh user data
+    const response = await api.get(`${API_BASE_URL}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (response.status === 200 && response.data) {
+      // Update local storage with updated data
+      if (typeof window !== 'undefined') {
+        if (response.data.username) {
+          localStorage.setItem('username', response.data.username);
+          setCookie('username', response.data.username, { path: '/' });
+        }
+        
+        // Dispatch the updateUserProfile action to Redux store
+        // We need to access the store directly or use another approach
+        // The simplest option is to use a custom event 
+        window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: response.data }));
+        
+        return true;
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error refreshing user profile:', error);
+    return false;
   }
 };
