@@ -4,11 +4,116 @@ import { useEffect, useState } from "react";
 import Navbar from "@/components/navbar/Navbar";
 import SearchComponent from "@/components/search/SearchComponent";
 import SearchResultsHandler, { SearchResult } from "@/components/search/SearchResultsHandler";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUnifiedSearchResults } from "@/utils/api";
 import { User, Users, Hash, FileText, SearchIcon } from "lucide-react";
 
+// Stable Tab Header Component that won't re-render when content changes
+function SearchTabs({ 
+  activeTab, 
+  counts, 
+  onTabChange
+}: { 
+  activeTab: string; 
+  counts: { all: number; user: number; community: number; hashtag: number; post: number; };
+  onTabChange: (tab: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-5 gap-1 bg-muted rounded-lg p-1">
+      <button
+        onClick={() => onTabChange("all")}
+        className={`flex items-center justify-center rounded-md py-1.5 text-sm font-medium ${
+          activeTab === "all"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-background/50"
+        }`}
+      >
+        <SearchIcon className="h-4 w-4 mr-2" />
+        All ({counts.all})
+      </button>
+      <button
+        onClick={() => onTabChange("user")}
+        className={`flex items-center justify-center rounded-md py-1.5 text-sm font-medium ${
+          activeTab === "user"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-background/50"
+        }`}
+      >
+        <User className="h-4 w-4 mr-2" />
+        Users ({counts.user})
+      </button>
+      <button
+        onClick={() => onTabChange("community")}
+        className={`flex items-center justify-center rounded-md py-1.5 text-sm font-medium ${
+          activeTab === "community"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-background/50"
+        }`}
+      >
+        <Users className="h-4 w-4 mr-2" />
+        Communities ({counts.community})
+      </button>
+      <button
+        onClick={() => onTabChange("hashtag")}
+        className={`flex items-center justify-center rounded-md py-1.5 text-sm font-medium ${
+          activeTab === "hashtag"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-background/50"
+        }`}
+      >
+        <Hash className="h-4 w-4 mr-2" />
+        Hashtags ({counts.hashtag})
+      </button>
+      <button
+        onClick={() => onTabChange("post")}
+        className={`flex items-center justify-center rounded-md py-1.5 text-sm font-medium ${
+          activeTab === "post"
+            ? "bg-background text-foreground shadow-sm"
+            : "text-muted-foreground hover:bg-background/50"
+        }`}
+      >
+        <FileText className="h-4 w-4 mr-2" />
+        Posts ({counts.post})
+      </button>
+    </div>
+  );
+}
+
+// Separate component for the tab content
+function TabContent({ 
+  activeTab, 
+  results, 
+  loading, 
+  query 
+}: { 
+  activeTab: string; 
+  results: SearchResult[];
+  loading: boolean;
+  query: string;
+}) {
+  // Filter results based on active tab
+  const filteredResults = activeTab === "all" 
+    ? results 
+    : results.filter(result => result.type === activeTab);
+
+  return (
+    <div className="mt-4">
+      {loading ? (
+        <div className="flex justify-center items-center h-40">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      ) : (
+        <SearchResultsHandler
+          results={filteredResults}
+          loading={false}
+          query={query}
+        />
+      )}
+    </div>
+  );
+}
+
+// Main search page component
 const SearchPage = () => {
   const router = useRouter();
   const { q, type } = router.query;
@@ -16,9 +121,18 @@ const SearchPage = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  
+  // Calculate and store counts separately to ensure stability
+  const [tabCounts, setTabCounts] = useState({
+    all: 0,
+    user: 0,
+    community: 0,
+    hashtag: 0,
+    post: 0
+  });
 
+  // Set active tab based on URL parameter
   useEffect(() => {
-    // Set active tab based on type parameter
     if (type && typeof type === "string") {
       setActiveTab(type);
     } else {
@@ -26,29 +140,25 @@ const SearchPage = () => {
     }
   }, [type]);
 
+  // Perform search when query changes
   useEffect(() => {
     if (q && typeof q === "string") {
       setSearchQuery(q);
-      performSearch(q, type as string | undefined);
+      performSearch(q);
     } else {
       setLoading(false);
       setResults([]);
+      setTabCounts({ all: 0, user: 0, community: 0, hashtag: 0, post: 0 });
     }
-  }, [q, type]);
+  }, [q]);
 
-  const performSearch = async (query: string, typeFilter?: string) => {
+  // Search function
+  const performSearch = async (query: string) => {
     setLoading(true);
 
     try {
-      // Convert type parameter to proper type for API call
-      let apiType: 'user' | 'community' | 'hashtag' | undefined;
-      
-      if (typeFilter === "user" || typeFilter === "community" || typeFilter === "hashtag") {
-        apiType = typeFilter;
-      }
-
-      // Get results from API
-      const searchResults = await getUnifiedSearchResults(query, apiType);
+      // Get results from API - use no type filter to get all results
+      const searchResults = await getUnifiedSearchResults(query);
       
       // Transform results to match the SearchResult interface
       const transformedResults: SearchResult[] = searchResults.map(result => {
@@ -97,24 +207,40 @@ const SearchPage = () => {
         }
       });
 
+      // Update results
       setResults(transformedResults);
+      
+      // Calculate counts once and store them
+      const counts = {
+        all: transformedResults.length,
+        user: transformedResults.filter(r => r.type === "user").length,
+        community: transformedResults.filter(r => r.type === "community").length,
+        hashtag: transformedResults.filter(r => r.type === "hashtag").length,
+        post: transformedResults.filter(r => r.type === "post").length
+      };
+      
+      setTabCounts(counts);
+      console.log("Tab counts set:", counts);
     } catch (error) {
       console.error("Error performing search:", error);
       setResults([]);
+      setTabCounts({ all: 0, user: 0, community: 0, hashtag: 0, post: 0 });
     } finally {
       setLoading(false);
     }
   };
 
-  const getFilteredResults = () => {
-    if (activeTab === "all") {
-      return results;
-    }
-    return results.filter((result) => result.type === activeTab);
-  };
-
-  const getResultsCount = (type: string) => {
-    return results.filter((r) => r.type === type).length;
+  // Handle tab change
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Update URL to include type filter
+    router.push({
+      pathname: '/search',
+      query: { 
+        q: searchQuery,
+        ...(tab !== 'all' ? { type: tab } : {})
+      }
+    }, undefined, { shallow: true });
   };
 
   return (
@@ -130,7 +256,7 @@ const SearchPage = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <SearchComponent />
+            <SearchComponent initialQuery={searchQuery} />
 
             {searchQuery && (
               <p className="text-sm text-muted-foreground mt-2">
@@ -141,84 +267,22 @@ const SearchPage = () => {
           </CardContent>
         </Card>
 
-        {loading ? (
-          <div className="flex justify-center items-center h-40">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        ) : (
-          <>
-            {results.length > 0 ? (
-              <div className="space-y-6">
-                <Tabs 
-                  value={activeTab} 
-                  onValueChange={(tab) => {
-                    setActiveTab(tab);
-                    // Update URL to include type filter
-                    router.push({
-                      pathname: '/search',
-                      query: { 
-                        q: searchQuery,
-                        ...(tab !== 'all' ? { type: tab } : {})
-                      }
-                    }, undefined, { shallow: true });
-                  }}
-                >
-                  <TabsList className="grid grid-cols-5 w-full">
-                    <TabsTrigger
-                      value="all"
-                      className="flex items-center justify-center"
-                    >
-                      <SearchIcon className="h-4 w-4 mr-2" />
-                      All ({results.length})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="user"
-                      className="flex items-center justify-center"
-                    >
-                      <User className="h-4 w-4 mr-2" />
-                      Users ({getResultsCount("user")})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="community"
-                      className="flex items-center justify-center"
-                    >
-                      <Users className="h-4 w-4 mr-2" />
-                      Communities ({getResultsCount("community")})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="hashtag"
-                      className="flex items-center justify-center"
-                    >
-                      <Hash className="h-4 w-4 mr-2" />
-                      Hashtags ({getResultsCount("hashtag")})
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="post"
-                      className="flex items-center justify-center"
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Posts ({getResultsCount("post")})
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value={activeTab} className="mt-4">
-                    <SearchResultsHandler
-                      results={getFilteredResults()}
-                      loading={false}
-                      query={searchQuery}
-                    />
-                  </TabsContent>
-                </Tabs>
-              </div>
-            ) : (
-              <SearchResultsHandler
-                results={[]}
-                loading={false}
-                query={searchQuery}
-              />
-            )}
-          </>
-        )}
+        <div className="space-y-6">
+          {/* Tabs header (separated component) */}
+          <SearchTabs 
+            activeTab={activeTab} 
+            counts={tabCounts}
+            onTabChange={handleTabChange}
+          />
+          
+          {/* Tab content (separated component) */}
+          <TabContent
+            activeTab={activeTab}
+            results={results}
+            loading={loading}
+            query={searchQuery}
+          />
+        </div>
       </main>
     </div>
   );

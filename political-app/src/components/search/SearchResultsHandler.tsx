@@ -1,9 +1,9 @@
 // src/components/search/SearchResultsHandler.tsx
 import React from "react";
-import { useRouter } from "next/router";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { User, Users, Hash, FileText, ExternalLink, Search } from "lucide-react";
+import { User, Users, Hash, FileText, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/router";
 
 // Define types for search results
 export interface SearchResult {
@@ -30,6 +30,8 @@ const SearchResultsHandler: React.FC<SearchResultsHandlerProps> = ({
   loading,
   query,
 }) => {
+  const router = useRouter();
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-8">
@@ -47,9 +49,18 @@ const SearchResultsHandler: React.FC<SearchResultsHandlerProps> = ({
         <h3 className="text-lg font-medium mb-2">No results found</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto">
           {query
-            ? `We couldn't find any results for "${query}". Try different keywords or check your spelling.`
+            ? `We couldn't find any results for "${query}" in this category. Try a different category or check your spelling.`
             : "Enter a search term to find users, communities, hashtags, and posts."}
         </p>
+        {query && (
+          <Button 
+            onClick={() => router.push(`/search?q=${encodeURIComponent(query)}`)}
+            variant="outline" 
+            className="mt-4"
+          >
+            View all results
+          </Button>
+        )}
       </div>
     );
   }
@@ -158,9 +169,9 @@ const ResultCard: React.FC<{ result: SearchResult }> = ({ result }) => {
           <div className="flex-1">
             <div className="flex justify-between items-start">
               <h3 className="font-medium line-clamp-1">{result.name}</h3>
-              <Badge variant="outline" className={`text-xs ${getTypeBadge()}`}>
+              <div className={`text-xs px-2 py-0.5 rounded ${getTypeBadge()}`}>
                 {result.type}
-              </Badge>
+              </div>
             </div>
 
             {result.description && (
@@ -181,10 +192,6 @@ const ResultCard: React.FC<{ result: SearchResult }> = ({ result }) => {
                   <span>{result.timestamp}</span>
                 </div>
               )}
-
-              <div className="ml-auto flex items-center">
-                <ExternalLink className="h-3 w-3" />
-              </div>
             </div>
           </div>
         </div>
