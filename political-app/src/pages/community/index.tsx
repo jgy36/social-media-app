@@ -1,4 +1,4 @@
-// pages/community/index.tsx
+// pages/community/index.tsx - Complete updated page
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSelector, useDispatch } from "react-redux";
@@ -63,73 +63,8 @@ const CommunitiesPage = () => {
         setFilteredCommunities(communitiesWithTrending);
       } catch (err) {
         console.error("Error fetching communities:", err);
-        setError("Failed to load communities");
-        
-        // In development, use mock data if API fails
-        if (process.env.NODE_ENV === 'development') {
-          const MOCK_COMMUNITIES: Community[] = [
-            {
-              id: "democrat",
-              name: "Democrat",
-              description: "Democratic Party discussions",
-              members: 15243,
-              trending: true,
-              created: new Date().toISOString(),
-              isJoined: joinedCommunityIds.includes("democrat"),
-              color: "blue"
-            },
-            {
-              id: "republican",
-              name: "Republican",
-              description: "Republican Party discussions",
-              members: 14876,
-              created: new Date().toISOString(),
-              isJoined: joinedCommunityIds.includes("republican"),
-              color: "red"
-            },
-            {
-              id: "libertarian",
-              name: "Libertarian",
-              description: "Libertarian Party discussions",
-              members: 8932,
-              created: new Date().toISOString(),
-              isJoined: joinedCommunityIds.includes("libertarian"),
-              color: "yellow"
-            },
-            {
-              id: "independent",
-              name: "Independent",
-              description: "Independent voter discussions",
-              members: 10547,
-              trending: true,
-              created: new Date().toISOString(),
-              isJoined: joinedCommunityIds.includes("independent"),
-              color: "purple"
-            },
-            {
-              id: "conservative",
-              name: "Conservative",
-              description: "Conservative viewpoints",
-              members: 12765,
-              created: new Date().toISOString(),
-              isJoined: joinedCommunityIds.includes("conservative"),
-              color: "darkred"
-            },
-            {
-              id: "socialist",
-              name: "Socialist",
-              description: "Socialist perspectives",
-              members: 9876,
-              created: new Date().toISOString(),
-              isJoined: joinedCommunityIds.includes("socialist"),
-              color: "darkred"
-            }
-          ];
-          
-          setCommunities(MOCK_COMMUNITIES);
-          setFilteredCommunities(MOCK_COMMUNITIES);
-          setError(null); // Clear error if using mock data
-        }
+        setError("Failed to load communities. Please try again later.");
+        // No mock data fallback - we'll use real data from the backend
       } finally {
         setIsLoading(false);
       }
@@ -153,6 +88,20 @@ const CommunitiesPage = () => {
       
       // Update local state optimistically
       setCommunities(prevCommunities => 
+        prevCommunities.map(c => {
+          if (c.id === communityId) {
+            return {
+              ...c,
+              isJoined: !c.isJoined,
+              members: c.isJoined ? c.members - 1 : c.members + 1
+            };
+          }
+          return c;
+        })
+      );
+      
+      // Also update filtered communities
+      setFilteredCommunities(prevCommunities => 
         prevCommunities.map(c => {
           if (c.id === communityId) {
             return {
@@ -199,12 +148,29 @@ const CommunitiesPage = () => {
           return c;
         })
       );
+      
+      // Also revert filtered communities
+      setFilteredCommunities(prevCommunities => 
+        prevCommunities.map(c => {
+          if (c.id === communityId) {
+            return {
+              ...c,
+              isJoined: !c.isJoined, // Revert back
+              members: !c.isJoined ? c.members - 1 : c.members + 1 // Also revert
+            };
+          }
+          return c;
+        })
+      );
     }
   };
 
   const navigateToCommunity = (communityId: string) => {
     router.push(`/community/${communityId}`);
   };
+
+  // We don't need a separate handleSearch function since we're using
+  // the SearchComponent which handles this functionality internally
 
   // Loading state
   if (isLoading) {
@@ -249,9 +215,10 @@ const CommunitiesPage = () => {
             <p className="text-muted-foreground">Join discussions with like-minded individuals</p>
           </div>
           
-          {/* Search and Create buttons */}
+          {/* Search and Create buttons - only render SearchComponent once */}
           <div className="flex gap-4 w-full md:w-auto">
-            <div className="relative flex-1 md:flex-initial">
+            <div className="flex-1 md:flex-initial">
+              {/* Use the improved SearchComponent */}
               <SearchComponent />
             </div>
             
@@ -308,7 +275,7 @@ const CommunitiesPage = () => {
               <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No Communities Found</h3>
               <p className="text-muted-foreground">
-                There are no communities available right now
+                There are no communities matching your search
               </p>
               <Button 
                 onClick={() => router.push("/community/create")}
