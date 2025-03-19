@@ -3,15 +3,14 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import axios from "axios";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { useRouter } from "next/router";
-import { Settings } from "lucide-react";
 import SettingsDropdown from "./SettingsDropdown";
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
   const token = useSelector((state: RootState) => state.user.token);
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const router = useRouter();
 
   const [stats, setStats] = useState({
@@ -47,10 +46,6 @@ const ProfileHeader = () => {
     }
   }, [user?.id, token, API_BASE_URL]);
 
-  const handleEditProfile = () => {
-    router.push('/settings');
-  };
-
   return (
     <Card className="p-6 shadow-lg bg-background rounded-xl">
       <div className="flex justify-between items-center">
@@ -80,17 +75,7 @@ const ProfileHeader = () => {
         </div>
         
         <div className="flex items-center gap-2">
-          {/* Edit Profile Button */}
-          <Button 
-            variant="outline" 
-            onClick={handleEditProfile}
-            className="flex items-center gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Edit Profile
-          </Button>
-
-          {/* Settings Dropdown Menu */}
+          {/* Only keep the Settings Dropdown Menu */}
           <SettingsDropdown />
         </div>
       </div>

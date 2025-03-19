@@ -48,11 +48,6 @@ const SettingsDropdown = ({ variant = 'icon' }: SettingsDropdownProps) => {
     setTheme(theme === "dark" ? "light" : "dark");
   };
 
-  // Navigate to account settings page
-  const goToAccountSettings = () => {
-    router.push("/settings");
-  };
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -73,12 +68,12 @@ const SettingsDropdown = ({ variant = 'icon' }: SettingsDropdownProps) => {
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         
         <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => router.push("/profile")}>
+          <DropdownMenuItem onClick={() => router.push("/settings?tab=profile")}>
             <User className="h-4 w-4 mr-2" /> 
-            Profile
+            Edit Profile
           </DropdownMenuItem>
           
-          <DropdownMenuItem onClick={goToAccountSettings}>
+          <DropdownMenuItem onClick={() => router.push("/settings?tab=account")}>
             <UserCog className="h-4 w-4 mr-2" /> 
             Account Settings
           </DropdownMenuItem>
