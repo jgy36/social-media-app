@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.controller;
 
+import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.entity.Hashtag;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.service.HashtagService;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/hashtags")
@@ -35,9 +37,28 @@ public class HashtagController {
      * Get posts containing a specific hashtag
      */
     @GetMapping("/{hashtag}")
-    public ResponseEntity<List<Post>> getPostsByHashtag(@PathVariable String hashtag) {
-        List<Post> posts = postService.getPostsByTag(hashtag);
-        return ResponseEntity.ok(posts);
+    public ResponseEntity<List<PostDTO>> getPostsByHashtag(@PathVariable String hashtag) {
+        try {
+            // Log the request
+            System.out.println("Fetching posts for hashtag: " + hashtag);
+
+            // Get posts by tag
+            List<Post> posts = postService.getPostsByTag(hashtag);
+
+            // Convert to DTOs to avoid circular references
+            List<PostDTO> postDTOs = posts.stream()
+                    .map(PostDTO::new)
+                    .collect(Collectors.toList());
+
+            System.out.println("Found " + postDTOs.size() + " posts for hashtag: " + hashtag);
+
+            return ResponseEntity.ok(postDTOs);
+        } catch (Exception e) {
+            System.err.println("Error fetching posts for hashtag: " + hashtag);
+            e.printStackTrace();
+            // Return empty list instead of error
+            return ResponseEntity.ok(List.of());
+        }
     }
 
     /**

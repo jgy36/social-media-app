@@ -83,7 +83,7 @@ public class PostController {
     // ✅ Create a new post
     @PostMapping
     @PreAuthorize("isAuthenticated()") // Requires authentication
-    public ResponseEntity<Post> createPost(@RequestBody String content) {
+    public ResponseEntity<PostDTO> createPost(@RequestBody String content) {
         System.out.println("📝 Creating new post with content: " + content);
 
         // The PostService.createPost method should extract and save hashtags
@@ -99,7 +99,9 @@ public class PostController {
                             .collect(Collectors.joining(", ")));
         }
 
-        return ResponseEntity.ok(createdPost);
+        // Convert to DTO before returning
+        PostDTO postDTO = new PostDTO(createdPost);
+        return ResponseEntity.ok(postDTO);
     }
 
     @GetMapping("/extract-hashtags")
@@ -135,10 +137,10 @@ public class PostController {
     // ✅ NEW: Create a post in a community
     @PostMapping("/community")
     @PreAuthorize("isAuthenticated()") // Requires authentication
-    public ResponseEntity<Post> createCommunityPost(@RequestBody CommunityPostRequest request) {
+    public ResponseEntity<PostDTO> createCommunityPost(@RequestBody CommunityPostRequest request) {
         try {
             Post post = postService.createCommunityPost(request.getCommunityId(), request.getContent());
-            return ResponseEntity.ok(post);
+            return ResponseEntity.ok(new PostDTO(post));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(null);
         }
@@ -192,7 +194,11 @@ public class PostController {
 
     // ✅ Get all saved posts for a user
     @GetMapping("/saved")
-    public ResponseEntity<List<Post>> getSavedPosts(Authentication auth) {
-        return ResponseEntity.ok(postService.getSavedPosts(auth.getName()));
+    public ResponseEntity<List<PostDTO>> getSavedPosts(Authentication auth) {
+        List<Post> posts = postService.getSavedPosts(auth.getName());
+        List<PostDTO> postDTOs = posts.stream()
+                .map(post -> new PostDTO(post))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(postDTOs);
     }
 }

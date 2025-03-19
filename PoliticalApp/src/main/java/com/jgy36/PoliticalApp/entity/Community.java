@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -31,6 +32,7 @@ public class Community {
 
     @ManyToOne
     @JoinColumn(name = "creator_id")
+    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts"})
     private User creator;
 
     @ManyToMany
@@ -39,9 +41,11 @@ public class Community {
             joinColumns = @JoinColumn(name = "community_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts"})
     private Set<User> members = new HashSet<>();
 
     @OneToMany(mappedBy = "community", cascade = CascadeType.ALL)
+    @JsonIgnoreProperties("community")
     private Set<Post> posts = new HashSet<>();
 
     private String color;
@@ -58,6 +62,7 @@ public class Community {
             joinColumns = @JoinColumn(name = "community_id"),
             inverseJoinColumns = @JoinColumn(name = "user_id")
     )
+    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts"})
     private Set<User> moderators = new HashSet<>();
 
     // Default constructor required by JPA

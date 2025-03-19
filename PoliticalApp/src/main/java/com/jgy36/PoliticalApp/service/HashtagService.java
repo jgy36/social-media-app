@@ -5,8 +5,8 @@ import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.repository.HashtagRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -64,33 +64,6 @@ public class HashtagService {
     }
 
     /**
-     * Find posts containing a specific hashtag
-     *
-     * @param hashtag The hashtag to search for (with or without the # symbol)
-     * @return List of posts containing the hashtag
-     */
-    public List<Post> getPostsByHashtag(String hashtag) {
-        System.out.println("🔍 Getting posts by hashtag: " + hashtag);
-
-        // Format the hashtag - add # if needed
-        String tagText = hashtag.startsWith("#") ? hashtag : "#" + hashtag;
-
-        // First look for the hashtag entity
-        Optional<Hashtag> hashtagOpt = hashtagRepository.findByTag(tagText);
-
-        if (hashtagOpt.isPresent()) {
-            // If we have the hashtag, return its posts
-            Hashtag tag = hashtagOpt.get();
-            return new ArrayList<>(tag.getPosts());
-        } else {
-            System.out.println("⚠️ Hashtag not found: " + tagText);
-
-            // Fallback: Try to find posts that contain this hashtag in their content
-            return postRepository.findByContentContainingIgnoreCase(tagText);
-        }
-    }
-
-    /**
      * Gets trending hashtags (most used)
      *
      * @return List of trending hashtags
@@ -123,6 +96,7 @@ public class HashtagService {
      * @param hashtag The hashtag to get info for
      * @return A count of how many times the hashtag is used
      */
+    @Transactional(readOnly = true)
     public int getHashtagCount(String hashtag) {
         // Add # symbol if not present
         final String tagText = hashtag.startsWith("#") ? hashtag : "#" + hashtag;

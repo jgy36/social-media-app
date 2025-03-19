@@ -1,7 +1,7 @@
 package com.jgy36.PoliticalApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,14 +24,16 @@ public class Comment {
 
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
-    private User user; // ✅ Each comment belongs to a user
+    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts"})
+    private User user;
 
     @ManyToOne
     @JoinColumn(name = "post_id", nullable = true)
-    @JsonBackReference // ✅ Prevent infinite recursion (Post -> Comment -> Post)
-    private Post post; // ✅ Each comment belongs to a post
+    @JsonBackReference
+    private Post post;
 
     @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties("comment")
     private Set<CommentLike> commentLikes = new HashSet<>();
 
     @Column(nullable = false, length = 1000) // Max comment length: 1000 chars
@@ -42,10 +44,10 @@ public class Comment {
 
     @ManyToOne
     @JoinColumn(name = "parent_comment_id")
-    @JsonIgnore // ✅ Prevents recursive loop in nested comments
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Comment parentComment;
 
-    // ✅ Constructor needed for new Comment(text, user, post)
+    // Constructor needed for new Comment(text, user, post)
     public Comment(String content, User user, Post post) {
         this.content = content;
         this.user = user;
