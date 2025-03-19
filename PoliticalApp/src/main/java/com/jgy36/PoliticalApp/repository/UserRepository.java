@@ -37,4 +37,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     int countPosts(Long userId);
 
     List<User> findByUsernameContainingIgnoreCase(String query);
+
+    // ✅ Add this new method for case-insensitive username check
+    boolean existsByUsernameIgnoreCase(String username);
 }
