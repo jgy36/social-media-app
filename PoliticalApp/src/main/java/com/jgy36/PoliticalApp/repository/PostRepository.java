@@ -45,4 +45,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
 
     // Count posts in a community
     long countByCommunity(Community community);
+
+    List<Post> findByContentContainingIgnoreCase(String text);
+
 }

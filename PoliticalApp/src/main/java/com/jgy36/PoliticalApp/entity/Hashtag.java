@@ -1,10 +1,11 @@
+// Review your Hashtag.java entity class:
+
 package com.jgy36.PoliticalApp.entity;
 
 import jakarta.persistence.*;
 import lombok.NoArgsConstructor;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 @Entity
@@ -23,30 +24,13 @@ public class Hashtag {
     @ManyToMany(mappedBy = "hashtags")
     private Set<Post> posts = new HashSet<>();
 
-    // For simpler data transfer without the full posts collection
-    @Transient
-    private String name; // Alias for tag to support getName() for DTOs
-
+    // Constructor with tag
     public Hashtag(String tag) {
         this.tag = tag;
-        this.count = 1;
-        this.name = tag; // Set name to same value as tag
+        this.count = 1; // Initialize with count 1
     }
 
-    public Hashtag(String tag, Integer count) {
-        this.tag = tag;
-        this.count = count;
-        this.name = tag; // Set name to same value as tag
-    }
-
-    // Used for converting from Map
-    public static Hashtag fromMap(Map<String, Object> map) {
-        String tag = (String) map.get("tag");
-        Integer count = ((Number) map.getOrDefault("count", 1)).intValue();
-        return new Hashtag(tag, count);
-    }
-
-    // Explicit getters and setters instead of Lombok to ensure they're available
+    // Getters and setters
     public Long getId() {
         return id;
     }
@@ -77,14 +61,5 @@ public class Hashtag {
 
     public void setPosts(Set<Post> posts) {
         this.posts = posts;
-    }
-
-    // Helper for getName to support both patterns
-    public String getName() {
-        return this.tag;
-    }
-
-    public void setName(String name) {
-        this.name = name;
     }
 }

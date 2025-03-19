@@ -4,93 +4,23 @@ import com.jgy36.PoliticalApp.entity.Hashtag;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.repository.HashtagRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 public class HashtagService {
 
-    @Autowired
-    private HashtagRepository hashtagRepository;
+    private final HashtagRepository hashtagRepository;
+    private final PostRepository postRepository;
 
-    @Autowired
-    private PostRepository postRepository;
-
-    /**
-     * Extract hashtags from post content
-     *
-     * @param content The post content
-     * @return A set of hashtags found in the content
-     */
-    public Set<String> extractHashtags(String content) {
-        if (content == null || content.isEmpty()) {
-            return Collections.emptySet();
-        }
-
-        Set<String> hashtags = new HashSet<>();
-        Pattern pattern = Pattern.compile("#(\\w+)");
-        Matcher matcher = pattern.matcher(content);
-
-        while (matcher.find()) {
-            hashtags.add(matcher.group());
-        }
-
-        return hashtags;
-    }
-
-    /**
-     * Find posts containing a specific hashtag
-     *
-     * @param hashtag The hashtag to search for (with or without the # symbol)
-     * @return List of posts containing the hashtag
-     */
-    public List<Post> getPostsByHashtag(String hashtag) {
-        // Add # symbol if not present
-        final String searchTag = hashtag.startsWith("#") ? hashtag : "#" + hashtag;
-
-        // Get all posts
-        List<Post> allPosts = postRepository.findAll();
-
-        // Filter posts containing the hashtag
-        return allPosts.stream()
-                .filter(post -> {
-                    String content = post.getContent();
-                    if (content == null) {
-                        return false;
-                    }
-                    return content.contains(searchTag);
-                })
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Gets information about a hashtag
-     *
-     * @param hashtag The hashtag to get info for
-     * @return A count of how many times the hashtag is used
-     */
-    public int getHashtagCount(String hashtag) {
-        // Add # symbol if not present
-        final String searchTag = hashtag.startsWith("#") ? hashtag : "#" + hashtag;
-
-        // Get all posts
-        List<Post> allPosts = postRepository.findAll();
-
-        // Count posts containing the hashtag
-        return (int) allPosts.stream()
-                .filter(post -> {
-                    String content = post.getContent();
-                    return content != null && content.contains(searchTag);
-                })
-                .count();
+    public HashtagService(HashtagRepository hashtagRepository, PostRepository postRepository) {
+        this.hashtagRepository = hashtagRepository;
+        this.postRepository = postRepository;
     }
 
     /**
@@ -100,6 +30,64 @@ public class HashtagService {
      */
     public List<Hashtag> getAllHashtags() {
         return hashtagRepository.findAll();
+    }
+
+    /**
+     * Search for hashtags containing the query
+     *
+     * @param query The search query
+     * @return List of matching hashtags
+     */
+    public List<Hashtag> searchHashtags(String query) {
+        // Log the search for debugging
+        System.out.println("🔍 Searching hashtags with query: " + query);
+
+        // Clean up the query - search with or without # prefix
+        String searchTerm = query;
+        if (query.startsWith("#")) {
+            searchTerm = query.substring(1);
+        }
+
+        // First try the specific method if available
+        try {
+            List<Hashtag> results = hashtagRepository.findByTagContainingIgnoreCase(searchTerm);
+            System.out.println("✅ Found " + results.size() + " hashtags matching: " + query);
+            return results;
+        } catch (Exception e) {
+            System.out.println("⚠️ Error using findByTagContainingIgnoreCase: " + e.getMessage());
+
+            // Fall back to the query method
+            List<Hashtag> results = hashtagRepository.searchHashtags(searchTerm);
+            System.out.println("✅ Found " + results.size() + " hashtags with query method for: " + query);
+            return results;
+        }
+    }
+
+    /**
+     * Find posts containing a specific hashtag
+     *
+     * @param hashtag The hashtag to search for (with or without the # symbol)
+     * @return List of posts containing the hashtag
+     */
+    public List<Post> getPostsByHashtag(String hashtag) {
+        System.out.println("🔍 Getting posts by hashtag: " + hashtag);
+
+        // Format the hashtag - add # if needed
+        String tagText = hashtag.startsWith("#") ? hashtag : "#" + hashtag;
+
+        // First look for the hashtag entity
+        Optional<Hashtag> hashtagOpt = hashtagRepository.findByTag(tagText);
+
+        if (hashtagOpt.isPresent()) {
+            // If we have the hashtag, return its posts
+            Hashtag tag = hashtagOpt.get();
+            return new ArrayList<>(tag.getPosts());
+        } else {
+            System.out.println("⚠️ Hashtag not found: " + tagText);
+
+            // Fallback: Try to find posts that contain this hashtag in their content
+            return postRepository.findByContentContainingIgnoreCase(tagText);
+        }
     }
 
     /**
@@ -119,42 +107,35 @@ public class HashtagService {
      * @return List of trending hashtags with counts
      */
     public List<Hashtag> getTrendingHashtags(int limit) {
-        return hashtagRepository.findTrendingHashtags().stream()
+        // Get all hashtags
+        List<Hashtag> allTags = hashtagRepository.findAll();
+
+        // Sort by count in descending order and limit the results
+        return allTags.stream()
+                .sorted(Comparator.comparing(Hashtag::getCount).reversed())
                 .limit(limit)
                 .collect(Collectors.toList());
     }
 
     /**
-     * Search for hashtags containing the query
+     * Gets information about a hashtag
      *
-     * @param query The search query
-     * @return List of matching hashtags
+     * @param hashtag The hashtag to get info for
+     * @return A count of how many times the hashtag is used
      */
-    public List<Hashtag> searchHashtags(String query) {
-        if (query == null || query.trim().isEmpty()) {
-            return Collections.emptyList();
+    public int getHashtagCount(String hashtag) {
+        // Add # symbol if not present
+        final String tagText = hashtag.startsWith("#") ? hashtag : "#" + hashtag;
+
+        // Try to find the hashtag in the database
+        Optional<Hashtag> hashtagOpt = hashtagRepository.findByTag(tagText);
+
+        if (hashtagOpt.isPresent()) {
+            return hashtagOpt.get().getCount();
         }
 
-        // Process the query string - make it effectively final by creating a new variable
-        String cleanQuery = query.toLowerCase();
-        if (cleanQuery.startsWith("#")) {
-            cleanQuery = cleanQuery.substring(1);
-        }
-
-        // Use the final variable in the lambda expressions
-        final String finalSearchTerm = cleanQuery;
-
-        // First try to use the repository method if it exists
-        try {
-            return hashtagRepository.findByTagContainingIgnoreCase(finalSearchTerm);
-        } catch (Exception e) {
-            // Fallback method if the repository method is not available
-            System.out.println("Warning: Using fallback hashtag search method. Please implement findByTagContainingIgnoreCase in HashtagRepository.");
-
-            // Get all hashtags and filter manually
-            return hashtagRepository.findAll().stream()
-                    .filter(hashtag -> hashtag.getTag().toLowerCase().contains(finalSearchTerm))
-                    .collect(Collectors.toList());
-        }
+        // If not found in database, count posts containing this hashtag
+        List<Post> posts = postRepository.findByContentContainingIgnoreCase(tagText);
+        return posts.size();
     }
 }

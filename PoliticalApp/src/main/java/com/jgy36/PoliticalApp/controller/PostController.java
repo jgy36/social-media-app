@@ -13,9 +13,12 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*") // ✅ Enable CORS for frontend
@@ -81,7 +84,36 @@ public class PostController {
     @PostMapping
     @PreAuthorize("isAuthenticated()") // Requires authentication
     public ResponseEntity<Post> createPost(@RequestBody String content) {
-        return ResponseEntity.ok(postService.createPost(content));
+        System.out.println("📝 Creating new post with content: " + content);
+
+        // The PostService.createPost method should extract and save hashtags
+        Post createdPost = postService.createPost(content);
+
+        System.out.println("✅ Created post with ID: " + createdPost.getId());
+
+        // If you have hashtags, log them
+        if (createdPost.getHashtags() != null && !createdPost.getHashtags().isEmpty()) {
+            System.out.println("🏷️ Post contains hashtags: " +
+                    createdPost.getHashtags().stream()
+                            .map(h -> h.getTag())
+                            .collect(Collectors.joining(", ")));
+        }
+
+        return ResponseEntity.ok(createdPost);
+    }
+
+    @GetMapping("/extract-hashtags")
+    public ResponseEntity<List<String>> extractHashtags(@RequestParam String text) {
+        // Use your extraction logic
+        Pattern pattern = Pattern.compile("#(\\w+)");
+        Matcher matcher = pattern.matcher(text);
+
+        List<String> hashtags = new ArrayList<>();
+        while (matcher.find()) {
+            hashtags.add(matcher.group());
+        }
+
+        return ResponseEntity.ok(hashtags);
     }
 
     @GetMapping
