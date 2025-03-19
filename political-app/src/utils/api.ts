@@ -636,7 +636,11 @@ export const getPostsByHashtag = async (hashtag: string): Promise<PostType[]> =>
     
     try {
       const response = await api.get(`${API_BASE_URL}/hashtags/${tag}`);
-      console.log(`Found ${response.data.length} posts for hashtag: ${tag}`);
+      if (Array.isArray(response.data)) {
+        console.log(`Found ${response.data.length} posts for hashtag: ${tag}`);
+      } else {
+        console.warn(`Unexpected response format for hashtag: ${tag}`);
+      }
       return response.data as PostType[];
     } catch (error) {
       console.error("Error fetching posts by hashtag:", error);

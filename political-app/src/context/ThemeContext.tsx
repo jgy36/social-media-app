@@ -1,55 +1,49 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 
 // Define available themes
-const themes = {
-  light: "light",
-  dark: "dark",
-  premiumGold: "premium-gold",
-  premiumBlue: "premium-blue",
-  premiumRed: "premium-red",
-};
+export type ThemeType = "light" | "dark";
 
 // Define Theme Context Type
 interface ThemeContextType {
-  theme: string;
-  toggleTheme: (theme: string) => void;
+  theme: ThemeType;
+  setTheme: (theme: ThemeType) => void;
 }
 
-// Create Context
-const ThemeContext = createContext<ThemeContextType>({
-  theme: themes.light,
-  toggleTheme: () => {}, // Default function (empty)
+// Create Context with default values
+export const ThemeContext = createContext<ThemeContextType>({
+  theme: "light",
+  setTheme: () => {}, // Default function (empty)
 });
 
 // Theme Provider Component
 export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const [theme, setTheme] = useState(themes.light);
-
-  useEffect(() => {
-    const storedTheme = localStorage.getItem("theme");
-    if (storedTheme && Object.values(themes).includes(storedTheme)) {
-      setTheme(storedTheme);
+  // Initialize state from localStorage if available, otherwise default to light
+  const [theme, setTheme] = useState<ThemeType>(() => {
+    if (typeof window !== "undefined") {
+      const savedTheme = localStorage.getItem("theme") as ThemeType;
+      return savedTheme === "dark" ? "dark" : "light";
     }
-  }, []);
+    return "light";
+  });
 
+  // Apply theme changes to document and localStorage
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
+    if (typeof window === "undefined") return;
+    
+    // Update localStorage
     localStorage.setItem("theme", theme);
+    
+    // Update document class
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }, [theme]);
 
-  // ✅ Fix: Now `_theme` is actually used
-  const toggleTheme = (newTheme: string) => {
-    if (Object.values(themes).includes(newTheme)) {
-      setTheme(newTheme);
-    }
-  };
-
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
 };
-
-// Custom hook
-export const useTheme = () => useContext(ThemeContext);

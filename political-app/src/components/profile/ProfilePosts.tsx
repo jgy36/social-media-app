@@ -8,9 +8,10 @@ import { Card } from "@/components/ui/card";
 interface Post {
   id: number;
   content: string;
+  createdAt: string; // Adding createdAt for sorting
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL; // ✅ Correct backend URL
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
 const ProfilePosts = () => {
   const user = useSelector((state: RootState) => state.user);
@@ -19,7 +20,13 @@ const ProfilePosts = () => {
   useEffect(() => {
     if (user?.id) {
       axios.get(`${API_BASE_URL}/posts/user/${user.id}`)
-        .then(response => setPosts(response.data as Post[])) // ✅ Explicit Cast
+        .then(response => {
+          // ✅ Sort posts by createdAt in descending order (newest first)
+          const sortedPosts = [...(response.data as Post[])].sort((a, b) => {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+          setPosts(sortedPosts);
+        })
         .catch(error => console.error("Error fetching posts:", error));
     }
   }, [user?.id]);
