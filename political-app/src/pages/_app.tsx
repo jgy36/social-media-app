@@ -6,9 +6,9 @@ import "@/styles/globals.css";
 import { AppProps } from "next/app";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useDispatch } from "react-redux";
-import { restoreAuthState } from "@/redux/slices/userSlice";
-import { AppDispatch } from "@/redux/store";
+import { useDispatch, useSelector } from "react-redux";
+import { restoreAuthState, updateUserProfile } from "@/redux/slices/userSlice";
+import { AppDispatch, RootState } from "@/redux/store";
 import { ThemeProvider } from "@/context/ThemeContext"; // Import the ThemeProvider
 
 // Improved auth checker component
@@ -17,37 +17,38 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
   const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(true);
   const [authAttempted, setAuthAttempted] = useState(false);
+  const token = useSelector((state: RootState) => state.user.token);
   
   // Add an event listener for profile updates from the API
-useEffect(() => {
-  const handleProfileUpdate = (event: Event) => {
-    // Check if we're authenticated and have dispatch function
-    if (token && dispatch) {
-      const customEvent = event as CustomEvent;
-      console.log("Profile update event received:", customEvent.detail);
-      
-      // Dispatch the updateUserProfile thunk to update Redux state
-      dispatch(updateUserProfile())
-        .then(() => {
-          console.log("User profile updated in Redux store");
-        })
-        .catch((error: any) => {
-          console.error("Failed to update profile in Redux:", error);
-        });
-    }
-  };
+  useEffect(() => {
+    const handleProfileUpdate = (event: Event) => {
+      // Check if we're authenticated and have dispatch function
+      if (token && dispatch) {
+        const customEvent = event as CustomEvent;
+        console.log("Profile update event received:", customEvent.detail);
+        
+        // Dispatch the updateUserProfile thunk to update Redux state
+        dispatch(updateUserProfile())
+          .then(() => {
+            console.log("User profile updated in Redux store");
+          })
+          .catch((error) => {
+            console.error("Failed to update profile in Redux:", error);
+          });
+      }
+    };
 
-  // Listen for custom events from the API module
-  window.addEventListener('userProfileUpdated', handleProfileUpdate);
-  
-  // Clean up the listener when component unmounts
-  return () => {
-    window.removeEventListener('userProfileUpdated', handleProfileUpdate);
-  };
-}, [token, dispatch]);
+    // Listen for custom events from the API module
+    window.addEventListener('userProfileUpdated', handleProfileUpdate);
+    
+    // Clean up the listener when component unmounts
+    return () => {
+      window.removeEventListener('userProfileUpdated', handleProfileUpdate);
+    };
+  }, [token, dispatch]);
 
-// This will catch the custom event dispatched from refreshUserProfile in api.ts 
-// and ensure the Redux store state is updated to match
+  // This will catch the custom event dispatched from refreshUserProfile in api.ts 
+  // and ensure the Redux store state is updated to match
 
   useEffect(() => {
     // Skip auth check for public routes immediately
@@ -109,7 +110,7 @@ useEffect(() => {
     }, 3000); // 3 seconds max
 
     return () => clearTimeout(timeoutId);
-  }, [router, router.pathname, dispatch, authAttempted]);
+  }, [router, router.pathname, dispatch, authAttempted, token]);
 
   // Show loading state with a cancel button
   if (isLoading) {
@@ -154,7 +155,5 @@ function MyApp({ Component, pageProps }: AppProps) {
     </SessionProvider>
   );
 }
-
-
 
 export default MyApp;
