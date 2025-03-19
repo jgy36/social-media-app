@@ -964,7 +964,7 @@ export const updateUsername = async (newUsername: string): Promise<{success: boo
       return { success: true };
     }
     
-    return { success: false, message: response.data?.message || 'Failed to update username' };
+    return { success: false, message: (response.data as { message?: string })?.message || 'Failed to update username' };
   } catch (error: any) {
     console.error('Error updating username:', error);
     return { 
@@ -993,9 +993,11 @@ export const refreshUserProfile = async (): Promise<boolean> => {
     if (response.status === 200 && response.data) {
       // Update local storage with updated data
       if (typeof window !== 'undefined') {
-        if (response.data.username) {
-          localStorage.setItem('username', response.data.username);
-          setCookie('username', response.data.username, { path: '/' });
+        if ((response.data as { username?: string }).username) {
+          localStorage.setItem('username', (response.data as { username: string }).username);
+          if (response.data && typeof response.data === 'object' && 'username' in response.data) {
+            setCookie('username', (response.data as { username: string }).username, { path: '/' });
+          }
         }
         
         // Dispatch the updateUserProfile action to Redux store

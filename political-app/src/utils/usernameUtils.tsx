@@ -1,4 +1,5 @@
 // political-app/src/utils/usernameUtils.ts
+import React from 'react'; // Add this import for JSX support
 
 /**
  * Validates a username according to standard rules
@@ -33,8 +34,8 @@ export const validateUsername = (username: string): { valid: boolean; message?: 
  * @param highlightClass The CSS class to apply to valid mentions (default: "text-primary")
  * @returns JSX with properly formatted mentions
  */
-export const formatUserMentions = (content: string, highlightClass = "text-primary"): JSX.Element[] => {
-  if (!content) return [<span key="empty"></span>];
+export const formatUserMentions = (content: string, highlightClass = "text-primary"): React.ReactNode[] => {
+  if (!content) return [<React.Fragment key="empty"></React.Fragment>];
   
   // Regex to find @username mentions
   const mentionRegex = /(@[a-zA-Z0-9_-]{3,20})\b/g;
