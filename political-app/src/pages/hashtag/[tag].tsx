@@ -1,4 +1,4 @@
-// src/pages/hashtag/[tag].tsx
+// src/pages/hashtag/[tag].tsx - Updated version
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import Navbar from "@/components/navbar/Navbar";
@@ -44,8 +44,21 @@ const HashtagPage = () => {
       setError(null);
 
       try {
+        // Try to fetch hashtag metadata first
+        try {
+          const tagInfo = await getHashtagInfo(apiTag);
+          if (tagInfo) {
+            setHashtagInfo(tagInfo);
+            console.log("Hashtag info:", tagInfo);
+          }
+        } catch (infoError) {
+          console.error("Error fetching hashtag info:", infoError);
+          // Don't set error state, this is optional data
+        }
+        
         // Fetch posts with this hashtag
         const postsData = await getPostsByHashtag(apiTag);
+        console.log(`Fetched ${postsData.length} posts for hashtag: ${apiTag}`);
         
         // Sort posts based on current preference
         const sortedPosts = [...postsData];
@@ -60,18 +73,6 @@ const HashtagPage = () => {
         }
         
         setPosts(sortedPosts);
-        
-        // Try to fetch hashtag metadata
-        try {
-          const tagInfo = await getHashtagInfo(apiTag);
-          if (tagInfo) {
-            setHashtagInfo(tagInfo);
-          }
-        } catch (infoError) {
-          console.error("Error fetching hashtag info:", infoError);
-          // Don't set error state, this is optional data
-        }
-        
       } catch (err) {
         console.error("Error fetching hashtag posts:", err);
         setError("Failed to load posts for this hashtag");
