@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/router";
 import { Settings } from "lucide-react";
+import SettingsDropdown from "./SettingsDropdown";
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
@@ -77,14 +78,21 @@ const ProfileHeader = () => {
             </span>
           </div>
         </div>
-        <Button 
-          variant="outline" 
-          onClick={handleEditProfile}
-          className="flex items-center gap-2"
-        >
-          <Settings className="h-4 w-4" />
-          Edit Profile
-        </Button>
+        
+        <div className="flex items-center gap-2">
+          {/* Edit Profile Button */}
+          <Button 
+            variant="outline" 
+            onClick={handleEditProfile}
+            className="flex items-center gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Edit Profile
+          </Button>
+
+          {/* Settings Dropdown Menu */}
+          <SettingsDropdown />
+        </div>
       </div>
     </Card>
   );
