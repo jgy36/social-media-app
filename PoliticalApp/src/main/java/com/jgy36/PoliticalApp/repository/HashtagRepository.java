@@ -1,3 +1,5 @@
+// Ensure your HashtagRepository.java has these methods:
+
 package com.jgy36.PoliticalApp.repository;
 
 import com.jgy36.PoliticalApp.entity.Hashtag;
@@ -12,28 +14,17 @@ import java.util.Optional;
 @Repository
 public interface HashtagRepository extends JpaRepository<Hashtag, Long> {
 
-    // Find hashtag by name
+    // Find hashtag by its exact tag (including # symbol)
     Optional<Hashtag> findByTag(String tag);
 
     // Check if hashtag exists
     boolean existsByTag(String tag);
 
     // Find hashtags by partial name match (case insensitive)
+    // This is what your controller is using for search
     List<Hashtag> findByTagContainingIgnoreCase(String partialTag);
 
-    // Find trending hashtags (by use count)
-    @Query("SELECT h FROM Hashtag h ORDER BY h.count DESC")
-    List<Hashtag> findTrendingHashtags();
-
-    // Find trending hashtags with limit
-    @Query("SELECT h FROM Hashtag h ORDER BY h.count DESC")
-    List<Hashtag> findTrendingHashtagsWithLimit(int limit);
-
-    // Find recent hashtags (sorted by ID since newest will have higher IDs)
-    @Query("SELECT h FROM Hashtag h ORDER BY h.id DESC")
-    List<Hashtag> findRecentHashtags();
-
-    // Search hashtags by name
+    // Make sure there's a proper implementation method for your search
     @Query("SELECT h FROM Hashtag h WHERE LOWER(h.tag) LIKE LOWER(CONCAT('%', :searchTerm, '%'))")
     List<Hashtag> searchHashtags(@Param("searchTerm") String searchTerm);
 }

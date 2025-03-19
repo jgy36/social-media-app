@@ -2,21 +2,21 @@ package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.entity.Comment;
+import com.jgy36.PoliticalApp.entity.Hashtag;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
-import com.jgy36.PoliticalApp.repository.CommentRepository;
-import com.jgy36.PoliticalApp.repository.CommunityRepository;
-import com.jgy36.PoliticalApp.repository.PostRepository;
-import com.jgy36.PoliticalApp.repository.UserRepository;
+import com.jgy36.PoliticalApp.repository.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -27,14 +27,16 @@ public class PostService {
     private final HashtagService hashtagService;
     private final CommentRepository commentRepository;
     private final CommunityRepository communityRepository;
+    private final HashtagRepository hashtagRepository;
 
 
-    public PostService(PostRepository postRepository, UserRepository userRepository, HashtagService hashtagService, CommentRepository commentRepository, CommunityRepository communityRepository) {
+    public PostService(PostRepository postRepository, UserRepository userRepository, HashtagService hashtagService, CommentRepository commentRepository, CommunityRepository communityRepository, HashtagRepository hashtagRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.hashtagService = hashtagService;
         this.commentRepository = commentRepository;
         this.communityRepository = communityRepository;
+        this.hashtagRepository = hashtagRepository;
     }
 
     // ✅ Get all posts
@@ -54,27 +56,58 @@ public class PostService {
     }
 
     // ✅ Create a new post
+    @Transactional
     public Post createPost(String content) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
-        Optional<User> userOpt = userRepository.findByEmail(email);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
 
-        if (userOpt.isEmpty()) {
-            throw new IllegalArgumentException("User not found");
-        }
-
-        User user = userOpt.get();
         Post post = new Post();
         post.setContent(content);
         post.setAuthor(user);
-        post.setCreatedAt(java.time.LocalDateTime.now());
+        post.setCreatedAt(LocalDateTime.now());
 
-        // Make sure these collections are initialized
-        post.setLikes(new HashSet<>());
-        post.setLikedUsers(new HashSet<>());
-        post.setComments(new HashSet<>());
+        // THIS IS THE MISSING PART - Extract and save hashtags
+        extractAndSaveHashtags(post);
 
         return postRepository.save(post);
+    }
+
+    // Add this method to extract and save hashtags
+    private void extractAndSaveHashtags(Post post) {
+        // Extract hashtags from content using regex
+        Pattern pattern = Pattern.compile("#(\\w+)");
+        Matcher matcher = pattern.matcher(post.getContent());
+
+        Set<Hashtag> hashtags = new HashSet<>();
+
+        while (matcher.find()) {
+            String tagText = matcher.group(); // This includes the # symbol
+
+            // Look up the hashtag or create a new one
+            Hashtag hashtag = hashtagRepository.findByTag(tagText)
+                    .orElseGet(() -> {
+                        Hashtag newTag = new Hashtag(tagText);
+                        return hashtagRepository.save(newTag);
+                    });
+
+            // If existing hashtag, increment its count
+            if (hashtag.getId() != null) {
+                hashtag.setCount(hashtag.getCount() + 1);
+                hashtagRepository.save(hashtag);
+            }
+
+            // Associate hashtag with post
+            hashtags.add(hashtag);
+            post.addHashtag(hashtag);
+        }
+
+        // Log for debugging
+        if (!hashtags.isEmpty()) {
+            System.out.println("✅ Extracted " + hashtags.size() + " hashtags from post: " +
+                    hashtags.stream().map(Hashtag::getTag).collect(Collectors.joining(", ")));
+        }
     }
 
     // ✅ Delete a post (only the author can delete their post)
