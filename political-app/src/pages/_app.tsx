@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { useDispatch } from "react-redux";
 import { restoreAuthState } from "@/redux/slices/userSlice";
 import { AppDispatch } from "@/redux/store";
+import { ThemeProvider } from "@/context/ThemeContext"; // Import the ThemeProvider
 
 // Improved auth checker component
 function AuthPersistence({ children }: { children: React.ReactNode }) {
@@ -114,7 +115,10 @@ function MyApp({ Component, pageProps }: AppProps) {
   return (
     <SessionProvider session={pageProps.session}>
       <ConnectedAuthPersistence>
-        <Component {...pageProps} />
+        {/* Wrap everything in the ThemeProvider */}
+        <ThemeProvider>
+          <Component {...pageProps} />
+        </ThemeProvider>
       </ConnectedAuthPersistence>
     </SessionProvider>
   );

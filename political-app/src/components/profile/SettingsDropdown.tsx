@@ -4,16 +4,21 @@ import { useRouter } from "next/router";
 import { useDispatch } from "react-redux";
 import { logoutUser } from "@/redux/slices/userSlice";
 import { AppDispatch } from "@/redux/store";
-import { useTheme } from "@/hooks/useTheme"; // ✅ Import Dark Mode Hook
+import { useTheme } from "@/hooks/useTheme"; // Now uses the unified hook
 
 const SettingsDropdown = () => {
-  const { theme, setTheme } = useTheme(); // ✅ Use theme
+  const { theme, setTheme } = useTheme(); // Using the unified hook
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
 
   const handleLogout = () => {
     dispatch(logoutUser());
     router.push("/login");
+  };
+
+  // Toggle between light and dark
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
   };
 
   return (
@@ -27,7 +32,7 @@ const SettingsDropdown = () => {
         <DropdownMenuItem onClick={() => router.push("/profile")}>
           <User className="h-4 w-4 mr-2" /> Profile
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>
+        <DropdownMenuItem onClick={toggleTheme}>
           {theme === "dark" ? <Sun className="h-4 w-4 mr-2" /> : <Moon className="h-4 w-4 mr-2" />}
           {theme === "dark" ? "Light Mode" : "Dark Mode"}
         </DropdownMenuItem>
