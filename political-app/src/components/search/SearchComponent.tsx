@@ -6,7 +6,6 @@ import {
   Command,
   CommandEmpty,
   CommandGroup,
-  CommandInput,
   CommandItem,
   CommandList
 } from '@/components/ui/command';
@@ -38,10 +37,11 @@ interface CommunityResponse {
 }
 
 interface HashtagResponse {
+  id?: string | number;
   tag?: string;
-  name?: string;
   count?: number;
   postCount?: number;
+  name?: string;
 }
 
 // Define types for search results
@@ -56,15 +56,19 @@ interface SearchResult {
   avatar?: string;
 }
 
-const SearchComponent = () => {
-  const [query, setQuery] = useState('');
+interface SearchComponentProps {
+  initialQuery?: string;
+}
+
+const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) => {
+  const [query, setQuery] = useState(initialQuery);
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
-  // Define the search function inside the component but outside of any hooks
+  // Define the search function
   const performSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
@@ -77,21 +81,43 @@ const SearchComponent = () => {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
       
       // Fetch users
+      console.log(`Searching users with query: ${searchQuery}`);
       const userResults = await api.get(`${API_BASE_URL}/users/search?query=${encodeURIComponent(searchQuery)}`)
-        .then(res => res.data as UserResponse[])
-        .catch(() => [] as UserResponse[]);
+        .then(res => {
+          console.log('User search results:', res.data);
+          return res.data as UserResponse[];
+        })
+        .catch(() => {
+          console.error('Error fetching users');
+          return [] as UserResponse[];
+        });
       
       // Fetch communities
+      console.log(`Searching communities with query: ${searchQuery}`);
       const communityResults = await api.get(`${API_BASE_URL}/communities/search?query=${encodeURIComponent(searchQuery)}`)
-        .then(res => res.data as CommunityResponse[])
-        .catch(() => [] as CommunityResponse[]);
+        .then(res => {
+          console.log('Community search results:', res.data);
+          return res.data as CommunityResponse[];
+        })
+        .catch(() => {
+          console.error('Error fetching communities');
+          return [] as CommunityResponse[];
+        });
         
       // Fetch hashtags
+      console.log(`Searching hashtags with query: ${searchQuery}`);
       const hashtagResults = await api.get(`${API_BASE_URL}/hashtags/search?query=${encodeURIComponent(searchQuery)}`)
-        .then(res => res.data as HashtagResponse[])
-        .catch(() => [] as HashtagResponse[]);
+        .then(res => {
+          console.log('Hashtag search results:', res.data);
+          return res.data as HashtagResponse[];
+        })
+        .catch((error) => {
+          console.error('Error fetching hashtags:', error);
+          return [] as HashtagResponse[];
+        });
         
-      // Transform and combine results
+      // Transform and combine results with detailed logging
+      console.log('Transforming users:', userResults);
       const transformedUsers = (userResults || []).map((user: UserResponse) => ({
         id: user.id || user.username,
         type: 'user' as const,
@@ -101,6 +127,7 @@ const SearchComponent = () => {
         avatar: user.avatar
       }));
       
+      console.log('Transforming communities:', communityResults);
       const transformedCommunities = (communityResults || []).map((community: CommunityResponse) => ({
         id: community.id || community.slug || community.name,
         type: 'community' as const,
@@ -109,13 +136,37 @@ const SearchComponent = () => {
         members: community.members
       }));
       
-      const transformedHashtags = (hashtagResults || []).map((hashtag: HashtagResponse) => ({
-        id: hashtag.tag || hashtag.name?.replace(/^#/, '') || '',
-        type: 'hashtag' as const,
-        name: hashtag.tag?.startsWith('#') ? hashtag.tag : `#${hashtag.tag || hashtag.name || ''}`,
-        description: `${hashtag.count || hashtag.postCount || 0} posts`,
-        postCount: hashtag.count || hashtag.postCount
-      }));
+      console.log('Transforming hashtags:', hashtagResults);
+      const transformedHashtags = (hashtagResults || []).map((hashtag: HashtagResponse) => {
+        console.log('Processing hashtag item:', hashtag);
+        
+        // Extract proper tag name
+        let tagName = '';
+        if (typeof hashtag === 'string') {
+          // Some APIs might return just strings
+          tagName = typeof hashtag === 'string' && (hashtag as string).startsWith('#') ? hashtag : `#${hashtag}`;
+        } else {
+          // Get tag from object - could be in different properties
+          tagName = hashtag.tag || hashtag.name || '';
+          if (tagName && !tagName.startsWith('#')) {
+            tagName = `#${tagName}`;
+          }
+        }
+        
+        // Get count from appropriate property
+        const count = hashtag.count || hashtag.postCount || 0;
+        
+        const result = {
+          id: hashtag.id || tagName.replace(/^#/, '') || Math.random().toString(36).substring(7),
+          type: 'hashtag' as const,
+          name: tagName,
+          description: `${count} posts`,
+          postCount: count
+        };
+        
+        console.log('Transformed hashtag:', result);
+        return result;
+      });
       
       // Combine all results
       const allResults = [
@@ -124,58 +175,11 @@ const SearchComponent = () => {
         ...transformedHashtags
       ];
       
-      // Fallback to mock data if no API results in development
-      if (allResults.length === 0 && process.env.NODE_ENV === 'development') {
-        console.log('No results from API, using mock data');
-        
-        // Simple search in mock data to mimic API behavior
-        const lowercaseQuery = searchQuery.toLowerCase();
-        
-        // Mock data
-        const mockUsers: SearchResult[] = [
-          { id: 1, type: 'user', name: 'JaneDoe', description: 'Political Analyst', followers: 245 },
-          { id: 2, type: 'user', name: 'JohnSmith', description: 'Community Organizer', followers: 182 },
-          { id: 3, type: 'user', name: 'PoliticsExpert', description: 'Congressional Staffer', followers: 532 }
-        ];
-        
-        const mockCommunities: SearchResult[] = [
-          { id: 'democrat', type: 'community', name: 'Democrat', description: 'Democratic Party discussions', members: 15243 },
-          { id: 'republican', type: 'community', name: 'Republican', description: 'Republican Party discussions', members: 14876 },
-          { id: 'libertarian', type: 'community', name: 'Libertarian', description: 'Libertarian Party discussions', members: 8932 },
-          { id: 'independent', type: 'community', name: 'Independent', description: 'Independent voter discussions', members: 10547 },
-          { id: 'conservative', type: 'community', name: 'Conservative', description: 'Conservative viewpoints', members: 12765 },
-          { id: 'socialist', type: 'community', name: 'Socialist', description: 'Socialist perspectives', members: 9876 }
-        ];
-        
-        const mockHashtags: SearchResult[] = [
-          { id: 'election2024', type: 'hashtag', name: '#Election2024', description: '842 posts', postCount: 842 },
-          { id: 'policy', type: 'hashtag', name: '#Policy', description: '567 posts', postCount: 567 },
-          { id: 'debate', type: 'hashtag', name: '#Debate', description: '324 posts', postCount: 324 }
-        ];
-        
-        // Filter based on query
-        const filteredUsers = mockUsers.filter(
-          user => user.name.toLowerCase().includes(lowercaseQuery) || 
-                  (user.description && user.description.toLowerCase().includes(lowercaseQuery))
-        );
-        
-        const filteredCommunities = mockCommunities.filter(
-          community => community.name.toLowerCase().includes(lowercaseQuery) || 
-                        (community.description && community.description.toLowerCase().includes(lowercaseQuery))
-        );
-        
-        const filteredHashtags = mockHashtags.filter(
-          hashtag => hashtag.name.toLowerCase().includes(lowercaseQuery) || 
-                      (hashtag.description && hashtag.description.toLowerCase().includes(lowercaseQuery))
-        );
-        
-        // Set the mock results
-        setResults([...filteredUsers, ...filteredCommunities, ...filteredHashtags]);
-      } else {
-        setResults(allResults);
-      }
+      console.log('All search results:', allResults);
+      setResults(allResults);
     } catch (error) {
       console.error('Error performing search:', error);
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -212,7 +216,9 @@ const SearchComponent = () => {
         break;
       case 'hashtag':
         // Remove the # from hashtag name for URL
-        const hashtagId = result.name.startsWith('#') ? result.name.substring(1) : result.name;
+        const hashtagId = typeof result.name === 'string' && result.name.startsWith('#') 
+          ? result.name.substring(1) 
+          : result.name;
         router.push(`/hashtag/${hashtagId}`);
         break;
     }
@@ -273,12 +279,7 @@ const SearchComponent = () => {
         
         <PopoverContent className="p-0 w-96" align="start">
           <Command>
-            <CommandInput 
-              placeholder="Search users, communities, hashtags..."
-              value={query}
-              onValueChange={setQuery}
-              disabled={loading}
-            />
+            {/* No duplicate CommandInput here - that was causing the double search bar */}
             <CommandList>
               <CommandEmpty>
                 {loading ? 'Searching...' : 'No results found.'}

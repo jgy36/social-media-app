@@ -633,20 +633,6 @@ export const getPostsByHashtag = async (hashtag: string): Promise<PostType[]> =>
   }
 };
 
-// Function to fetch hashtag information
-export const getHashtagInfo = async (hashtag: string): Promise<any> => {
-  try {
-    // Remove the # prefix if present
-    const tag = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
-    
-    const response = await api.get(`${API_BASE_URL}/hashtags/info/${tag}`);
-    return response.data as any[];
-  } catch (error) {
-    console.error("Error fetching hashtag info:", error);
-    return null;
-  }
-};
-
 // Function to fetch trending hashtags
 export const getTrendingHashtags = async (limit: number = 10): Promise<any[]> => {
   try {
@@ -797,32 +783,84 @@ export const searchUsers = async (query: string): Promise<any[]> => {
 // Function to search hashtags
 export const searchHashtags = async (query: string): Promise<any[]> => {
   try {
+    console.log(`Searching hashtags with query: ${query}`);
+    
+    // First check with the search endpoint
     const response = await api.get(`${API_BASE_URL}/hashtags/search?query=${encodeURIComponent(query)}`);
-    return response.data as any[];
+    console.log('Hashtag search response:', response.data);
+    
+    // If we get an array directly, use it
+    if (Array.isArray(response.data)) {
+      return response.data;
+    }
+    
+    // Handle potential response formats for a single hashtag
+    if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+      return [response.data];
+    }
+    
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error(`Error searching hashtags with query ${query}:`, error);
     
-    // In development, use mock data if API fails
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Using mock hashtag data for development');
+    // Try a different approach - some APIs might expect a direct lookup 
+    try {
+      console.log(`Trying direct hashtag lookup for tag: ${query}`);
+      const directResponse = await api.get(`${API_BASE_URL}/hashtags/${encodeURIComponent(query)}`);
+      console.log('Direct hashtag lookup response:', directResponse.data);
       
-      // Simple mock data for development
-      const mockHashtags = [
-        { id: 'election2024', tag: '#Election2024', count: 842, postCount: 842 },
-        { id: 'policy', tag: '#Policy', count: 567, postCount: 567 },
-        { id: 'debate', tag: '#Debate', count: 324, postCount: 324 },
-        { id: 'vote', tag: '#Vote', count: 756, postCount: 756 },
-        { id: 'democracy', tag: '#Democracy', count: 421, postCount: 421 }
-      ];
+      // Again, handle different response formats
+      if (Array.isArray(directResponse.data)) {
+        return directResponse.data;
+      }
       
-      // Simple filtering for mock data
-      const lowercaseQuery = query.toLowerCase();
-      return mockHashtags.filter(hashtag => 
-        hashtag.tag.toLowerCase().includes(lowercaseQuery)
-      );
+      if (directResponse.data && typeof directResponse.data === 'object') {
+        return [directResponse.data];
+      }
+      
+      return [];
+    } catch (directError) {
+      console.error('Error in direct hashtag lookup:', directError);
+      
+      // Finally, try the hashtag posts endpoint
+      try {
+        console.log(`Trying to get posts by hashtag: ${query}`);
+        const postsResponse = await api.get(`${API_BASE_URL}/posts`, {
+          params: { tag: query.replace(/^#/, '') }
+        });
+        
+        console.log('Posts by hashtag response:', postsResponse.data);
+        
+        // If we have posts, create a hashtag object
+        if (Array.isArray(postsResponse.data) && postsResponse.data.length > 0) {
+          return [{
+            tag: query.startsWith('#') ? query : `#${query}`,
+            count: postsResponse.data.length
+          }];
+        }
+        
+        return [];
+      } catch (postsError) {
+        console.error('Error getting posts by hashtag:', postsError);
+        return [];
+      }
     }
+  }
+};
+
+// Function for direct access to a hashtag by name - used in hashtag/[tag].tsx page
+export const getHashtagInfo = async (tag: string): Promise<any> => {
+  try {
+    // Ensure clean tag (no # prefix)
+    const cleanTag = tag.startsWith('#') ? tag.substring(1) : tag;
+    console.log(`Getting hashtag info for: ${cleanTag}`);
     
-    return [];
+    const response = await api.get(`${API_BASE_URL}/hashtags/info/${cleanTag}`);
+    console.log('Hashtag info response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error(`Error getting hashtag info for ${tag}:`, error);
+    return null;
   }
 };
 
