@@ -1,7 +1,7 @@
 package com.jgy36.PoliticalApp.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -29,14 +29,14 @@ public class Post {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnore
+    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts"})
     private User author;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties("post") // ✅ Prevent infinite recursion
+    @JsonIgnoreProperties("post")
     private Set<PostLike> likes = new HashSet<>();
 
     @ManyToMany
@@ -46,12 +46,12 @@ public class Post {
             inverseJoinColumns = @JoinColumn(name = "liked_users_id")
     )
     @Cascade(org.hibernate.annotations.CascadeType.ALL)
-    @JsonIgnoreProperties("post")
-    private Set<User> likedUsers = new HashSet<>(); // ✅ Ensure users can like posts
+    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts", "hibernateLazyInitializer", "handler"})
+    private Set<User> likedUsers = new HashSet<>();
 
     @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonIgnoreProperties("post") // ✅ Prevents infinite loop by managing Comment -> Post serialization
-    private Set<Comment> comments = new HashSet<>(); // ✅ Add comments field
+    @JsonIgnoreProperties({"post", "hibernateLazyInitializer", "handler"})
+    private Set<Comment> comments = new HashSet<>();
 
     @ManyToMany
     @JoinTable(
@@ -59,12 +59,13 @@ public class Post {
             joinColumns = @JoinColumn(name = "post_id"),
             inverseJoinColumns = @JoinColumn(name = "hashtag_id")
     )
+    @JsonManagedReference
     private Set<Hashtag> hashtags = new HashSet<>();
 
     // Optional community relationship - if your app has communities
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", referencedColumnName = "id")
-    @JsonIgnore
+    @JsonIgnoreProperties({"posts", "members", "moderators", "hibernateLazyInitializer", "handler"})
     private Community community;
 
     public Post(String content, User author) {
@@ -98,5 +99,5 @@ public class Post {
             hashtag.getPosts().remove(this);
         }
     }
-    
+
 }

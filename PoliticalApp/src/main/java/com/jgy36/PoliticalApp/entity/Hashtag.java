@@ -1,7 +1,6 @@
-// Review your Hashtag.java entity class:
-
 package com.jgy36.PoliticalApp.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.NoArgsConstructor;
 
@@ -22,6 +21,7 @@ public class Hashtag {
     private Integer count;
 
     @ManyToMany(mappedBy = "hashtags")
+    @JsonBackReference
     private Set<Post> posts = new HashSet<>();
 
     // Constructor with tag

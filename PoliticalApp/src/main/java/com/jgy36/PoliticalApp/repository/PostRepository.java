@@ -46,6 +46,14 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // Count posts in a community
     long countByCommunity(Community community);
 
+    // Find posts containing text
     List<Post> findByContentContainingIgnoreCase(String text);
 
+    // Find posts with a specific hashtag
+    @Query("SELECT p FROM Post p JOIN p.hashtags h WHERE h.tag = :tag")
+    List<Post> findByHashtagTag(@Param("tag") String tag);
+
+    // Find posts with hashtag search parameter
+    @Query("SELECT p FROM Post p JOIN p.hashtags h WHERE h.tag LIKE %:query% OR h.tag = :query")
+    List<Post> findByHashtagContainingIgnoreCase(@Param("query") String query);
 }

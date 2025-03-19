@@ -1,5 +1,7 @@
 package com.jgy36.PoliticalApp.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -26,21 +28,23 @@ public class User {
     private String email;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
-    @Enumerated(EnumType.STRING) // ✅ Store as STRING instead of plain text
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role = Role.ROLE_USER; // ✅ Default to ROLE_USER
+    private Role role = Role.ROLE_USER;
 
     @Column(nullable = false)
     private boolean verified = false;
 
+    @JsonIgnore
     private String verificationToken;
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    // ✅ Getters & Setters
+    // Getters & Setters
     @Getter
     @ManyToMany
     @JoinTable(
@@ -48,8 +52,11 @@ public class User {
             joinColumns = @JoinColumn(name = "follower_id"),
             inverseJoinColumns = @JoinColumn(name = "following_id")
     )
-    private Set<User> following = new HashSet<>(); // Users this user is following
-    @OneToMany
+    @JsonIgnoreProperties("following")
+    private Set<User> following = new HashSet<>();
+
+    @OneToMany(fetch = FetchType.LAZY)
+    @JsonIgnore
     private Set<Post> savedPosts;
 
     public User() {

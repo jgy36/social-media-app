@@ -17,6 +17,7 @@ public class PostDTO {
     private List<String> hashtags; // Store just the hashtag strings, not the entities
     private String communityId;
     private String communityName;
+    private int commentsCount;
 
     public PostDTO(Post post) {
         this.id = post.getId();
@@ -24,6 +25,7 @@ public class PostDTO {
         this.author = post.getAuthor().getUsername();
         this.createdAt = post.getCreatedAt();
         this.likes = post.getLikes().size(); // ✅ Get the count of likes
+        this.commentsCount = post.getComments().size();
 
         // Extract hashtag strings from Hashtag entities
         if (post.getHashtags() != null && !post.getHashtags().isEmpty()) {
@@ -70,5 +72,9 @@ public class PostDTO {
 
     public String getCommunityName() {
         return communityName;
+    }
+
+    public int getCommentsCount() {
+        return commentsCount;
     }
 }

@@ -1,7 +1,7 @@
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.dto.PostDTO;
-import com.jgy36.PoliticalApp.entity.Comment;
+import com.jgy36.PoliticalApp.entity.Community;
 import com.jgy36.PoliticalApp.entity.Hashtag;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
@@ -24,19 +24,24 @@ public class PostService {
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
-    private final HashtagService hashtagService;
+    private final HashtagRepository hashtagRepository;
     private final CommentRepository commentRepository;
     private final CommunityRepository communityRepository;
-    private final HashtagRepository hashtagRepository;
+    private final PostLikeRepository postLikeRepository;
 
-
-    public PostService(PostRepository postRepository, UserRepository userRepository, HashtagService hashtagService, CommentRepository commentRepository, CommunityRepository communityRepository, HashtagRepository hashtagRepository) {
+    public PostService(
+            PostRepository postRepository,
+            UserRepository userRepository,
+            HashtagRepository hashtagRepository,
+            CommentRepository commentRepository,
+            CommunityRepository communityRepository,
+            PostLikeRepository postLikeRepository) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
-        this.hashtagService = hashtagService;
+        this.hashtagRepository = hashtagRepository;
         this.commentRepository = commentRepository;
         this.communityRepository = communityRepository;
-        this.hashtagRepository = hashtagRepository;
+        this.postLikeRepository = postLikeRepository;
     }
 
     // ✅ Get all posts
@@ -68,49 +73,48 @@ public class PostService {
         post.setAuthor(user);
         post.setCreatedAt(LocalDateTime.now());
 
-        // THIS IS THE MISSING PART - Extract and save hashtags
-        extractAndSaveHashtags(post);
+        // Extract and save hashtags
+        Set<Hashtag> hashtags = extractHashtags(content);
+        for (Hashtag hashtag : hashtags) {
+            post.addHashtag(hashtag);
+        }
 
         return postRepository.save(post);
     }
 
-    // Add this method to extract and save hashtags
-    private void extractAndSaveHashtags(Post post) {
-        // Extract hashtags from content using regex
-        Pattern pattern = Pattern.compile("#(\\w+)");
-        Matcher matcher = pattern.matcher(post.getContent());
-
+    // Method to extract hashtags from content
+    private Set<Hashtag> extractHashtags(String content) {
         Set<Hashtag> hashtags = new HashSet<>();
+        if (content == null || content.isEmpty()) {
+            return hashtags;
+        }
+
+        Pattern pattern = Pattern.compile("#(\\w+)");
+        Matcher matcher = pattern.matcher(content);
 
         while (matcher.find()) {
-            String tagText = matcher.group(); // This includes the # symbol
-
-            // Look up the hashtag or create a new one
+            String tagText = "#" + matcher.group(1); // Include the # symbol
+            // Find or create hashtag
             Hashtag hashtag = hashtagRepository.findByTag(tagText)
                     .orElseGet(() -> {
-                        Hashtag newTag = new Hashtag(tagText);
-                        return hashtagRepository.save(newTag);
+                        Hashtag newHashtag = new Hashtag(tagText);
+                        return hashtagRepository.save(newHashtag);
                     });
 
-            // If existing hashtag, increment its count
+            // If it's an existing hashtag, increment the count
             if (hashtag.getId() != null) {
                 hashtag.setCount(hashtag.getCount() + 1);
                 hashtagRepository.save(hashtag);
             }
 
-            // Associate hashtag with post
             hashtags.add(hashtag);
-            post.addHashtag(hashtag);
         }
 
-        // Log for debugging
-        if (!hashtags.isEmpty()) {
-            System.out.println("✅ Extracted " + hashtags.size() + " hashtags from post: " +
-                    hashtags.stream().map(Hashtag::getTag).collect(Collectors.joining(", ")));
-        }
+        return hashtags;
     }
 
     // ✅ Delete a post (only the author can delete their post)
+    @Transactional
     public void deletePost(Long postId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
@@ -133,10 +137,22 @@ public class PostService {
             throw new SecurityException("You are not allowed to delete this post.");
         }
 
+        // Remove hashtag associations first (update hashtag counts)
+        if (post.getHashtags() != null && !post.getHashtags().isEmpty()) {
+            for (Hashtag hashtag : new HashSet<>(post.getHashtags())) {
+                if (hashtag.getCount() > 0) {
+                    hashtag.setCount(hashtag.getCount() - 1);
+                    hashtagRepository.save(hashtag);
+                }
+                post.removeHashtag(hashtag);
+            }
+        }
+
         postRepository.delete(post);
     }
 
     // ✅ Like/Unlike a post
+    @Transactional
     public int toggleLike(Long postId, String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email: " + email));
@@ -164,53 +180,58 @@ public class PostService {
                 .collect(Collectors.toList());
     }
 
-    // ✅ Add a comment to a post
-    public Comment addComment(Long postId, String username, String text) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with username: " + username));
-
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
-
-        Comment comment = new Comment(text, user, post);
-        return commentRepository.save(comment);
-    }
-
-    // ✅ Get all comments for a post
-    public List<Comment> getPostComments(Long postId) {
-        return commentRepository.findByPostId(postId);
-    }
-
     // ✅ Save/Unsave a post
-    public void toggleSavePost(Long postId, String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with username: " + username));
+    @Transactional
+    public void toggleSavePost(Long postId, String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email: " + email));
 
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
+
+        if (user.getSavedPosts() == null) {
+            user.setSavedPosts(new HashSet<>());
+        }
 
         if (user.getSavedPosts().contains(post)) {
             user.getSavedPosts().remove(post);
         } else {
             user.getSavedPosts().add(post);
         }
+
         userRepository.save(user);
     }
 
     // ✅ Get all saved posts for a user
-    public List<Post> getSavedPosts(String username) {
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with username: " + username));
+    public List<Post> getSavedPosts(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email: " + email));
 
-        return List.copyOf(user.getSavedPosts());
+        if (user.getSavedPosts() == null) {
+            return Collections.emptyList();
+        }
+
+        return new ArrayList<>(user.getSavedPosts());
     }
 
-    // ✅ Fixed: Using distinct method name and correct parameter type
-    public List<Post> getPostsByTag(String hashtag) {
-        return hashtagService.getPostsByHashtag(hashtag);
+    // ✅ Get posts by hashtag
+    public List<Post> getPostsByTag(String tag) {
+        // Ensure tag has # prefix
+        String normalizedTag = tag.startsWith("#") ? tag : "#" + tag;
+
+        // Try to find hashtag entity
+        Optional<Hashtag> hashtagOpt = hashtagRepository.findByTag(normalizedTag);
+
+        if (hashtagOpt.isPresent()) {
+            // If hashtag exists, return its posts
+            return new ArrayList<>(hashtagOpt.get().getPosts());
+        } else {
+            // Otherwise search for posts containing the hashtag text
+            return postRepository.findByContentContainingIgnoreCase(normalizedTag);
+        }
     }
 
-    // ✅ Get post by ID
+    // ✅ Get a post by ID
     public Post getPostById(Long postId) {
         return postRepository.findByIdWithDetails(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
@@ -222,35 +243,38 @@ public class PostService {
     }
 
     // ✅ Create a post in a specific community
-    public Post createCommunityPost(String content, String communityId) {
+    @Transactional
+    public Post createCommunityPost(String communityId, String content) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();
-        Optional<User> userOpt = userRepository.findByEmail(email);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        if (userOpt.isEmpty()) {
-            throw new IllegalArgumentException("User not found");
+        Community community = communityRepository.findBySlug(communityId)
+                .orElseThrow(() -> new IllegalArgumentException("Community not found"));
+
+        // Check if user is a member of the community
+        if (!community.isMember(user)) {
+            throw new IllegalArgumentException("You must be a member of this community to post");
         }
 
-        User user = userOpt.get();
         Post post = new Post();
         post.setContent(content);
         post.setAuthor(user);
-        post.setCreatedAt(java.time.LocalDateTime.now());
+        post.setCommunity(community);
+        post.setCreatedAt(LocalDateTime.now());
 
-        // Initialize collections
-        post.setLikes(new HashSet<>());
-        post.setLikedUsers(new HashSet<>());
-        post.setComments(new HashSet<>());
-
-        // Here we would associate the post with a community
-        // This depends on your data model and may require additional
-        // fields in the Post entity and possibly a CommunityRepository
+        // Extract and save hashtags
+        Set<Hashtag> hashtags = extractHashtags(content);
+        for (Hashtag hashtag : hashtags) {
+            post.addHashtag(hashtag);
+        }
 
         return postRepository.save(post);
     }
 
-    public List<Post> getPostsByCommunitySlug(String communitySlug) {
-        return postRepository.findByCommunitySlugOrderByCreatedAtDesc(communitySlug);
+    // Get posts by community slug
+    public List<Post> getPostsByCommunitySlug(String slug) {
+        return postRepository.findByCommunitySlugOrderByCreatedAtDesc(slug);
     }
-
 }

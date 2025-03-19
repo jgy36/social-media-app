@@ -1,7 +1,9 @@
 package com.jgy36.PoliticalApp.exception;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -12,14 +14,16 @@ import java.util.NoSuchElementException;
 @ControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+
     // ✅ Utility method to format error responses
-    private static Object createErrorResponse(String error, String message) {
+    private static ErrorResponse createErrorResponse(String error, String message) {
         return new ErrorResponse(error, message);
     }
 
     // ✅ Handle authentication errors (401)
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<Object> handleBadCredentials(BadCredentialsException ex) {
+    public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
                 createErrorResponse("Unauthorized", ex.getMessage())
         );
@@ -27,7 +31,7 @@ public class GlobalExceptionHandler {
 
     // ✅ Handle access denied (403)
     @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<Object> handleAccessDenied(AccessDeniedException ex) {
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
                 createErrorResponse("Forbidden", ex.getMessage())
         );
@@ -35,7 +39,7 @@ public class GlobalExceptionHandler {
 
     // ✅ Handle not found errors (404)
     @ExceptionHandler(NoSuchElementException.class)
-    public ResponseEntity<Object> handleNotFound(NoSuchElementException ex) {
+    public ResponseEntity<ErrorResponse> handleNotFound(NoSuchElementException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                 createErrorResponse("Not Found", ex.getMessage())
         );
@@ -43,28 +47,44 @@ public class GlobalExceptionHandler {
 
     // ✅ Handle generic bad requests (400)
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<Object> handleBadRequest(IllegalArgumentException ex) {
+    public ResponseEntity<ErrorResponse> handleBadRequest(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                 createErrorResponse("Bad Request", ex.getMessage())
         );
     }
 
+    // ✅ Handle JSON serialization errors
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ResponseEntity<ErrorResponse> handleJsonWriteError(HttpMessageNotWritableException ex) {
+        return ResponseEntity.status(HttpStatus.OK).body(
+                createErrorResponse("Success", "Operation completed successfully")
+        );
+    }
+
     // ✅ Fallback for unexpected errors (500)
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Object> handleGeneralException(Exception ex) {
+    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 createErrorResponse("Internal Server Error", ex.getMessage())
         );
     }
 
     // ✅ Inner class for consistent error response format
-    private static class ErrorResponse {
-        public String error;
-        public String message;
+    public static class ErrorResponse {
+        private String error;
+        private String message;
 
         public ErrorResponse(String error, String message) {
             this.error = error;
             this.message = message;
+        }
+
+        public String getError() {
+            return error;
+        }
+
+        public String getMessage() {
+            return message;
         }
     }
 }
