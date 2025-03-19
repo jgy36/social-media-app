@@ -147,17 +147,14 @@ export const createPost = async (
       throw new Error("No authentication token found. Please log in.");
 
     // Use direct fetch with explicit URL
-    const API_BASE_URL = "http://localhost:8080/api"; // Ensure this matches your server
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      // Just send the content as a string - the backend should handle initialization
-      body: JSON.stringify({
-        content: postData.content,
-      }),
+      body: JSON.stringify(postData.content),
     });
 
     // Log response details for debugging
@@ -170,7 +167,18 @@ export const createPost = async (
       throw new Error(`Server error: ${response.status} - ${errorText}`);
     }
 
-    return await response.json();
+    // Try to parse JSON, but handle errors gracefully
+    try {
+      return await response.json();
+    } catch (jsonError) {
+      console.warn("Could not parse JSON response, but post may have been created successfully", jsonError);
+      // Return a minimal post object with the content
+      return { 
+        id: 0, // Placeholder ID
+        content: postData.content,
+        createdAt: new Date().toISOString()
+      };
+    }
   } catch (error) {
     console.error("Error creating post:", error);
     throw error;
@@ -619,14 +627,27 @@ export const getAllPoliticians = async (): Promise<Politician[]> => {
     return [];
   }
 };
-// Function to fetch posts by hashtag
+// Function to fetch posts by hashtag with better error handling
 export const getPostsByHashtag = async (hashtag: string): Promise<PostType[]> => {
   try {
     // Remove the # prefix if present
     const tag = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
+    console.log(`Fetching posts for hashtag: ${tag}`);
     
-    const response = await api.get(`${API_BASE_URL}/hashtags/${tag}`);
-    return response.data as PostType[];
+    try {
+      const response = await api.get(`${API_BASE_URL}/hashtags/${tag}`);
+      console.log(`Found ${response.data.length} posts for hashtag: ${tag}`);
+      return response.data as PostType[];
+    } catch (error) {
+      console.error("Error fetching posts by hashtag:", error);
+      
+      // Fall back to searching in post content as an alternative
+      console.log(`Trying alternative method for hashtag: ${tag}`);
+      const backupResponse = await api.get(`${API_BASE_URL}/posts`, {
+        params: { hashtag: tag }
+      });
+      return backupResponse.data as PostType[];
+    }
   } catch (error) {
     console.error("Error fetching posts by hashtag:", error);
     return [];
