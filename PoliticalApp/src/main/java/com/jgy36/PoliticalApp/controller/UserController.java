@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @RestController
@@ -241,4 +242,57 @@ public class UserController {
 
         return ResponseEntity.ok(userDTOs);
     }
+
+    /**
+     * ✅ Update the current user's username
+     * This allows users to change their username while maintaining proper format requirements
+     */
+    @PutMapping("/update-username")
+    public ResponseEntity<?> updateUsername(@RequestBody Map<String, String> request) {
+        // Get authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "User not found"));
+        }
+
+        User user = userOpt.get();
+        String newUsername = request.get("username");
+
+        // Validate username
+        if (newUsername == null || newUsername.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", "Username cannot be empty"));
+        }
+
+        // Check username format (3-20 chars, alphanumeric, hyphens, underscores)
+        Pattern usernamePattern = Pattern.compile("^[a-zA-Z0-9_-]{3,20}$");
+        if (!usernamePattern.matcher(newUsername).matches()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false,
+                            "message", "Username must be 3-20 characters and can only contain letters, numbers, underscores, and hyphens"));
+        }
+
+        // Check if username exists (case insensitive)
+        if (userRepository.existsByUsernameIgnoreCase(newUsername) &&
+                !user.getUsername().equalsIgnoreCase(newUsername)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("success", false, "message", "Username already taken"));
+        }
+
+        // Update username
+        user.setUsername(newUsername);
+        userRepository.save(user);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Username updated successfully");
+        response.put("username", newUsername);
+
+        return ResponseEntity.ok(response);
+    }
+
 }
