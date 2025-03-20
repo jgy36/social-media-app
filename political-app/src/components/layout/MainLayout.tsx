@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/layout/MainLayout.tsx
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useNavigationStateTracker } from "@/utils/navigationStateManager";
@@ -22,12 +21,40 @@ const MainLayout = ({ children, section }: MainLayoutProps) => {
   const joinedCommunities = useSelector(
     (state: RootState) => state.communities.joinedCommunities
   );
+  const user = useSelector((state: RootState) => state.user);
 
   // Auto-detect current section if not explicitly provided
-  const currentSection = section || router.asPath.split('/')[1] || '';
+  const currentPath = router.asPath;
   
-  // Track navigation with either explicit section or auto-detected one
-  useNavigationStateTracker(currentSection);
+  // Define a function to detect if we're viewing someone else's profile
+  const isViewingOtherUserProfile = (): boolean => {
+    const pathParts = currentPath.split('/');
+    if (pathParts.length > 2 && pathParts[1] === 'profile') {
+      const pathUsername = pathParts[2];
+      return user.username ? pathUsername !== user.username : true;
+    }
+    return false;
+  };
+  
+  // Use explicit section if provided
+  // Otherwise, detect from path with special handling for user profiles
+  let effectiveSection = section;
+  if (!effectiveSection) {
+    const pathParts = currentPath.split('/');
+    
+    if (pathParts.length > 1) {
+      // Basic case: just use the first path segment
+      effectiveSection = pathParts[1] || '';
+      
+      // Special case: if viewing another user's profile page, always consider it part of "community"
+      if (effectiveSection === 'profile' && isViewingOtherUserProfile()) {
+        effectiveSection = 'community';
+      }
+    }
+  }
+  
+  // Track navigation with the effective section
+  useNavigationStateTracker(effectiveSection);
   
   const showSidebar = isAuthenticated && joinedCommunities.length > 0;
 

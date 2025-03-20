@@ -2,6 +2,8 @@
 // src/utils/navigationStateManager.ts
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/redux/store';
 
 // Define the structure for storing navigation history
 interface NavigationState {
@@ -77,30 +79,105 @@ export const getLastPath = (section: string): string => {
 };
 
 /**
- * Hook to track and save navigation state
- * @param section The current section
+ * Detect the current section from a path
+ * @param path The current path
+ * @param currentUsername The username of the currently logged-in user
+ * @returns The detected section
  */
-export const useNavigationStateTracker = (section: string | null = null): void => {
+export const detectSectionFromPath = (path: string, currentUsername: string | null): string => {
+  const pathParts = path.split('/');
+  
+  // If path is like /profile/[username]
+  if (pathParts.length > 2 && pathParts[1] === 'profile') {
+    const pathUsername = pathParts[2];
+    
+    // If this is the current user's profile, it belongs to the "profile" tab
+    if (currentUsername && pathUsername === currentUsername) {
+      return 'profile';
+    }
+    
+    // Otherwise, it's someone else's profile and belongs to "community"
+    return 'community';
+  }
+  
+  // Other simple paths - just use the first path segment
+  if (pathParts.length > 1) {
+    return pathParts[1] || '';
+  }
+  
+  return '';
+};
+
+/**
+ * Store the section that a user profile was accessed from
+ * @param section The section to store
+ */
+export const storePreviousSection = (section: string): void => {
+  try {
+    localStorage.setItem('prev_section', section);
+  } catch (error) {
+    console.error('Error storing previous section:', error);
+  }
+};
+
+/**
+ * Get the section that a user profile was accessed from
+ * @returns The previous section or null
+ */
+export const getPreviousSection = (): string | null => {
+  try {
+    return localStorage.getItem('prev_section');
+  } catch (error) {
+    console.error('Error retrieving previous section:', error);
+    return null;
+  }
+};
+
+/**
+ * Hook to track and save navigation state
+ * Use this in layouts or main components to automatically track state
+ */
+export const useNavigationStateTracker = (explicitSection: string | null = null): void => {
   const router = useRouter();
+  const user = useSelector((state: RootState) => state.user);
   
   useEffect(() => {
-    // Determine the current section based on the path
+    // Get the current path
     const currentPath = router.asPath;
     
-    // Only save state if we have a valid section
-    if (section) {
-      saveNavigationState(section, currentPath);
-    } else {
-      // Auto-detect section from path
-      const pathParts = currentPath.split('/');
-      if (pathParts.length > 1) {
-        const detectedSection = pathParts[1];
-        if (detectedSection) {
-          saveNavigationState(detectedSection, currentPath);
-        }
-      }
+    // If an explicit section was provided, use that
+    if (explicitSection) {
+      saveNavigationState(explicitSection, currentPath);
+      return;
     }
-  }, [router.asPath, section]);
+    
+    // Check if we're on a /profile/[username] page
+    const pathParts = currentPath.split('/');
+    if (pathParts.length > 2 && pathParts[1] === 'profile') {
+      const pathUsername = pathParts[2];
+      
+      // If this is the current user's profile, it's part of the "profile" section
+      if (user.username && pathUsername === user.username) {
+        saveNavigationState('profile', currentPath);
+        return;
+      }
+      
+      // For other user profiles, ALWAYS save under the community section
+      // This is crucial - other user profiles are considered part of the community
+      saveNavigationState('community', currentPath);
+      return;
+    }
+    
+    // Auto-detect section from path for normal paths
+    const pathSection = pathParts.length > 1 ? pathParts[1] : '';
+    if (pathSection) {
+      // Save this path under its own section (standard behavior)
+      saveNavigationState(pathSection, currentPath);
+      
+      // Also update prev_section to track where we came from
+      storePreviousSection(pathSection);
+    }
+  }, [router.asPath, explicitSection, user.username]);
 };
 
 /**

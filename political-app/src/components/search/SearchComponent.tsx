@@ -18,6 +18,7 @@ import { useRouter } from 'next/router';
 import { api } from '@/utils/api';
 import { Button } from '@/components/ui/button';
 import { debounce } from 'lodash';
+import { storePreviousSection } from '@/utils/navigationStateManager';
 
 // Define interfaces for API responses
 interface UserResponse {
@@ -205,6 +206,15 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
 
   const handleSelectResult = (result: SearchResult) => {
     setOpen(false);
+    
+    // Get the current path for context
+    const currentPath = router.asPath;
+    const currentSection = currentPath.split('/')[1] || '';
+    
+    // Store the current section before navigating
+    if (currentSection) {
+      storePreviousSection(currentSection);
+    }
     
     // Handle navigation based on result type
     switch (result.type) {

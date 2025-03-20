@@ -1,11 +1,12 @@
-// pages/community/[id].tsx - Enhanced version
+/* eslint-disable @typescript-eslint/no-unused-vars */
+// src/pages/community/[id].tsx
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import { joinCommunity as joinCommunityAction, leaveCommunity as leaveCommunityAction } from "@/redux/slices/communitySlice";
 import Navbar from "@/components/navbar/Navbar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +14,9 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
-import { Users, Bell, BellOff, MessageCircle, Info, Calendar, Flame, TrendingUp, Shield, User, ArrowLeft, Loader2 } from "lucide-react";
+import { Users, Bell, BellOff, MessageCircle, Info, Calendar, Flame, TrendingUp, Shield, User } from "lucide-react";
 import { getCommunityBySlug, getCommunityPosts, joinCommunity, leaveCommunity, createCommunityPost } from "@/utils/api";
+import BackButton from "@/components/navigation/BackButton";
 
 interface CommunityData {
   id: string;
@@ -30,7 +32,6 @@ interface CommunityData {
   isNotificationsOn: boolean;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
 const CommunityPage = () => {
@@ -46,7 +47,7 @@ const CommunityPage = () => {
   const [isJoined, setIsJoined] = useState(false);
   const [isNotificationsOn, setIsNotificationsOn] = useState(false);
   const [memberCount, setMemberCount] = useState(0);
-
+  
   // Get current user from Redux store
   const currentUser = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!currentUser.token;
@@ -236,11 +237,6 @@ const CommunityPage = () => {
     }
   };
 
-  // Go back to communities list
-  const handleBack = () => {
-    router.push('/community');
-  };
-
   // Loading state
   if (isLoading) {
     return (
@@ -260,9 +256,7 @@ const CommunityPage = () => {
       <div className="min-h-screen bg-background text-foreground">
         <Navbar />
         <div className="max-w-5xl mx-auto p-4">
-          <Button onClick={handleBack} variant="ghost" className="mb-4">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
+          <BackButton fallbackUrl="/community" className="mb-4" />
           
           <Card className="shadow-md">
             <CardHeader>
@@ -274,7 +268,7 @@ const CommunityPage = () => {
               </p>
               <Button
                 className="mt-4"
-                onClick={handleBack}
+                onClick={() => router.push("/community")}
               >
                 Back to Communities
               </Button>
@@ -303,13 +297,7 @@ const CommunityPage = () => {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 -mt-16 relative z-10">
-        <Button 
-          onClick={handleBack}
-          variant="ghost" 
-          className="mb-4 bg-background/80 backdrop-blur-sm"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
+        <BackButton fallbackUrl="/community" className="mb-4 bg-background/80 backdrop-blur-sm" />
         
         {/* Community Header */}
         <Card className="shadow-lg border border-border mb-6">
@@ -396,7 +384,7 @@ const CommunityPage = () => {
                       >
                         {isSubmitting ? (
                           <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent"></div>
                             Posting...
                           </>
                         ) : (
