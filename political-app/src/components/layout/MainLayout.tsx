@@ -1,15 +1,20 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/layout/MainLayout.tsx
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
+import { useNavigationStateTracker } from "@/utils/navigationStateManager";
+import { useRouter } from 'next/router';
 import Navbar from "@/components/navbar/Navbar";
 import CommunitySidebar from "@/components/community/CommunitySidebar";
 
 interface MainLayoutProps {
   children: ReactNode;
+  section?: string; // Optional explicit section override
 }
 
-const MainLayout = ({ children }: MainLayoutProps) => {
+const MainLayout = ({ children, section }: MainLayoutProps) => {
+  const router = useRouter();
   const isSidebarOpen = useSelector(
     (state: RootState) => state.communities.isSidebarOpen
   );
@@ -18,6 +23,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     (state: RootState) => state.communities.joinedCommunities
   );
 
+  // Auto-detect current section if not explicitly provided
+  const currentSection = section || router.asPath.split('/')[1] || '';
+  
+  // Track navigation with either explicit section or auto-detected one
+  useNavigationStateTracker(currentSection);
+  
   const showSidebar = isAuthenticated && joinedCommunities.length > 0;
 
   return (
