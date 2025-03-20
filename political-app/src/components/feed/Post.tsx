@@ -91,6 +91,17 @@ const Post = ({ post }: PostProps) => {
     router.push(`/profile/${post.author}`);
   };
 
+  // Make sure post.author and post.content are strings, not objects
+  const authorName = typeof post.author === 'string' ? post.author : 
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (post.author && typeof post.author === 'object' && 'username' in (post.author as any)) 
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      ? String((post.author as any).username) 
+                      : 'Unknown User';
+  
+  const postContent = typeof post.content === 'string' ? post.content : 
+                      post.content ? JSON.stringify(post.content) : '';
+
   return (
     <Card className="p-4 shadow-md border border-border transition-all hover:shadow-lg mb-4">
       {/* Post Content - Clickable to view full post */}
@@ -104,7 +115,7 @@ const Post = ({ post }: PostProps) => {
             className="font-semibold text-lg hover:text-primary hover:underline"
             onClick={handleAuthorClick}
           >
-            {post.author}
+            {authorName}
           </h3>
           
           {post.communityName && (
@@ -123,7 +134,7 @@ const Post = ({ post }: PostProps) => {
         
         {/* Post content with clickable hashtags */}
         <p className="text-sm text-muted-foreground mt-1">
-          {renderContentWithHashtags(post.content, handleHashtagClick)}
+          {renderContentWithHashtags(postContent, handleHashtagClick)}
         </p>
         
         {/* Display hashtags as badges if available */}
