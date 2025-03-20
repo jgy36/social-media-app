@@ -65,10 +65,15 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Allow access to static resources without authentication
                         .requestMatchers("/images/**", "/css/**", "/js/**").permitAll()
+
                         // ✅ Public Endpoints
                         .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()  // Public GET Comments
+
+                        // ✅ NEW: User profile endpoints are public for better UX
+                        .requestMatchers(HttpMethod.GET, "/api/users/profile/**").permitAll() // Public user profiles
+                        .requestMatchers(HttpMethod.GET, "/api/users/search").permitAll() // Public user search
 
                         // ✅ FIX: Also allow access to politician endpoints without /api prefix
                         .requestMatchers(HttpMethod.GET, "/politicians/**").permitAll()  // Public GET Politicians
