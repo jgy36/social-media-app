@@ -52,6 +52,7 @@ public class UserController {
 
     /**
      * ✅ Get a user's profile by username
+     * This endpoint is now public for better user experience
      */
     @GetMapping("/profile/{username}")
     public ResponseEntity<?> getUserProfile(@PathVariable String username) {
@@ -96,6 +97,7 @@ public class UserController {
 
     /**
      * ✅ Get a user's posts
+     * Making this public is recommended for better UX, but requires backend modifications
      */
     @GetMapping("/profile/{username}/posts")
     public ResponseEntity<?> getUserPosts(@PathVariable String username) {
