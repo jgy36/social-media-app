@@ -1,4 +1,5 @@
-// pages/profile/[username].tsx
+/* eslint-disable @typescript-eslint/no-unused-vars */
+// src/pages/profile/[username].tsx
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
@@ -10,8 +11,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
-import { User as UserIcon, Users, Calendar, Mail, MessagesSquare, ArrowLeft } from "lucide-react";
+import { User as UserIcon, Users, Calendar, Mail, MessagesSquare } from "lucide-react";
 import axios from "axios";
+import { getPreviousSection, storePreviousSection } from "@/utils/navigationStateManager";
+import BackButton from "@/components/navigation/BackButton";
 
 // Interface for the user profile response
 interface UserProfile {
@@ -41,6 +44,15 @@ const UserProfilePage = () => {
   const isAuthenticated = !!currentUser.token;
   // Check if this is the current user's profile
   const isCurrentUserProfile = profile?.username === currentUser.username;
+
+  // Track the source section - where the user came from
+  const [sourceSection, setSourceSection] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Get and store the source section when component mounts
+    const prevSection = getPreviousSection();
+    setSourceSection(prevSection || 'community'); // Default to community
+  }, []);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -148,8 +160,13 @@ const UserProfilePage = () => {
     }
   };
 
-  const handleBack = () => {
-    router.back();
+  // When going to another user's profile, preserve the navigation context
+  const handleRedirectToProfile = (username: string) => {
+    // Store the current section before navigating
+    if (sourceSection) {
+      storePreviousSection(sourceSection);
+    }
+    router.push(`/profile/${username}`);
   };
 
   // Loading state
@@ -171,13 +188,7 @@ const UserProfilePage = () => {
       <div className="min-h-screen bg-background text-foreground">
         <Navbar />
         <div className="max-w-4xl mx-auto p-6">
-          <Button 
-            onClick={handleBack}
-            variant="ghost" 
-            className="mb-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
+          <BackButton fallbackUrl="/community" className="mb-4" />
           
           <Card className="shadow-md">
             <CardHeader>
@@ -200,13 +211,7 @@ const UserProfilePage = () => {
       <Navbar />
       
       <div className="max-w-4xl mx-auto p-4 md:p-6">
-        <Button 
-          onClick={handleBack}
-          variant="ghost" 
-          className="mb-4"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
+        <BackButton fallbackUrl="/community" className="mb-4" />
         
         {/* Profile Header */}
         <Card className="mb-6 shadow-md">
