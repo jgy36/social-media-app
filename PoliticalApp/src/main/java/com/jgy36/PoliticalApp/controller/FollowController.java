@@ -10,6 +10,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/follow")
+@CrossOrigin(origins = "*")
 public class FollowController {
 
     private final FollowService followService;
@@ -18,32 +19,38 @@ public class FollowController {
         this.followService = followService;
     }
 
-    // ✅ Ensure User is Authenticated
+    // ✅ Follow a user and get updated counts
     @PostMapping("/{userId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<String> followUser(@PathVariable Long userId) {
-        followService.followUser(userId);
-        return ResponseEntity.ok("User followed successfully.");
+    public ResponseEntity<Map<String, Object>> followUser(@PathVariable Long userId) {
+        Map<String, Object> result = followService.followUser(userId);
+        return ResponseEntity.ok(result);
     }
 
-
+    // ✅ Unfollow a user and get updated counts
     @DeleteMapping("/{userId}")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<String> unfollowUser(@PathVariable Long userId) {
-        followService.unfollowUser(userId);
-        return ResponseEntity.ok("User unfollowed successfully.");
+    public ResponseEntity<Map<String, Object>> unfollowUser(@PathVariable Long userId) {
+        Map<String, Object> result = followService.unfollowUser(userId);
+        return ResponseEntity.ok(result);
     }
 
-    // ✅ Ensure authentication for getting following users
+    // ✅ Check if current user is following a target user
+    @GetMapping("/status/{userId}")
+    public ResponseEntity<Map<String, Object>> getFollowStatus(@PathVariable Long userId) {
+        Map<String, Object> status = followService.getFollowStatus(userId);
+        return ResponseEntity.ok(status);
+    }
+
+    // ✅ Get list of IDs that current user follows
     @GetMapping("/following")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Long>> getFollowingIds() {
         return ResponseEntity.ok(followService.getFollowingIds());
     }
 
-    // ✅ Ensure authentication for getting follower count
+    // ✅ Get detailed follower stats
     @GetMapping("/stats/{userId}")
-    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Integer>> getFollowStats(@PathVariable Long userId) {
         int followers = followService.getFollowerCount(userId);
         int following = followService.getFollowingCount(userId);
@@ -54,5 +61,19 @@ public class FollowController {
                 "followingCount", following,
                 "postCount", posts
         ));
+    }
+
+    // ✅ NEW: Get followers list
+    @GetMapping("/followers/{userId}")
+    public ResponseEntity<List<Map<String, Object>>> getFollowers(@PathVariable Long userId) {
+        List<Map<String, Object>> followers = followService.getFollowers(userId);
+        return ResponseEntity.ok(followers);
+    }
+
+    // ✅ NEW: Get following list
+    @GetMapping("/following/{userId}")
+    public ResponseEntity<List<Map<String, Object>>> getFollowing(@PathVariable Long userId) {
+        List<Map<String, Object>> following = followService.getFollowing(userId);
+        return ResponseEntity.ok(following);
     }
 }
