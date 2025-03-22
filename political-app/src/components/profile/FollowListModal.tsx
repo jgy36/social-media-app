@@ -1,13 +1,8 @@
 // src/components/profile/FollowListModal.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { useRouter } from 'next/router';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription 
-} from '@/components/ui/dialog';
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,6 +10,10 @@ import { getUserFollowers, getUserFollowing } from '@/utils/api';
 import FollowButton from '@/components/profile/FollowButton';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
+import { cn } from "@/lib/utils";
+import { Button } from '@/components/ui/button';
+
+// Create our own dialog components without the default close button
 
 interface User {
   id: number;
@@ -29,6 +28,30 @@ interface FollowListModalProps {
   onClose: () => void;
   title?: string;
 }
+
+// Custom dialog content without the default close button
+const CustomDialogContent = forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPrimitive.Portal>
+    <DialogPrimitive.Overlay 
+      className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" 
+    />
+    <DialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        className
+      )}
+      {...props}
+    >
+      {children}
+      {/* No default close button here */}
+    </DialogPrimitive.Content>
+  </DialogPrimitive.Portal>
+));
+CustomDialogContent.displayName = "CustomDialogContent";
 
 const FollowListModal = ({ 
   userId, 
@@ -92,18 +115,31 @@ const FollowListModal = ({
   const modalTitle = title || `${listType === 'followers' ? 'Followers' : 'Following'}`;
   
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md max-h-[80vh]">
-        <DialogHeader>
-          <DialogTitle>{modalTitle}</DialogTitle>
-          <DialogDescription>
-            {listType === 'followers' 
-              ? 'People who follow this account' 
-              : 'People this account follows'}
-          </DialogDescription>
-        </DialogHeader>
+    <DialogPrimitive.Root open={isOpen} onOpenChange={onClose}>
+      <CustomDialogContent className="max-w-md max-h-[80vh] bg-background border-border text-foreground">
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-lg font-semibold text-foreground">{modalTitle}</h2>
+            <p className="text-sm text-muted-foreground">
+              {listType === 'followers' 
+                ? 'People who follow this account' 
+                : 'People this account follows'}
+            </p>
+          </div>
+          
+          {/* Single custom close button */}
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onClose} 
+            className="h-8 w-8 p-0 rounded-full"
+          >
+            <X className="h-4 w-4 text-foreground" />
+            <span className="sr-only">Close</span>
+          </Button>
+        </div>
         
-        <ScrollArea className="h-[50vh] pr-4">
+        <ScrollArea className="h-[50vh] pr-4 mt-4">
           {loading ? (
             // Loading skeletons
             <div className="space-y-4">
@@ -139,10 +175,10 @@ const FollowListModal = ({
               </p>
             </div>
           ) : (
-            // User list
+            // User list - Improved styling for dark mode
             <div className="space-y-4">
               {users.map(user => (
-                <div key={user.id} className="flex items-center justify-between gap-3">
+                <div key={user.id} className="flex items-center justify-between gap-3 p-2 rounded-md hover:bg-muted/50">
                   {/* User info (clickable) */}
                   <div 
                     className="flex items-center gap-3 flex-1 cursor-pointer"
@@ -153,13 +189,13 @@ const FollowListModal = ({
                         src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} 
                         alt={user.username} 
                       />
-                      <AvatarFallback>
+                      <AvatarFallback className="bg-primary/10 text-primary">
                         {user.username.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{user.username}</p>
+                      <p className="font-medium truncate text-foreground">{user.username}</p>
                     </div>
                   </div>
                   
@@ -177,8 +213,8 @@ const FollowListModal = ({
             </div>
           )}
         </ScrollArea>
-      </DialogContent>
-    </Dialog>
+      </CustomDialogContent>
+    </DialogPrimitive.Root>
   );
 };
 
