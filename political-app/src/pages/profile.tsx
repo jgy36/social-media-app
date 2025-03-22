@@ -1,5 +1,4 @@
-// Update this file: political-app/src/pages/profile.tsx
-
+// src/pages/profile.tsx
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import ProfilePosts from "@/components/profile/ProfilePosts";
 import UserCommunities from "@/components/profile/UserCommunities";
