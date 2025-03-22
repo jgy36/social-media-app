@@ -1,9 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from "axios";
 import type { PostType } from "@/types/post";
 import { getCookie, setCookie, deleteCookie } from "cookies-next";
 import { Politician } from "@/types/politician";
 import { getToken, setToken } from "./tokenUtils";
+import { FollowResponse, FollowUser, FollowStatus, FollowListResponse } from '@/types/follow';
+
 
 // Base URLs
 const API_BASE_URL = "http://localhost:8080/api";
@@ -816,7 +819,7 @@ export const searchHashtags = async (query: string): Promise<any[]> => {
     
     // If we get an array directly, use it
     if (Array.isArray(response.data)) {
-      return response.data;
+      return response.data as PostType[];
     }
     
     // Handle potential response formats for a single hashtag
@@ -882,7 +885,7 @@ export const getHashtagInfo = async (tag: string): Promise<any> => {
     
     const response = await api.get(`${API_BASE_URL}/hashtags/info/${cleanTag}`);
     console.log('Hashtag info response:', response.data);
-    return response.data;
+    return response.data as PostType[];
   } catch (error) {
     console.error(`Error getting hashtag info for ${tag}:`, error);
     return null;
@@ -1015,3 +1018,137 @@ export const refreshUserProfile = async (): Promise<boolean> => {
     return false;
   }
 };
+
+// Follow a user with proper typing
+export const followUser = async (userId: number): Promise<FollowResponse> => {
+  try {
+    const token = getToken();
+    if (!token) throw new Error("No token found. Please log in.");
+
+    const response = await api.post(`${API_BASE_URL}/follow/${userId}`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    return response.data as FollowResponse;
+  } catch (error) {
+    console.error("Error following user:", error);
+    throw error;
+  }
+};
+
+// Unfollow a user with proper typing
+export const unfollowUser = async (userId: number): Promise<FollowResponse> => {
+  try {
+    const token = getToken();
+    if (!token) throw new Error("No token found. Please log in.");
+
+    const response = await api.delete(`${API_BASE_URL}/follow/${userId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    return response.data as FollowResponse;
+  } catch (error) {
+    console.error("Error unfollowing user:", error);
+    throw error;
+  }
+};
+
+// Get follow status and counts with proper typing
+export const getFollowStatus = async (userId: number): Promise<FollowResponse> => {
+  try {
+    const token = getToken();
+    let headers = {};
+    
+    if (token) {
+      headers = { Authorization: `Bearer ${token}` };
+    }
+
+    const response = await api.get(`${API_BASE_URL}/follow/status/${userId}`, { headers });
+    return response.data as FollowResponse;
+  } catch (error) {
+    console.error("Error getting follow status:", error);
+    // Return a default value with the correct type
+    return {
+      isFollowing: false,
+      followersCount: 0,
+      followingCount: 0
+    };
+  }
+};
+
+// Get posts by username with proper typing
+export const getPostsByUsername = async (username: string): Promise<PostType[]> => {
+  try {
+    const token = getToken();
+    let headers = {};
+    
+    if (token) {
+      headers = { Authorization: `Bearer ${token}` };
+    }
+
+    // First try to get user ID from username
+    interface UserProfileResponse {
+      id: number;
+      [key: string]: any; // Add other properties if needed
+    }
+
+    const userResponse = await api.get<UserProfileResponse>(`${API_BASE_URL}/users/profile/${username}`, { headers });
+    
+    if (userResponse.data && userResponse.data.id) {
+      const userId = userResponse.data.id;
+      // Then fetch posts using the user ID
+      const response = await api.get(`${API_BASE_URL}/posts/user/${userId}`, { headers });
+      return response.data as PostType[];
+    }
+    
+    // If we can't get the user ID, try direct endpoint if available
+    const directResponse = await api.get(`${API_BASE_URL}/users/profile/${username}/posts`, { headers });
+    return directResponse.data as PostType[];
+    
+  } catch (error) {
+    console.error(`Error getting posts for user ${username}:`, error);
+    return [];
+  }
+};
+
+
+// Get user's followers
+export const getUserFollowers = async (userId: number, currentPage: number) => {
+  try {
+    const token = getToken();
+    let headers = {};
+    
+    if (token) {
+      headers = { Authorization: `Bearer ${token}` };
+    }
+
+    const response = await api.get(`${API_BASE_URL}/follow/followers/${userId}`, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Error getting user followers:", error);
+    return [];
+  }
+};
+
+// Get users that a user follows
+export const getUserFollowing = async (userId: number) => {
+  try {
+    const token = getToken();
+    let headers = {};
+    
+    if (token) {
+      headers = { Authorization: `Bearer ${token}` };
+    }
+
+    const response = await api.get(`${API_BASE_URL}/follow/following/${userId}`, { headers });
+    return response.data;
+  } catch (error) {
+    console.error("Error getting user following:", error);
+    return [];
+  }
+};
+

@@ -5,16 +5,18 @@ import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import Navbar from "@/components/navbar/Navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
-import { User as UserIcon, Users, Calendar, Mail, MessagesSquare } from "lucide-react";
+import { Calendar } from "lucide-react";
 import axios from "axios";
 import { getPreviousSection, storePreviousSection } from "@/utils/navigationStateManager";
 import BackButton from "@/components/navigation/BackButton";
+import UserStats from "@/components/profile/UserStats";
+import FollowButton from "@/components/profile/FollowButton";
+import { getFollowStatus, getPostsByUsername } from "@/utils/api";
 
 // Interface for the user profile response
 interface UserProfile {
@@ -25,7 +27,7 @@ interface UserProfile {
   followersCount: number;
   followingCount: number;
   postsCount: number;
-  isFollowing: boolean;
+  isFollowing?: boolean;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
@@ -65,59 +67,42 @@ const UserProfilePage = () => {
         // Fetch user profile
         const profileResponse = await axios.get<UserProfile>(`${API_BASE_URL}/users/profile/${username}`);
         
-        setProfile(profileResponse.data);
+        let userProfile = profileResponse.data;
         
-        // Create mock posts if we can't fetch them
-        let userPosts: PostType[] = [];
-        
-        try {
-          // Try to fetch user posts - this might require auth
-          const postsResponse = await axios.get<PostType[]>(`${API_BASE_URL}/users/profile/${username}/posts`, {
-            headers: currentUser.token ? { Authorization: `Bearer ${currentUser.token}` } : {}
-          });
-          userPosts = postsResponse.data;
-        } catch (postsError) {
-          console.warn("Could not fetch posts, using empty array:", postsError);
-          // Create mock data for development only
-          if (process.env.NODE_ENV === 'development') {
-            userPosts = [
-              {
-                id: 1,
-                author: username as string,
-                content: `This is a sample post by ${username}. Posts may require authentication to view.`,
-                likes: 5,
-                createdAt: new Date().toISOString(),
-                commentsCount: 2
-              }
-            ];
+        // If profile found, also get follow status
+        if (userProfile && userProfile.id) {
+          try {
+            const followStatusResponse = await getFollowStatus(userProfile.id) as {
+              isFollowing: boolean;
+              followersCount: number;
+              followingCount: number;
+            };
+            // Update profile with follow status and counts
+            userProfile = {
+              ...userProfile,
+              isFollowing: followStatusResponse.isFollowing,
+              followersCount: followStatusResponse.followersCount,
+              followingCount: followStatusResponse.followingCount
+            };
+          } catch (followErr) {
+            console.warn("Could not fetch follow status:", followErr);
           }
         }
         
-        setPosts(userPosts);
+        setProfile(userProfile);
+        
+        // Fetch user posts
+        try {
+          const userPosts = await getPostsByUsername(username);
+          setPosts(userPosts);
+        } catch (postsError) {
+          console.warn("Could not fetch posts, using empty array:", postsError);
+          setPosts([]);
+        }
+        
       } catch (err) {
         console.error("Error fetching profile:", err);
-        
-        // If we get a 401 error, create a minimal profile for display
-        // Check if error is an Axios error with response status 401
-        const axiosError = err as { response?: { status?: number } };
-        if (axiosError && axiosError.response && axiosError.response.status === 401) {
-          // Create a minimal profile
-          const minimalProfile: UserProfile = {
-            id: 0,
-            username: username as string,
-            joinDate: new Date().toISOString(),
-            followersCount: 0,
-            followingCount: 0,
-            postsCount: 0,
-            isFollowing: false,
-            bio: "Profile details require authentication. Please log in to see more."
-          };
-          
-          setProfile(minimalProfile);
-          setPosts([]);
-        } else {
-          setError("Failed to load user profile");
-        }
+        setError("Failed to load user profile");
       } finally {
         setIsLoading(false);
       }
@@ -126,37 +111,26 @@ const UserProfilePage = () => {
     fetchProfileData();
   }, [username, currentUser.token]);
 
-  const handleFollowToggle = async () => {
-    if (!profile || !isAuthenticated) {
-      if (!isAuthenticated) {
-        router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`);
-      }
-      return;
-    }
-    
-    try {
-      if (profile.isFollowing) {
-        // Unfollow the user
-        await axios.delete(`${API_BASE_URL}/users/unfollow/${profile.username}`, {
-          headers: { Authorization: `Bearer ${currentUser.token}` }
-        });
-      } else {
-        // Follow the user
-        await axios.post(`${API_BASE_URL}/users/follow/${profile.username}`, {}, {
-          headers: { Authorization: `Bearer ${currentUser.token}` }
-        });
-      }
-      
-      // Toggle following state and update follower count locally
+  // Handle follow/unfollow profile update
+  const handleFollowChange = (isFollowing: boolean, followerCount: number, followingCount: number) => {
+    if (profile) {
       setProfile({
         ...profile,
-        isFollowing: !profile.isFollowing,
-        followersCount: profile.isFollowing 
-          ? profile.followersCount - 1 
-          : profile.followersCount + 1
+        isFollowing,
+        followersCount: followerCount,
+        followingCount: followingCount
       });
-    } catch (error) {
-      console.error("Error toggling follow:", error);
+    }
+  };
+  
+  // Handle stats update
+  const handleStatsChange = (newFollowersCount: number, newFollowingCount: number) => {
+    if (profile) {
+      setProfile({
+        ...profile,
+        followersCount: newFollowersCount,
+        followingCount: newFollowingCount
+      });
     }
   };
 
@@ -191,14 +165,14 @@ const UserProfilePage = () => {
           <BackButton fallbackUrl="/community" className="mb-4" />
           
           <Card className="shadow-md">
-            <CardHeader>
-              <CardTitle className="text-destructive">Error</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>{error || "User not found"}</p>
-              <Button onClick={() => router.push("/feed")} className="mt-4">
+            <CardContent className="p-6">
+              <p className="text-destructive">{error || "User not found"}</p>
+              <button 
+                onClick={() => router.push("/feed")} 
+                className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+              >
                 Return to Feed
-              </Button>
+              </button>
             </CardContent>
           </Card>
         </div>
@@ -235,60 +209,58 @@ const UserProfilePage = () => {
                   <p className="mt-2 text-muted-foreground">{profile.bio}</p>
                 )}
                 
-                <div className="flex flex-wrap items-center gap-4 mt-3 justify-center md:justify-start">
-                  <div className="flex items-center">
-                    <MessagesSquare className="h-4 w-4 mr-1 text-muted-foreground" />
-                    <span><strong>{profile.postsCount}</strong> Posts</span>
+                {/* User Stats (Clickable for Following/Followers) */}
+                <UserStats
+                  userId={profile.id}
+                  postsCount={profile.postsCount}
+                  followersCount={profile.followersCount}
+                  followingCount={profile.followingCount}
+                  className="mt-3 justify-center md:justify-start"
+                  onFollowChange={handleStatsChange}
+                />
+                
+                {profile.joinDate && (
+                  <div className="flex items-center mt-2 justify-center md:justify-start">
+                    <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
+                    <span>Joined {new Date(profile.joinDate).toLocaleDateString()}</span>
                   </div>
-                  
-                  <div className="flex items-center">
-                    <Users className="h-4 w-4 mr-1 text-muted-foreground" />
-                    <span><strong>{profile.followersCount}</strong> Followers</span>
-                  </div>
-                  
-                  <div className="flex items-center">
-                    <UserIcon className="h-4 w-4 mr-1 text-muted-foreground" />
-                    <span><strong>{profile.followingCount}</strong> Following</span>
-                  </div>
-                  
-                  {profile.joinDate && (
-                    <div className="flex items-center">
-                      <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                      <span>Joined {new Date(profile.joinDate).toLocaleDateString()}</span>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
               
               {/* Action Buttons */}
               <div className="mt-4 md:mt-0">
                 {!isAuthenticated && (
-                  <Button onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}>
+                  <button 
+                    onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                    className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                  >
                     Log in to interact
-                  </Button>
+                  </button>
                 )}
                 
                 {isAuthenticated && !isCurrentUserProfile && (
                   <div className="flex gap-2">
-                    <Button 
-                      onClick={handleFollowToggle}
-                      variant={profile.isFollowing ? "outline" : "default"}
-                      className={profile.isFollowing ? "border-primary" : ""}
-                    >
-                      {profile.isFollowing ? "Following" : "Follow"}
-                    </Button>
+                    <FollowButton
+                      userId={profile.id}
+                      initialIsFollowing={profile.isFollowing}
+                      onFollowChange={handleFollowChange}
+                    />
                     
-                    <Button variant="outline">
-                      <Mail className="h-4 w-4" />
-                      <span className="sr-only md:not-sr-only md:ml-2">Message</span>
-                    </Button>
+                    <button 
+                      className="px-4 py-2 border border-border rounded hover:bg-accent"
+                    >
+                      Message
+                    </button>
                   </div>
                 )}
                 
                 {isAuthenticated && isCurrentUserProfile && (
-                  <Button onClick={() => router.push("/settings")}>
+                  <button 
+                    onClick={() => router.push("/settings")}
+                    className="px-4 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
+                  >
                     Edit Profile
-                  </Button>
+                  </button>
                 )}
               </div>
             </div>
@@ -308,14 +280,16 @@ const UserProfilePage = () => {
           <TabsContent value="posts">
             {!isAuthenticated && (
               <Card className="p-8 text-center mb-6">
-                <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">Login Required</h3>
                 <p className="text-muted-foreground mb-4">
                   You need to be logged in to view this user&apos;s posts.
                 </p>
-                <Button onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}>
+                <button 
+                  onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                >
                   Log In
-                </Button>
+                </button>
               </Card>
             )}
             
@@ -327,38 +301,74 @@ const UserProfilePage = () => {
               </div>
             ) : isAuthenticated && (
               <Card className="p-8 text-center">
-                <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                 <h3 className="text-lg font-medium mb-2">No posts yet</h3>
                 <p className="text-muted-foreground">
-                  This user hasn&#39;t posted anything.
+                  This user hasn&apos;t posted anything.
                 </p>
               </Card>
             )}
           </TabsContent>
           
-          {/* Other tabs (for future implementation) */}
+          {/* Other tabs use the modals directly */}
           <TabsContent value="comments">
             <Card className="p-8 text-center">
-              <MessagesSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">Comments Coming Soon</h3>
               <p className="text-muted-foreground">This feature is being developed.</p>
             </Card>
           </TabsContent>
           
           <TabsContent value="followers">
-            <Card className="p-8 text-center">
-              <Users className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Followers List Coming Soon</h3>
-              <p className="text-muted-foreground">This feature is being developed.</p>
-            </Card>
+            {!isAuthenticated ? (
+              <Card className="p-8 text-center">
+                <h3 className="text-lg font-medium mb-2">Login Required</h3>
+                <p className="text-muted-foreground mb-4">
+                  You need to be logged in to view this user&apos;s followers.
+                </p>
+                <button 
+                  onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                >
+                  Log In
+                </button>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* This tab just shows an embedded version of the followers modal content */}
+                {/* We'll use the modal directly from the UserStats component */}
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">
+                    Click on the &quot;Followers&quot; count to see the complete list.
+                  </p>
+                </Card>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="following">
-            <Card className="p-8 text-center">
-              <UserIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium mb-2">Following List Coming Soon</h3>
-              <p className="text-muted-foreground">This feature is being developed.</p>
-            </Card>
+            {!isAuthenticated ? (
+              <Card className="p-8 text-center">
+                <h3 className="text-lg font-medium mb-2">Login Required</h3>
+                <p className="text-muted-foreground mb-4">
+                  You need to be logged in to view who this user follows.
+                </p>
+                <button 
+                  onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                  className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+                >
+                  Log In
+                </button>
+              </Card>
+            ) : (
+              <div className="space-y-4">
+                {/* This tab just shows an embedded version of the following modal content */}
+                {/* We'll use the modal directly from the UserStats component */}
+                <Card className="p-8 text-center">
+                  <p className="text-muted-foreground">
+                    Click on the &quot;Following&quot; count to see the complete list.
+                  </p>
+                </Card>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
