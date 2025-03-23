@@ -1,6 +1,6 @@
 // src/components/feed/SaveButton.tsx
-import { useState } from "react";
-import { savePost } from "@/utils/api";
+import { useState, useEffect } from "react";
+import { savePost, checkPostSaveStatus } from "@/utils/api";
 import { Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSelector } from "react-redux";
@@ -13,11 +13,33 @@ interface SaveButtonProps {
   isSaved: boolean;
 }
 
-const SaveButton = ({ postId, isSaved }: SaveButtonProps) => {
-  const [saved, setSaved] = useState(isSaved);
+const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
+  const [saved, setSaved] = useState(initialIsSaved);
   const [isLoading, setIsLoading] = useState(false);
   const user = useSelector((state: RootState) => state.user);
   const router = useRouter();
+
+  // Check the actual saved status when component mounts
+  useEffect(() => {
+    const fetchSavedStatus = async () => {
+      if (!user.token) return;
+      
+      try {
+        const status = await checkPostSaveStatus(postId);
+        // Update the saved state based on the server response
+        setSaved(status.isSaved);
+      } catch (err) {
+        console.error("Error checking save status:", err);
+        // If there's an error, fall back to the prop value
+        setSaved(initialIsSaved);
+      }
+    };
+    
+    // Only check saved status if user is logged in
+    if (user.token) {
+      fetchSavedStatus();
+    }
+  }, [postId, user.token, initialIsSaved]);
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering post navigation
@@ -34,14 +56,15 @@ const SaveButton = ({ postId, isSaved }: SaveButtonProps) => {
       await savePost(postId);
       
       // Toggle saved state
-      setSaved(!saved);
+      const newSavedState = !saved;
+      setSaved(newSavedState);
       
       // Show toast notification
       toast({
-        title: saved ? "Post removed from saved items" : "Post saved successfully",
-        description: saved 
-          ? "The post has been removed from your saved items." 
-          : "You can view your saved posts in your profile menu.",
+        title: newSavedState ? "Post saved successfully" : "Post removed from saved items",
+        description: newSavedState 
+          ? "You can view your saved posts in your profile menu." 
+          : "The post has been removed from your saved items.",
         duration: 3000,
       });
     } catch (error) {

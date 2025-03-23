@@ -1305,3 +1305,17 @@ export const getUserFollowing = async (userId: number) => {
     return [];
   }
 };
+
+export const checkPostSaveStatus = async (postId: number): Promise<{ isSaved: boolean }> => {
+  try {
+    const token = getToken();
+    if (!token) return { isSaved: false };
+
+    const response = await api.get(`${API_BASE_URL}/posts/${postId}/saved-status`);
+    return response.data as { isSaved: boolean };
+  } catch (error) {
+    console.error("Error checking post save status:", error);
+    // Default to false if there's an error
+    return { isSaved: false };
+  }
+};
