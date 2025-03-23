@@ -277,4 +277,27 @@ public class PostService {
     public List<Post> getPostsByCommunitySlug(String slug) {
         return postRepository.findByCommunitySlugOrderByCreatedAtDesc(slug);
     }
+
+    @Transactional(readOnly = true)
+    public boolean isPostSavedByUser(Long postId, String email) {
+        Optional<Post> postOpt = postRepository.findById(postId);
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (postOpt.isEmpty() || userOpt.isEmpty()) {
+            return false;
+        }
+
+        Post post = postOpt.get();
+        User user = userOpt.get();
+
+        // Check if this post is in the user's saved posts collection
+        if (user.getSavedPosts() != null) {
+            return user.getSavedPosts().stream()
+                    .anyMatch(savedPost -> savedPost.getId().equals(postId));
+        }
+
+        return false;
+    }
 }
+
+
