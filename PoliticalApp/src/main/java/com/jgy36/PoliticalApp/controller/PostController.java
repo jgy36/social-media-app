@@ -13,10 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -201,4 +198,24 @@ public class PostController {
                 .collect(Collectors.toList());
         return ResponseEntity.ok(postDTOs);
     }
+
+    @GetMapping("/{postId}/saved-status")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Boolean>> checkSavedStatus(@PathVariable Long postId, Authentication auth) {
+        try {
+            String email = auth.getName();
+            boolean isSaved = postService.isPostSavedByUser(postId, email);
+
+            Map<String, Boolean> response = new HashMap<>();
+            response.put("isSaved", isSaved);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.out.println("Error checking saved status: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("isSaved", false));
+        }
+    }
 }
+
+
