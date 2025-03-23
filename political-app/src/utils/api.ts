@@ -5,8 +5,12 @@ import type { PostType } from "@/types/post";
 import { getCookie, setCookie, deleteCookie } from "cookies-next";
 import { Politician } from "@/types/politician";
 import { getToken, setToken } from "./tokenUtils";
-import { FollowResponse, FollowUser, FollowStatus, FollowListResponse } from '@/types/follow';
-
+import {
+  FollowResponse,
+  FollowUser,
+  FollowStatus,
+  FollowListResponse,
+} from "@/types/follow";
 
 // Base URLs
 const API_BASE_URL = "http://localhost:8080/api";
@@ -15,7 +19,7 @@ const BASE_URL = "http://localhost:8080";
 // Configure axios instance
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000
+  timeout: 10000,
 });
 
 // Variable to track if a token refresh is in progress
@@ -25,14 +29,14 @@ let failedQueue: any[] = [];
 
 // Process the queue of failed requests
 const processQueue = (error: any, token: string | null = null) => {
-  failedQueue.forEach(prom => {
+  failedQueue.forEach((prom) => {
     if (error) {
       prom.reject(error);
     } else {
       prom.resolve(token);
     }
   });
-  
+
   failedQueue = [];
 };
 
@@ -54,7 +58,7 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // If error is 401 Unauthorized and we haven't already tried to refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
@@ -62,11 +66,11 @@ api.interceptors.response.use(
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });
         })
-          .then(token => {
+          .then((token) => {
             originalRequest.headers["Authorization"] = `Bearer ${token}`;
             return api(originalRequest);
           })
-          .catch(err => {
+          .catch((err) => {
             return Promise.reject(err);
           });
       }
@@ -77,13 +81,13 @@ api.interceptors.response.use(
       // Try to refresh the token
       try {
         const token = getToken();
-        
+
         // Only attempt refresh if we have a token
         if (!token) {
           processQueue(new Error("No token available"));
           return Promise.reject(error);
         }
-        
+
         const response = await axios.post(
           `${API_BASE_URL}/auth/refresh`,
           {},
@@ -91,17 +95,17 @@ api.interceptors.response.use(
         );
 
         const newToken = (response.data as { token: string }).token;
-        
+
         if (newToken) {
           // Update token in storage
           setToken(newToken);
-          
+
           // Update auth header for the original request
           originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-          
+
           // Process any queued requests with the new token
           processQueue(null, newToken);
-          
+
           // Retry the original request
           return api(originalRequest);
         } else {
@@ -126,7 +130,9 @@ export { api };
 // Rest of your API utility functions using the api instance instead of axios directly
 export const fetchPosts = async (endpoint: string): Promise<PostType[]> => {
   try {
-    const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const normalizedEndpoint = endpoint.startsWith("/")
+      ? endpoint
+      : `/${endpoint}`;
     const response = await api.get(`${API_BASE_URL}${normalizedEndpoint}`);
     return response.data as PostType[];
   } catch (error) {
@@ -139,7 +145,6 @@ export const fetchPosts = async (endpoint: string): Promise<PostType[]> => {
 
 // The rest of your existing api.ts exports
 
-
 // Direct implementation of createPost with explicit URL
 export const createPost = async (
   postData: { content: string },
@@ -150,7 +155,8 @@ export const createPost = async (
       throw new Error("No authentication token found. Please log in.");
 
     // Use direct fetch with explicit URL
-    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+    const API_BASE_URL =
+      process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
     const response = await fetch(`${API_BASE_URL}/posts`, {
       method: "POST",
       headers: {
@@ -174,12 +180,15 @@ export const createPost = async (
     try {
       return await response.json();
     } catch (jsonError) {
-      console.warn("Could not parse JSON response, but post may have been created successfully", jsonError);
+      console.warn(
+        "Could not parse JSON response, but post may have been created successfully",
+        jsonError
+      );
       // Return a minimal post object with the content
-      return { 
+      return {
         id: 0, // Placeholder ID
         content: postData.content,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
       };
     }
   } catch (error) {
@@ -221,7 +230,8 @@ export const likePost = async (
 export const fetchWithToken = async (
   endpoint: string,
   method = "GET",
-  body?: any
+  body?: any,
+  expectTextResponse = false // New parameter to handle text responses
 ) => {
   const token = getToken();
 
@@ -239,7 +249,9 @@ export const fetchWithToken = async (
   }
 
   // Ensure endpoint starts with a slash for proper URL construction
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const normalizedEndpoint = endpoint.startsWith("/")
+    ? endpoint
+    : `/${endpoint}`;
 
   try {
     const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
@@ -253,6 +265,27 @@ export const fetchWithToken = async (
       return null;
     }
 
+    // Check if we're expecting a text response (for endpoints like save post)
+    if (expectTextResponse) {
+      const text = await response.text();
+      // If the text is empty, return a success object
+      if (!text || text.trim() === "") {
+        return { success: true };
+      }
+
+      // Try to parse as JSON first (in case it's actually JSON)
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // If not JSON, return a simple success object with the message
+        return {
+          success: true,
+          message: text,
+        };
+      }
+    }
+
+    // Default case - parse as JSON
     return await response.json();
   } catch (error) {
     console.error("API request failed:", error);
@@ -330,7 +363,9 @@ export const fetchPoliticianData = async (
   if (token) {
     headers.Authorization = `Bearer ${token}`;
   } else if (requireAuth) {
-    console.warn(`🚨 Auth required but no token found! Skipping request: ${endpoint}`);
+    console.warn(
+      `🚨 Auth required but no token found! Skipping request: ${endpoint}`
+    );
     return null;
   }
 
@@ -338,11 +373,13 @@ export const fetchPoliticianData = async (
   const BASE_URL = "http://localhost:8080"; // No /api here
 
   // Ensure endpoint starts with slash
-  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const normalizedEndpoint = endpoint.startsWith("/")
+    ? endpoint
+    : `/${endpoint}`;
   const url = `${BASE_URL}${normalizedEndpoint}`;
-  
+
   console.log(`Making request to: ${url}`);
-  console.log(`Using auth: ${headers.Authorization ? 'Yes' : 'No'}`);
+  console.log(`Using auth: ${headers.Authorization ? "Yes" : "No"}`);
 
   try {
     const response = await fetch(url, {
@@ -390,7 +427,11 @@ export const registerUserAPI = async (
   email: string,
   password: string
 ) => {
-  return fetchWithToken("/auth/register", "POST", { username, email, password });
+  return fetchWithToken("/auth/register", "POST", {
+    username,
+    email,
+    password,
+  });
 };
 
 // ✅ Fetch comments for a post
@@ -471,7 +512,7 @@ export const addComment = async (postId: number, content: string) => {
 
 // ✅ Save a post (Fix: No need to pass user.token separately)
 export const savePost = async (postId: number) => {
-  return fetchWithToken(`/posts/${postId}/save`, "POST");
+  return fetchWithToken(`/posts/${postId}/save`, "POST", null, true); // Pass true for expectTextResponse
 };
 
 // ✅ Share a post (Fix: No need to pass user.token separately)
@@ -480,15 +521,16 @@ export const sharePost = async (postId: number) => {
 };
 
 // ✅ Fetch saved posts
-export const getSavedPosts = async (token: string): Promise<PostType[]> => {
+export const getSavedPosts = async () => {
   try {
-    if (!token) throw new Error("No authentication token found.");
+    // Make sure we're just using the endpoint path, not a full URL
+    const response = await fetchWithToken("posts/saved");
 
-    const response = await axios.get(`${API_BASE_URL}/users/saved-posts`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    if (!response) {
+      return [];
+    }
 
-    return response.data as PostType[];
+    return response;
   } catch (error) {
     console.error("Error fetching saved posts:", error);
     return [];
@@ -631,12 +673,14 @@ export const getAllPoliticians = async (): Promise<Politician[]> => {
   }
 };
 // Function to fetch posts by hashtag with better error handling
-export const getPostsByHashtag = async (hashtag: string): Promise<PostType[]> => {
+export const getPostsByHashtag = async (
+  hashtag: string
+): Promise<PostType[]> => {
   try {
     // Remove the # prefix if present
-    const tag = hashtag.startsWith('#') ? hashtag.substring(1) : hashtag;
+    const tag = hashtag.startsWith("#") ? hashtag.substring(1) : hashtag;
     console.log(`Fetching posts for hashtag: ${tag}`);
-    
+
     try {
       const response = await api.get(`${API_BASE_URL}/hashtags/${tag}`);
       if (Array.isArray(response.data)) {
@@ -647,11 +691,11 @@ export const getPostsByHashtag = async (hashtag: string): Promise<PostType[]> =>
       return response.data as PostType[];
     } catch (error) {
       console.error("Error fetching posts by hashtag:", error);
-      
+
       // Fall back to searching in post content as an alternative
       console.log(`Trying alternative method for hashtag: ${tag}`);
       const backupResponse = await api.get(`${API_BASE_URL}/posts`, {
-        params: { hashtag: tag }
+        params: { hashtag: tag },
       });
       return backupResponse.data as PostType[];
     }
@@ -662,9 +706,13 @@ export const getPostsByHashtag = async (hashtag: string): Promise<PostType[]> =>
 };
 
 // Function to fetch trending hashtags
-export const getTrendingHashtags = async (limit: number = 10): Promise<any[]> => {
+export const getTrendingHashtags = async (
+  limit: number = 10
+): Promise<any[]> => {
   try {
-    const response = await api.get(`${API_BASE_URL}/hashtags/trending/${limit}`);
+    const response = await api.get(
+      `${API_BASE_URL}/hashtags/trending/${limit}`
+    );
     return response.data as any[];
   } catch (error) {
     console.error("Error fetching trending hashtags:", error);
@@ -699,24 +747,31 @@ export const getCommunityPosts = async (slug: string): Promise<PostType[]> => {
   try {
     // First try direct approach using the slug
     const response = await api.get(`${API_BASE_URL}/posts`, {
-      params: { communityId: slug }
+      params: { communityId: slug },
     });
-    
+
     return response.data as PostType[];
   } catch (error) {
     console.error(`Error fetching posts from community ${slug}:`, error);
-    
+
     // Check if it's an error with response status
-    if (error && typeof error === 'object' && 'response' in error) {
+    if (error && typeof error === "object" && "response" in error) {
       const axiosError = error as { response?: { status?: number } };
-      if (axiosError.response?.status === 404 || axiosError.response?.status === 500) {
-        console.log(`No posts found for community ${slug}, returning empty array`);
+      if (
+        axiosError.response?.status === 404 ||
+        axiosError.response?.status === 500
+      ) {
+        console.log(
+          `No posts found for community ${slug}, returning empty array`
+        );
         return [];
       }
     }
-    
+
     // For any other error, return empty array instead of throwing
-    console.log(`Unhandled error fetching posts for community ${slug}, returning empty array`);
+    console.log(
+      `Unhandled error fetching posts for community ${slug}, returning empty array`
+    );
     return [];
   }
 };
@@ -744,9 +799,15 @@ export const leaveCommunity = async (slug: string): Promise<boolean> => {
 };
 
 // Function to create a post in a community
-export const createCommunityPost = async (slug: string, content: string): Promise<PostType | null> => {
+export const createCommunityPost = async (
+  slug: string,
+  content: string
+): Promise<PostType | null> => {
   try {
-    const response = await api.post(`${API_BASE_URL}/communities/${slug}/posts`, { content });
+    const response = await api.post(
+      `${API_BASE_URL}/communities/${slug}/posts`,
+      { content }
+    );
     return response.data as PostType;
   } catch (error) {
     console.error(`Error creating post in community ${slug}:`, error);
@@ -768,7 +829,9 @@ export const getPopularCommunities = async (): Promise<any[]> => {
 // Function to search communities
 export const searchCommunities = async (query: string): Promise<any[]> => {
   try {
-    const response = await api.get(`${API_BASE_URL}/communities/search?query=${encodeURIComponent(query)}`);
+    const response = await api.get(
+      `${API_BASE_URL}/communities/search?query=${encodeURIComponent(query)}`
+    );
     return response.data as any[];
   } catch (error) {
     console.error(`Error searching communities with query ${query}:`, error);
@@ -779,31 +842,54 @@ export const searchCommunities = async (query: string): Promise<any[]> => {
 // Function to search users
 export const searchUsers = async (query: string): Promise<any[]> => {
   try {
-    const response = await api.get(`${API_BASE_URL}/users/search?query=${encodeURIComponent(query)}`);
+    const response = await api.get(
+      `${API_BASE_URL}/users/search?query=${encodeURIComponent(query)}`
+    );
     return response.data as any[];
   } catch (error) {
     console.error(`Error searching users with query ${query}:`, error);
-    
+
     // In development, use mock data if API fails
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Using mock user data for development');
-      
+    if (process.env.NODE_ENV === "development") {
+      console.log("Using mock user data for development");
+
       // Simple mock data for development
       const mockUsers = [
-        { id: 1, username: 'JaneDoe', bio: 'Political Analyst', followersCount: 245 },
-        { id: 2, username: 'JohnSmith', bio: 'Community Organizer', followersCount: 182 },
-        { id: 3, username: 'PoliticsExpert', bio: 'Congressional Staffer', followersCount: 532 },
-        { id: 4, username: 'VoterAdvocate', bio: 'Voting rights activist', followersCount: 328 }
+        {
+          id: 1,
+          username: "JaneDoe",
+          bio: "Political Analyst",
+          followersCount: 245,
+        },
+        {
+          id: 2,
+          username: "JohnSmith",
+          bio: "Community Organizer",
+          followersCount: 182,
+        },
+        {
+          id: 3,
+          username: "PoliticsExpert",
+          bio: "Congressional Staffer",
+          followersCount: 532,
+        },
+        {
+          id: 4,
+          username: "VoterAdvocate",
+          bio: "Voting rights activist",
+          followersCount: 328,
+        },
       ];
-      
+
       // Simple filtering for mock data
       const lowercaseQuery = query.toLowerCase();
-      return mockUsers.filter(user => 
-        user.username.toLowerCase().includes(lowercaseQuery) || 
-        user.bio.toLowerCase().includes(lowercaseQuery)
+      return mockUsers.filter(
+        (user) =>
+          user.username.toLowerCase().includes(lowercaseQuery) ||
+          user.bio.toLowerCase().includes(lowercaseQuery)
       );
     }
-    
+
     return [];
   }
 };
@@ -812,64 +898,77 @@ export const searchUsers = async (query: string): Promise<any[]> => {
 export const searchHashtags = async (query: string): Promise<any[]> => {
   try {
     console.log(`Searching hashtags with query: ${query}`);
-    
+
     // First check with the search endpoint
-    const response = await api.get(`${API_BASE_URL}/hashtags/search?query=${encodeURIComponent(query)}`);
-    console.log('Hashtag search response:', response.data);
-    
+    const response = await api.get(
+      `${API_BASE_URL}/hashtags/search?query=${encodeURIComponent(query)}`
+    );
+    console.log("Hashtag search response:", response.data);
+
     // If we get an array directly, use it
     if (Array.isArray(response.data)) {
       return response.data as PostType[];
     }
-    
+
     // Handle potential response formats for a single hashtag
-    if (response.data && typeof response.data === 'object' && !Array.isArray(response.data)) {
+    if (
+      response.data &&
+      typeof response.data === "object" &&
+      !Array.isArray(response.data)
+    ) {
       return [response.data];
     }
-    
+
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     console.error(`Error searching hashtags with query ${query}:`, error);
-    
-    // Try a different approach - some APIs might expect a direct lookup 
+
+    // Try a different approach - some APIs might expect a direct lookup
     try {
       console.log(`Trying direct hashtag lookup for tag: ${query}`);
-      const directResponse = await api.get(`${API_BASE_URL}/hashtags/${encodeURIComponent(query)}`);
-      console.log('Direct hashtag lookup response:', directResponse.data);
-      
+      const directResponse = await api.get(
+        `${API_BASE_URL}/hashtags/${encodeURIComponent(query)}`
+      );
+      console.log("Direct hashtag lookup response:", directResponse.data);
+
       // Again, handle different response formats
       if (Array.isArray(directResponse.data)) {
         return directResponse.data;
       }
-      
-      if (directResponse.data && typeof directResponse.data === 'object') {
+
+      if (directResponse.data && typeof directResponse.data === "object") {
         return [directResponse.data];
       }
-      
+
       return [];
     } catch (directError) {
-      console.error('Error in direct hashtag lookup:', directError);
-      
+      console.error("Error in direct hashtag lookup:", directError);
+
       // Finally, try the hashtag posts endpoint
       try {
         console.log(`Trying to get posts by hashtag: ${query}`);
         const postsResponse = await api.get(`${API_BASE_URL}/posts`, {
-          params: { tag: query.replace(/^#/, '') }
+          params: { tag: query.replace(/^#/, "") },
         });
-        
-        console.log('Posts by hashtag response:', postsResponse.data);
-        
+
+        console.log("Posts by hashtag response:", postsResponse.data);
+
         // If we have posts, create a hashtag object
-        if (Array.isArray(postsResponse.data) && postsResponse.data.length > 0) {
-          return [{
-            tag: query.startsWith('#') ? query : `#${query}`,
-            count: postsResponse.data.length
-          }];
+        if (
+          Array.isArray(postsResponse.data) &&
+          postsResponse.data.length > 0
+        ) {
+          return [
+            {
+              tag: query.startsWith("#") ? query : `#${query}`,
+              count: postsResponse.data.length,
+            },
+          ];
         }
-        
+
         return [];
       } catch (postsError) {
-        console.error('Error getting posts by hashtag:', postsError);
+        console.error("Error getting posts by hashtag:", postsError);
         return [];
       }
     }
@@ -880,11 +979,11 @@ export const searchHashtags = async (query: string): Promise<any[]> => {
 export const getHashtagInfo = async (tag: string): Promise<any> => {
   try {
     // Ensure clean tag (no # prefix)
-    const cleanTag = tag.startsWith('#') ? tag.substring(1) : tag;
+    const cleanTag = tag.startsWith("#") ? tag.substring(1) : tag;
     console.log(`Getting hashtag info for: ${cleanTag}`);
-    
+
     const response = await api.get(`${API_BASE_URL}/hashtags/info/${cleanTag}`);
-    console.log('Hashtag info response:', response.data);
+    console.log("Hashtag info response:", response.data);
     return response.data as PostType[];
   } catch (error) {
     console.error(`Error getting hashtag info for ${tag}:`, error);
@@ -894,37 +993,43 @@ export const getHashtagInfo = async (tag: string): Promise<any> => {
 
 // Function to get unified search results (users, communities, hashtags)
 export const getUnifiedSearchResults = async (
-  query: string, 
-  type?: 'user' | 'community' | 'hashtag'
+  query: string,
+  type?: "user" | "community" | "hashtag"
 ): Promise<any[]> => {
   try {
     const results = [];
-    
+
     // If type is specified, only fetch that type
-    if (type === 'user' || !type) {
+    if (type === "user" || !type) {
       const users = await searchUsers(query);
-      results.push(...users.map(user => ({
-        ...user,
-        type: 'user'
-      })));
+      results.push(
+        ...users.map((user) => ({
+          ...user,
+          type: "user",
+        }))
+      );
     }
-    
-    if (type === 'community' || !type) {
+
+    if (type === "community" || !type) {
       const communities = await searchCommunities(query);
-      results.push(...communities.map(community => ({
-        ...community,
-        type: 'community'
-      })));
+      results.push(
+        ...communities.map((community) => ({
+          ...community,
+          type: "community",
+        }))
+      );
     }
-    
-    if (type === 'hashtag' || !type) {
+
+    if (type === "hashtag" || !type) {
       const hashtags = await searchHashtags(query);
-      results.push(...hashtags.map(hashtag => ({
-        ...hashtag,
-        type: 'hashtag'
-      })));
+      results.push(
+        ...hashtags.map((hashtag) => ({
+          ...hashtag,
+          type: "hashtag",
+        }))
+      );
     }
-    
+
     return results;
   } catch (error) {
     console.error(`Error in unified search for "${query}":`, error);
@@ -932,47 +1037,61 @@ export const getUnifiedSearchResults = async (
   }
 };
 
-export const updateUsername = async (newUsername: string): Promise<{success: boolean, message?: string}> => {
+export const updateUsername = async (
+  newUsername: string
+): Promise<{ success: boolean; message?: string }> => {
   try {
     // Validate the username format on client-side before sending request
     const usernameRegex = /^[a-zA-Z0-9_-]{3,20}$/;
     if (!usernameRegex.test(newUsername)) {
-      return { 
-        success: false, 
-        message: "Username must be 3-20 characters and can only contain letters, numbers, underscores, and hyphens."
+      return {
+        success: false,
+        message:
+          "Username must be 3-20 characters and can only contain letters, numbers, underscores, and hyphens.",
       };
     }
-    
+
     const token = getToken();
     if (!token) {
       return { success: false, message: "Authentication required" };
     }
-    
-    const response = await api.put(`${API_BASE_URL}/users/update-username`, { username: newUsername }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
+
+    const response = await api.put(
+      `${API_BASE_URL}/users/update-username`,
+      { username: newUsername },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
     // If successful, also update the username in localStorage for better UX
     if (response.status === 200) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('username', newUsername);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("username", newUsername);
         // Also try to update in cookies as fallback
         try {
-          setCookie('username', newUsername, { path: '/' });
+          setCookie("username", newUsername, { path: "/" });
         } catch (e) {
-          console.warn('Error updating username cookie:', e);
+          console.warn("Error updating username cookie:", e);
         }
       }
-      
+
       return { success: true };
     }
-    
-    return { success: false, message: (response.data as { message?: string })?.message || 'Failed to update username' };
+
+    return {
+      success: false,
+      message:
+        (response.data as { message?: string })?.message ||
+        "Failed to update username",
+    };
   } catch (error: any) {
-    console.error('Error updating username:', error);
-    return { 
-      success: false, 
-      message: error.response?.data?.message || 'An error occurred while updating username'
+    console.error("Error updating username:", error);
+    return {
+      success: false,
+      message:
+        error.response?.data?.message ||
+        "An error occurred while updating username",
     };
   }
 };
@@ -987,34 +1106,47 @@ export const refreshUserProfile = async (): Promise<boolean> => {
     if (!token) {
       return false;
     }
-    
+
     // Fetch fresh user data
     const response = await api.get(`${API_BASE_URL}/users/me`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     });
-    
+
     if (response.status === 200 && response.data) {
       // Update local storage with updated data
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         if ((response.data as { username?: string }).username) {
-          localStorage.setItem('username', (response.data as { username: string }).username);
-          if (response.data && typeof response.data === 'object' && 'username' in response.data) {
-            setCookie('username', (response.data as { username: string }).username, { path: '/' });
+          localStorage.setItem(
+            "username",
+            (response.data as { username: string }).username
+          );
+          if (
+            response.data &&
+            typeof response.data === "object" &&
+            "username" in response.data
+          ) {
+            setCookie(
+              "username",
+              (response.data as { username: string }).username,
+              { path: "/" }
+            );
           }
         }
-        
+
         // Dispatch the updateUserProfile action to Redux store
         // We need to access the store directly or use another approach
-        // The simplest option is to use a custom event 
-        window.dispatchEvent(new CustomEvent('userProfileUpdated', { detail: response.data }));
-        
+        // The simplest option is to use a custom event
+        window.dispatchEvent(
+          new CustomEvent("userProfileUpdated", { detail: response.data })
+        );
+
         return true;
       }
     }
-    
+
     return false;
   } catch (error) {
-    console.error('Error refreshing user profile:', error);
+    console.error("Error refreshing user profile:", error);
     return false;
   }
 };
@@ -1025,11 +1157,15 @@ export const followUser = async (userId: number): Promise<FollowResponse> => {
     const token = getToken();
     if (!token) throw new Error("No token found. Please log in.");
 
-    const response = await api.post(`${API_BASE_URL}/follow/${userId}`, {}, {
-      headers: {
-        Authorization: `Bearer ${token}`
+    const response = await api.post(
+      `${API_BASE_URL}/follow/${userId}`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       }
-    });
+    );
 
     return response.data as FollowResponse;
   } catch (error) {
@@ -1046,8 +1182,8 @@ export const unfollowUser = async (userId: number): Promise<FollowResponse> => {
 
     const response = await api.delete(`${API_BASE_URL}/follow/${userId}`, {
       headers: {
-        Authorization: `Bearer ${token}`
-      }
+        Authorization: `Bearer ${token}`,
+      },
     });
 
     return response.data as FollowResponse;
@@ -1058,16 +1194,20 @@ export const unfollowUser = async (userId: number): Promise<FollowResponse> => {
 };
 
 // Get follow status and counts with proper typing
-export const getFollowStatus = async (userId: number): Promise<FollowResponse> => {
+export const getFollowStatus = async (
+  userId: number
+): Promise<FollowResponse> => {
   try {
     const token = getToken();
     let headers = {};
-    
+
     if (token) {
       headers = { Authorization: `Bearer ${token}` };
     }
 
-    const response = await api.get(`${API_BASE_URL}/follow/status/${userId}`, { headers });
+    const response = await api.get(`${API_BASE_URL}/follow/status/${userId}`, {
+      headers,
+    });
     return response.data as FollowResponse;
   } catch (error) {
     console.error("Error getting follow status:", error);
@@ -1075,17 +1215,19 @@ export const getFollowStatus = async (userId: number): Promise<FollowResponse> =
     return {
       isFollowing: false,
       followersCount: 0,
-      followingCount: 0
+      followingCount: 0,
     };
   }
 };
 
 // Get posts by username with proper typing
-export const getPostsByUsername = async (username: string): Promise<PostType[]> => {
+export const getPostsByUsername = async (
+  username: string
+): Promise<PostType[]> => {
   try {
     const token = getToken();
     let headers = {};
-    
+
     if (token) {
       headers = { Authorization: `Bearer ${token}` };
     }
@@ -1096,37 +1238,46 @@ export const getPostsByUsername = async (username: string): Promise<PostType[]> 
       [key: string]: any; // Add other properties if needed
     }
 
-    const userResponse = await api.get<UserProfileResponse>(`${API_BASE_URL}/users/profile/${username}`, { headers });
-    
+    const userResponse = await api.get<UserProfileResponse>(
+      `${API_BASE_URL}/users/profile/${username}`,
+      { headers }
+    );
+
     if (userResponse.data && userResponse.data.id) {
       const userId = userResponse.data.id;
       // Then fetch posts using the user ID
-      const response = await api.get(`${API_BASE_URL}/posts/user/${userId}`, { headers });
+      const response = await api.get(`${API_BASE_URL}/posts/user/${userId}`, {
+        headers,
+      });
       return response.data as PostType[];
     }
-    
+
     // If we can't get the user ID, try direct endpoint if available
-    const directResponse = await api.get(`${API_BASE_URL}/users/profile/${username}/posts`, { headers });
+    const directResponse = await api.get(
+      `${API_BASE_URL}/users/profile/${username}/posts`,
+      { headers }
+    );
     return directResponse.data as PostType[];
-    
   } catch (error) {
     console.error(`Error getting posts for user ${username}:`, error);
     return [];
   }
 };
 
-
 // Get user's followers
 export const getUserFollowers = async (userId: number, currentPage: number) => {
   try {
     const token = getToken();
     let headers = {};
-    
+
     if (token) {
       headers = { Authorization: `Bearer ${token}` };
     }
 
-    const response = await api.get(`${API_BASE_URL}/follow/followers/${userId}`, { headers });
+    const response = await api.get(
+      `${API_BASE_URL}/follow/followers/${userId}`,
+      { headers }
+    );
     return response.data;
   } catch (error) {
     console.error("Error getting user followers:", error);
@@ -1139,16 +1290,18 @@ export const getUserFollowing = async (userId: number) => {
   try {
     const token = getToken();
     let headers = {};
-    
+
     if (token) {
       headers = { Authorization: `Bearer ${token}` };
     }
 
-    const response = await api.get(`${API_BASE_URL}/follow/following/${userId}`, { headers });
+    const response = await api.get(
+      `${API_BASE_URL}/follow/following/${userId}`,
+      { headers }
+    );
     return response.data;
   } catch (error) {
     console.error("Error getting user following:", error);
     return [];
   }
 };
-

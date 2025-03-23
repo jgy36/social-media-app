@@ -14,7 +14,8 @@ import {
   Bell,
   Eye,
   HelpCircle,
-  UserCog
+  UserCog,
+  Bookmark
 } from "lucide-react";
 
 import {
@@ -68,9 +69,14 @@ const SettingsDropdown = ({ variant = 'icon' }: SettingsDropdownProps) => {
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         
         <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => router.push("/settings?tab=profile")}>
+          <DropdownMenuItem onClick={() => router.push("/profile")}>
             <User className="h-4 w-4 mr-2" /> 
-            Edit Profile
+            Profile
+          </DropdownMenuItem>
+          
+          <DropdownMenuItem onClick={() => router.push("/saved-posts")}>
+            <Bookmark className="h-4 w-4 mr-2" /> 
+            Saved Posts
           </DropdownMenuItem>
           
           <DropdownMenuItem onClick={() => router.push("/settings?tab=account")}>

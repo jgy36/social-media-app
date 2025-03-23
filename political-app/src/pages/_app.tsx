@@ -11,6 +11,7 @@ import { restoreAuthState, updateUserProfile } from "@/redux/slices/userSlice";
 import { AppDispatch, RootState } from "@/redux/store";
 import { ThemeProvider } from "@/context/ThemeContext";
 import AppRouterHandler from "@/components/AppRouterHandler";
+import { Toaster } from "@/components/ui/toaster";
 
 // Improved auth checker component
 function AuthPersistence({ children }: { children: React.ReactNode }) {
@@ -152,6 +153,7 @@ function MyApp({ Component, pageProps }: AppProps) {
           {/* Include the AppRouterHandler to manage navigation behavior */}
           <AppRouterHandler />
           <Component {...pageProps} />
+          <Toaster />
         </ThemeProvider>
       </ConnectedAuthPersistence>
     </SessionProvider>
