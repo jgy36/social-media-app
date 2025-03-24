@@ -87,6 +87,11 @@ export const getLastPath = (section: string): string => {
 export const detectSectionFromPath = (path: string, currentUsername: string | null): string => {
   const pathParts = path.split('/');
   
+  // If path is like /community/[id] - it's still the community section
+  if (pathParts.length > 2 && pathParts[1] === 'community') {
+    return 'community';
+  }
+  
   // If path is like /profile/[username]
   if (pathParts.length > 2 && pathParts[1] === 'profile') {
     const pathUsername = pathParts[2];
@@ -151,8 +156,15 @@ export const useNavigationStateTracker = (explicitSection: string | null = null)
       return;
     }
     
-    // Check if we're on a /profile/[username] page
+    // Handle community detail pages explicitly
     const pathParts = currentPath.split('/');
+    if (pathParts.length > 2 && pathParts[1] === 'community') {
+      // Always save community detail pages under the community section
+      saveNavigationState('community', currentPath);
+      return;
+    }
+    
+    // Check if we're on a /profile/[username] page
     if (pathParts.length > 2 && pathParts[1] === 'profile') {
       const pathUsername = pathParts[2];
       

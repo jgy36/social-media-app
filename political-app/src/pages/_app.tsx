@@ -12,6 +12,19 @@ import { AppDispatch, RootState } from "@/redux/store";
 import { ThemeProvider } from "@/context/ThemeContext";
 import AppRouterHandler from "@/components/AppRouterHandler";
 import { Toaster } from "@/components/ui/toaster";
+import { SWRConfig } from 'swr';
+import axios from 'axios';
+
+// Global fetcher function
+const fetcher = async (url: string) => {
+  try {
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+    throw error;
+  }
+};
 
 // Improved auth checker component
 function AuthPersistence({ children }: { children: React.ReactNode }) {
@@ -150,10 +163,19 @@ function MyApp({ Component, pageProps }: AppProps) {
     <SessionProvider session={pageProps.session}>
       <ConnectedAuthPersistence>
         <ThemeProvider>
-          {/* Include the AppRouterHandler to manage navigation behavior */}
-          <AppRouterHandler />
-          <Component {...pageProps} />
-          <Toaster />
+          <SWRConfig 
+            value={{
+              fetcher,
+              revalidateOnFocus: false,
+              dedupingInterval: 5000,
+              errorRetryCount: 3,
+            }}
+          >
+            {/* Include the AppRouterHandler to manage navigation behavior */}
+            <AppRouterHandler />
+            <Component {...pageProps} />
+            <Toaster />
+          </SWRConfig>
         </ThemeProvider>
       </ConnectedAuthPersistence>
     </SessionProvider>

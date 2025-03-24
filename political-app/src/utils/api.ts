@@ -997,37 +997,58 @@ export const getUnifiedSearchResults = async (
   type?: "user" | "community" | "hashtag"
 ): Promise<any[]> => {
   try {
-    const results = [];
+    const results: any[] = [];
 
     // If type is specified, only fetch that type
     if (type === "user" || !type) {
-      const users = await searchUsers(query);
-      results.push(
-        ...users.map((user) => ({
-          ...user,
-          type: "user",
-        }))
-      );
+      try {
+        const users = await searchUsers(query);
+        // Properly type and map the results
+        if (Array.isArray(users)) {
+          const typedUsers = users.map((user) => ({
+            ...user,
+            type: "user" as const,
+          }));
+          results.push(...typedUsers);
+        }
+      } catch (error) {
+        console.error(`Error searching users with query "${query}":`, error);
+      }
     }
 
     if (type === "community" || !type) {
-      const communities = await searchCommunities(query);
-      results.push(
-        ...communities.map((community) => ({
-          ...community,
-          type: "community",
-        }))
-      );
+      try {
+        const communities = await searchCommunities(query);
+        // Properly type and map the results
+        if (Array.isArray(communities)) {
+          const typedCommunities = communities.map((community) => ({
+            ...community,
+            type: "community" as const,
+          }));
+          results.push(...typedCommunities);
+        }
+      } catch (error) {
+        console.error(
+          `Error searching communities with query "${query}":`,
+          error
+        );
+      }
     }
 
     if (type === "hashtag" || !type) {
-      const hashtags = await searchHashtags(query);
-      results.push(
-        ...hashtags.map((hashtag) => ({
-          ...hashtag,
-          type: "hashtag",
-        }))
-      );
+      try {
+        const hashtags = await searchHashtags(query);
+        // Properly type and map the results
+        if (Array.isArray(hashtags)) {
+          const typedHashtags = hashtags.map((hashtag) => ({
+            ...hashtag,
+            type: "hashtag" as const,
+          }));
+          results.push(...typedHashtags);
+        }
+      } catch (error) {
+        console.error(`Error searching hashtags with query "${query}":`, error);
+      }
     }
 
     return results;
@@ -1306,12 +1327,16 @@ export const getUserFollowing = async (userId: number) => {
   }
 };
 
-export const checkPostSaveStatus = async (postId: number): Promise<{ isSaved: boolean }> => {
+export const checkPostSaveStatus = async (
+  postId: number
+): Promise<{ isSaved: boolean }> => {
   try {
     const token = getToken();
     if (!token) return { isSaved: false };
 
-    const response = await api.get(`${API_BASE_URL}/posts/${postId}/saved-status`);
+    const response = await api.get(
+      `${API_BASE_URL}/posts/${postId}/saved-status`
+    );
     return response.data as { isSaved: boolean };
   } catch (error) {
     console.error("Error checking post save status:", error);
