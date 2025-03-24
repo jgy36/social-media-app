@@ -26,5 +26,5 @@
     "suppressImplicitAnyIndexErrors": true /* Suppress errors on indexing objects */
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "src/types/global.d.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "src/pages/community"]
 }

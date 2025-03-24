@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAllCommunities, joinCommunity, leaveCommunity } from "@/utils/api";
 import { updateUserCommunities } from "@/redux/slices/communitySlice";
-import { safeNavigate } from "@/utils/routerHistoryManager";
 
 // Define community type
 interface Community {
@@ -27,7 +26,9 @@ interface Community {
 
 const CommunityList = () => {
   const [communities, setCommunities] = useState<Community[]>([]);
-  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
+  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>(
+    []
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -272,11 +273,12 @@ const CommunityList = () => {
   };
 
   // Navigate to a community page
+  // To this (temporary fix to debug):
   const navigateToCommunity = (communityId: string) => {
     console.log(`Navigating to community: ${communityId}`);
-    
-    // Use the safe navigation function from routerHistoryManager
-    safeNavigate(router, `/community/${communityId}`);
+
+    // Try direct navigation instead of safeNavigate
+    router.push(`/community/${communityId}`);
   };
 
   // Loading state with skeletons
@@ -341,6 +343,8 @@ const CommunityList = () => {
               onClick={() => navigateToCommunity(community.id)}
               data-testid={`community-card-${community.id}`}
             >
+                <a href={`/community/${community.id}`} onClick={(e) => e.stopPropagation()}>
+
               <Card
                 className="shadow-sm hover:shadow-md transition-shadow border-l-4"
                 style={{ borderLeftColor: community.color || "var(--primary)" }}
@@ -387,7 +391,8 @@ const CommunityList = () => {
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+                </Card>
+                </a>
             </div>
           ))
         ) : (
