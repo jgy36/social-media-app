@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/pages/community/[id].tsx
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
@@ -6,7 +5,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import { joinCommunity as joinCommunityAction, leaveCommunity as leaveCommunityAction } from "@/redux/slices/communitySlice";
 import Navbar from "@/components/navbar/Navbar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +16,11 @@ import Post from "@/components/feed/Post";
 import { Users, Bell, BellOff, MessageCircle, Info, Calendar, Flame, TrendingUp, Shield, User } from "lucide-react";
 import { getCommunityBySlug, getCommunityPosts, joinCommunity, leaveCommunity, createCommunityPost } from "@/utils/api";
 import BackButton from "@/components/navigation/BackButton";
+import useSWR from "swr";
+import axios from "axios";
+import { GetServerSideProps } from "next";
+
+
 
 interface CommunityData {
   id: string;
@@ -32,21 +36,38 @@ interface CommunityData {
   isNotificationsOn: boolean;
 }
 
+interface ServerSideProps {
+  initialCommunityData?: CommunityData;
+  initialPosts?: PostType[];
+  error?: string;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
-const CommunityPage = () => {
+// SWR fetcher function
+const fetcher = async (url: string): Promise<CommunityData> => {
+  try {
+    const response = await axios.get<CommunityData>(url);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching ${url}:`, error);
+    throw error;
+  }
+};
+
+const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError }: ServerSideProps) => {
   const router = useRouter();
   const { id } = router.query;
-  const [community, setCommunity] = useState<CommunityData | null>(null);
-  const [posts, setPosts] = useState<PostType[]>([]);
+  const [community, setCommunity] = useState<CommunityData | null>(initialCommunityData || null);
+  const [posts, setPosts] = useState<PostType[]>(initialPosts || []);
   const [activeTab, setActiveTab] = useState("posts");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(!initialCommunityData);
+  const [error, setError] = useState<string | null>(serverError || null);
   const [newPostContent, setNewPostContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isJoined, setIsJoined] = useState(false);
-  const [isNotificationsOn, setIsNotificationsOn] = useState(false);
-  const [memberCount, setMemberCount] = useState(0);
+  const [isJoined, setIsJoined] = useState(initialCommunityData?.isJoined || false);
+  const [isNotificationsOn, setIsNotificationsOn] = useState(initialCommunityData?.isNotificationsOn || false);
+  const [memberCount, setMemberCount] = useState(initialCommunityData?.members || 0);
   
   // Get current user from Redux store
   const currentUser = useSelector((state: RootState) => state.user);
@@ -55,105 +76,139 @@ const CommunityPage = () => {
   // Get joined communities list from Redux
   const joinedCommunityIds = useSelector((state: RootState) => state.communities.joinedCommunities);
 
-  // Fetch community data when ID changes
-  useEffect(() => {
-    if (id && typeof id === "string") {
-      const loadCommunity = async () => {
-        setIsLoading(true);
-        setError(null);
-        
-        try {
-          // Check if this community is in our joined list from Redux
-          const isInJoinedList = joinedCommunityIds.includes(id);
-          console.log(`Community ${id} in joined list: ${isInJoinedList}`);
-          
-          // Fetch community details
-          const communityData = await getCommunityBySlug(id);
-          
-          if (!communityData) {
-            throw new Error("Community not found");
-          }
-          
-          setCommunity(communityData);
-          // Use Redux state as source of truth for joined status 
-          setIsJoined(isInJoinedList);
-          setIsNotificationsOn(communityData.isNotificationsOn || false);
-          setMemberCount(communityData.members || 0);
-          
-          // Fetch posts for this community
-          try {
-            const postsData = await getCommunityPosts(id);
-            setPosts(postsData);
-          } catch (postsErr) {
-            console.warn("Error fetching posts, using empty array:", postsErr);
-            setPosts([]);
-          }
-          
-        } catch (err) {
-          console.error("Error loading community:", err);
-          setError("Failed to load community data");
-          
-          // Fallback to mock data in development mode if API fails
-          if (process.env.NODE_ENV === 'development') {
-            // Create mock community data matching the structure from API
-            const mockCommunity: CommunityData = {
-              id: id as string,
-              name: id === 'democrat' ? 'Democrat' : 
-                   id === 'republican' ? 'Republican' : 
-                   id === 'libertarian' ? 'Libertarian' : 
-                   id === 'independent' ? 'Independent' : 'Political Community',
-              description: `This is the ${id} community for political discussions.`,
-              members: 12345,
-              created: new Date(2023, 0, 1).toISOString(),
-              rules: [
-                "Be respectful of other members",
-                "No hate speech or personal attacks",
-                "Focus on policy discussion, not personal attacks",
-                "Cite sources for claims when possible"
-              ],
-              moderators: ["admin", "moderator1"],
-              color: id === 'democrat' ? '#3b82f6' : 
-                     id === 'republican' ? '#ef4444' : 
-                     id === 'libertarian' ? '#eab308' : 
-                     id === 'independent' ? '#a855f7' : '#3b82f6',
-              isJoined: false,
-              isNotificationsOn: false
-            };
-            
-            setCommunity(mockCommunity);
-            setMemberCount(mockCommunity.members);
-            
-            // Mock posts
-            const mockPosts: PostType[] = [
-              {
-                id: 1,
-                author: "User1",
-                content: `Welcome to the ${id} community! This is a great place to discuss ${id} politics.`,
-                likes: 42,
-                createdAt: new Date(2023, 10, 15).toISOString(),
-                commentsCount: 5
-              },
-              {
-                id: 2,
-                author: "User2",
-                content: `I'm excited to share my thoughts on recent ${id} policy developments. #${id} #policy`,
-                likes: 21,
-                createdAt: new Date(2023, 10, 10).toISOString(),
-                commentsCount: 2
-              }
-            ];
-            
-            setPosts(mockPosts);
-            setError(null); // Clear error if using mock data
-          }
-        } finally {
-          setIsLoading(false);
-        }
-      };
-      
-      loadCommunity();
+  // Use SWR for fetching community data
+  const { data: swrCommunityData, error: swrError } = useSWR<CommunityData>(
+    id ? `${API_BASE_URL}/communities/${id}` : null,
+    id ? fetcher : null,
+    {
+      fallbackData: initialCommunityData,
+      revalidateOnFocus: false,
+      onSuccess: (data) => {
+        console.log("SWR fetched community data:", data);
+      },
+      onError: (err) => {
+        console.error("SWR error fetching community:", err);
+      }
     }
-  }, [id, joinedCommunityIds]);
+  );
+
+  // Use SWR for fetching posts
+  // Define a fetcher specifically for posts
+  const fetchPosts = async (url: string): Promise<PostType[]> => {
+    try {
+      const response = await axios.get<PostType[]>(url);
+      return response.data;
+    } catch (error) {
+      console.error(`Error fetching posts from ${url}:`, error);
+      throw error;
+    }
+  };
+  
+  const { data: swrPosts } = useSWR<PostType[]>(
+    id ? `${API_BASE_URL}/communities/${id}/posts` : null,
+    id ? fetchPosts : null,
+    {
+      fallbackData: initialPosts,
+      revalidateOnFocus: false,
+      onSuccess: (data) => {
+        console.log(`SWR fetched ${Array.isArray(data) ? data.length : 0} posts for community`);
+      }
+    }
+  );
+
+  // Initial debug logging
+  useEffect(() => {
+    console.log("Community page loaded");
+    console.log("Router object:", router);
+    console.log("Community ID from URL:", id);
+    
+    // Check if ID is available and valid
+    if (id && typeof id === "string") {
+      console.log(`Loading community data for ID: ${id}`);
+    } else {
+      console.log("Waiting for ID parameter to be available...");
+    }
+  }, [id, router]);
+
+  // Update state from SWR data when it changes
+  useEffect(() => {
+    if (swrCommunityData) {
+      setCommunity(swrCommunityData);
+      // Use Redux state as source of truth for joined status 
+      setIsJoined(joinedCommunityIds.includes(swrCommunityData.id));
+      setIsNotificationsOn(swrCommunityData.isNotificationsOn || false);
+      setMemberCount(swrCommunityData.members || 0);
+    }
+    
+    if (swrError) {
+      setError("Failed to load community data");
+    }
+    
+    setIsLoading(false);
+  }, [swrCommunityData, swrError, joinedCommunityIds]);
+
+  // Update posts from SWR data
+  useEffect(() => {
+    if (swrPosts) {
+      setPosts(swrPosts);
+    }
+  }, [swrPosts]);
+
+  // Fetch community data when ID changes - Backup method with guard clause
+  useEffect(() => {
+    // GUARD CLAUSE: Only proceed if we have a valid ID and no server-side data
+    if (!id || typeof id !== "string" || initialCommunityData) {
+      return;
+    }
+    
+    const loadCommunity = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log(`Starting to load community data for ID: ${id}`);
+      
+      try {
+        // Check if this community is in our joined list from Redux
+        const isInJoinedList = joinedCommunityIds.includes(id as string);
+        console.log(`Community ${id} in joined list: ${isInJoinedList}`);
+        
+        // Fetch community details with explicit logging
+        console.log(`Fetching data from API for community: ${id}`);
+        const communityData = await getCommunityBySlug(id as string);
+        
+        if (!communityData) {
+          console.error(`API returned no data for community: ${id}`);
+          throw new Error("Community not found");
+        }
+        
+        console.log("Community data received:", communityData);
+        setCommunity(communityData);
+        // Use Redux state as source of truth for joined status 
+        setIsJoined(isInJoinedList);
+        setIsNotificationsOn(communityData.isNotificationsOn || false);
+        setMemberCount(communityData.members || 0);
+        
+        // Fetch posts for this community
+        try {
+          console.log(`Fetching posts for community: ${id}`);
+          const postsData = await getCommunityPosts(id as string);
+          console.log(`Received ${postsData.length} posts for community`);
+          setPosts(postsData);
+        } catch (postsErr) {
+          console.warn("Error fetching posts, using empty array:", postsErr);
+          setPosts([]);
+        }
+        
+      } catch (err) {
+        console.error("Error loading community:", err);
+        setError("Failed to load community data");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadCommunity();
+  }, [id, joinedCommunityIds, initialCommunityData]);
 
   // Handle joining/leaving the community
   const handleToggleMembership = async () => {
@@ -237,6 +292,15 @@ const CommunityPage = () => {
     }
   };
 
+  // Debug component state
+  console.log("Component state:", {
+    isLoading,
+    error,
+    hasCommunity: !!community, 
+    membersCount: community?.members || 0,
+    postsCount: posts?.length || 0
+  });
+
   // Loading state
   if (isLoading) {
     return (
@@ -278,6 +342,8 @@ const CommunityPage = () => {
       </div>
     );
   }
+
+  console.log("Rendering community page with data:", community);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -624,6 +690,50 @@ const CommunityPage = () => {
       </div>
     </div>
   );
+};
+
+// Server-side rendering to get initial data
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const { id } = context.params as { id: string };
+  
+  if (!id) {
+    return {
+      props: {
+        error: "No community ID provided"
+      }
+    };
+  }
+  
+  try {
+    console.log(`[SSR] Fetching data for community: ${id}`);
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+    
+    // Fetch community data
+    const communityResponse = await axios.get(`${API_BASE_URL}/communities/${id}`);
+    const communityData = communityResponse.data;
+    
+    // Fetch posts
+    const postsResponse = await axios.get<PostType[]>(`${API_BASE_URL}/communities/${id}/posts`);
+    const posts = postsResponse.data;
+    
+    console.log(`[SSR] Successfully fetched community data and ${posts.length} posts`);
+    
+    return {
+      props: {
+        initialCommunityData: communityData,
+        initialPosts: posts
+      }
+    };
+  } catch (error) {
+    console.error(`[SSR] Error fetching data for community ${id}:`, error);
+    
+    // Return error but don't fail the page load - client will retry
+    return {
+      props: {
+        error: "Failed to load community data"
+      }
+    };
+  }
 };
 
 export default CommunityPage;

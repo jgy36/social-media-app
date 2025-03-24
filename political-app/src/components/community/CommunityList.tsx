@@ -1,6 +1,5 @@
 // src/components/community/CommunityList.tsx
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAllCommunities, joinCommunity, leaveCommunity } from "@/utils/api";
 import { updateUserCommunities } from "@/redux/slices/communitySlice";
+import { safeNavigate } from "@/utils/routerHistoryManager";
 
 // Define community type
 interface Community {
@@ -27,9 +27,7 @@ interface Community {
 
 const CommunityList = () => {
   const [communities, setCommunities] = useState<Community[]>([]);
-  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>(
-    []
-  );
+  const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -275,7 +273,10 @@ const CommunityList = () => {
 
   // Navigate to a community page
   const navigateToCommunity = (communityId: string) => {
-    router.push(`/community/${communityId}`);
+    console.log(`Navigating to community: ${communityId}`);
+    
+    // Use the safe navigation function from routerHistoryManager
+    safeNavigate(router, `/community/${communityId}`);
   };
 
   // Loading state with skeletons
@@ -333,17 +334,15 @@ const CommunityList = () => {
       <div className="space-y-3">
         {filteredCommunities.length > 0 ? (
           filteredCommunities.map((community) => (
-            <Link
-              href={`/community/${community.id}`}
+            // Use a div with onClick handler
+            <div
               key={community.id}
-              className="block"
-              onClick={(e) => {
-                e.preventDefault();
-                navigateToCommunity(community.id);
-              }}
+              className="block cursor-pointer"
+              onClick={() => navigateToCommunity(community.id)}
+              data-testid={`community-card-${community.id}`}
             >
               <Card
-                className="shadow-sm hover:shadow-md transition-shadow cursor-pointer border-l-4"
+                className="shadow-sm hover:shadow-md transition-shadow border-l-4"
                 style={{ borderLeftColor: community.color || "var(--primary)" }}
               >
                 <CardContent className="p-4">
@@ -389,7 +388,7 @@ const CommunityList = () => {
                   </div>
                 </CardContent>
               </Card>
-            </Link>
+            </div>
           ))
         ) : (
           <div className="text-center py-12">
@@ -423,17 +422,13 @@ const CommunityList = () => {
               {communities
                 .filter((community) => joinedStatus[community.id])
                 .map((community) => (
-                  <Link
-                    href={`/community/${community.id}`}
+                  <div
                     key={`joined-${community.id}`}
-                    className="block"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      navigateToCommunity(community.id);
-                    }}
+                    className="block cursor-pointer"
+                    onClick={() => navigateToCommunity(community.id)}
                   >
                     <Card
-                      className="shadow-sm hover:shadow-md transition-shadow cursor-pointer border-l-4"
+                      className="shadow-sm hover:shadow-md transition-shadow border-l-4"
                       style={{
                         borderLeftColor: community.color || "var(--primary)",
                       }}
@@ -455,7 +450,6 @@ const CommunityList = () => {
                             size="sm"
                             className="text-xs"
                             onClick={(e) => {
-                              e.preventDefault();
                               e.stopPropagation();
                               handleJoinCommunity(e, community.id);
                             }}
@@ -465,7 +459,7 @@ const CommunityList = () => {
                         </div>
                       </CardContent>
                     </Card>
-                  </Link>
+                  </div>
                 ))}
             </div>
           ) : (

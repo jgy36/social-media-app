@@ -2,8 +2,6 @@
 // src/utils/routerHistoryManager.ts
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { detectSectionFromPath } from './navigationStateManager';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 
@@ -87,39 +85,9 @@ export const useRouterHistoryManager = () => {
     // Initialize with current route
     handleRouteChange(router.asPath);
     
-    // Modify the browser's back button behavior
-    const handleBeforePopState = (state: any) => {
-      if (!state || !state.url) return true;
-      
-      const url = state.url;
-      const tab = detectTabFromUrl(url, user.username);
-      
-      // If we're trying to navigate to a different tab using browser back/forward,
-      // instead navigate within the current tab's history
-      if (tab !== currentTab && tabHistory[currentTab].length > 1) {
-        // Remove the current page from history
-        tabHistory[currentTab].pop();
-        
-        // Get the previous page in the current tab
-        const previousPage = tabHistory[currentTab][tabHistory[currentTab].length - 1];
-        
-        if (previousPage) {
-          // Navigate to that page instead
-          router.replace(previousPage);
-          return false; // Prevent the default navigation
-        }
-      }
-      
-      return true; // Allow the navigation
-    };
-    
-    // Apply the custom back behavior
-    router.beforePopState(handleBeforePopState);
-    
     // Cleanup
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange);
-      router.beforePopState(() => true); // Remove our custom handler
     };
   }, [router, user.username]);
   
@@ -142,24 +110,6 @@ function normalizeTabName(tab: string): string {
     case 'search': return 'search';
     default: return tab;
   }
-}
-
-/**
- * Detect which tab a URL belongs to
- */
-function detectTabFromUrl(url: string, username: string | null): string {
-  const pathParts = url.split('/');
-  const section = pathParts[1] || '';
-  
-  // Special case for other user profiles
-  if (section === 'profile' && pathParts.length > 2) {
-    const profileUsername = pathParts[2];
-    if (username && profileUsername !== username) {
-      return 'community';
-    }
-  }
-  
-  return normalizeTabName(section);
 }
 
 /**
@@ -186,26 +136,18 @@ export function getPreviousUrlInTab(tab: string): string | null {
 }
 
 /**
- * Navigate back within the current tab
+ * Safe navigation function to avoid the "[id] interpolation failed" error 
+ * with dynamic routes
  * @param router Next.js router
- * @param fallbackUrl URL to navigate to if no history exists
+ * @param url The URL to navigate to
  */
-export function goBackInTab(router: any, fallbackUrl: string): void {
-  const tab = currentTab;
-  
-  if (tabHistory[tab] && tabHistory[tab].length > 1) {
-    // Remove current page
-    tabHistory[tab].pop();
-    
-    // Get previous page
-    const previousPage = tabHistory[tab].pop();
-    
-    if (previousPage) {
-      router.push(previousPage);
-      return;
-    }
+export function safeNavigate(router: any, url: string): void {
+  // If the URL contains a dynamic segment like [id], ensure we're using a real value
+  if (url.includes('[') && url.includes(']')) {
+    console.error('Navigation error: URL contains dynamic segments that need actual values:', url);
+    return;
   }
   
-  // If we get here, there was no history, so go to the fallback
-  router.push(fallbackUrl);
+  // Normal navigation
+  router.push(url);
 }

@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getAllCommunities } from "@/utils/api";
+import { safeNavigate } from "@/utils/routerHistoryManager";
 
 interface Community {
   id: string;
@@ -76,6 +77,13 @@ const CommunitySidebar = () => {
     dispatch(toggleSidebar());
   };
   
+  // Safe navigation to community
+  const navigateToCommunity = (communityId: string) => {
+    console.log(`Sidebar navigating to community: ${communityId}`);
+    // Use the safe navigation function from routerHistoryManager
+    safeNavigate(router, `/community/${communityId}`);
+  };
+  
   if (!isAuthenticated || joinedCommunityIds.length === 0) {
     return null; // Don't show sidebar if not logged in or no communities joined
   }
@@ -130,13 +138,14 @@ const CommunitySidebar = () => {
             // Communities list
             <>
               {communities.map(community => (
-                <Link 
-                  key={community.id} 
-                  href={`/community/${community.id}`}
-                  className="block"
+                <div 
+                  key={community.id}
+                  className="block cursor-pointer"
+                  onClick={() => navigateToCommunity(community.id)}
+                  data-testid={`sidebar-community-${community.id}`}
                 >
                   <div 
-                    className={`flex items-center px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                    className={`flex items-center px-3 py-2 rounded-md transition-colors ${
                       activeRouteId === community.id ? "bg-accent text-accent-foreground" : "hover:bg-muted"
                     }`}
                   >
@@ -144,6 +153,7 @@ const CommunitySidebar = () => {
                       className="w-4 h-4 rounded-full mr-3 flex-shrink-0" 
                       style={{ backgroundColor: community.color || 'var(--primary)' }}
                     ></div>
+                    
                     {isSidebarOpen ? (
                       <span className="truncate">{community.name}</span>
                     ) : (
@@ -152,7 +162,7 @@ const CommunitySidebar = () => {
                       </span>
                     )}
                   </div>
-                </Link>
+                </div>
               ))}
             </>
           )}
