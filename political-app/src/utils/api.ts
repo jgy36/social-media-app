@@ -732,10 +732,13 @@ export const getAllCommunities = async (): Promise<any[]> => {
 };
 
 // Function to fetch a community by slug
+// Update this function in src/utils/api.ts
 export const getCommunityBySlug = async (slug: string): Promise<any> => {
   try {
+    console.log(`Fetching community with slug: ${slug}`);
     const response = await api.get(`${API_BASE_URL}/communities/${slug}`);
-    return response.data as any[];
+    console.log("Community response:", response.data);
+    return response.data; // Return the object directly, not as an array
   } catch (error) {
     console.error(`Error fetching community ${slug}:`, error);
     return null;
