@@ -1,14 +1,18 @@
+// src/components/auth/LoginForm.tsx
 import { useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/redux/store";
-import { loginUser } from "@/redux/slices/userSlice";
 import { useRouter } from "next/router";
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/redux/store";
+import { loginUser } from "@/redux/slices/userSlice";
 import { Loader2 } from "lucide-react";
+import { useLogin } from "@/hooks/useApi";
 
 const LoginForm = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { loading, error } = useSelector((state: RootState) => state.user);
+  
+  // Use our custom hook
+  const { loading, error: apiError, execute: login } = useLogin();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,8 +28,16 @@ const LoginForm = () => {
     }
 
     try {
-      const result = await dispatch(loginUser({ email, password })).unwrap();
+      // Use our API hook to login
+      const result = await login({ email, password });
+      
       if (result && result.token) {
+        // Dispatch to Redux to update global state
+        dispatch(loginUser({ 
+          email, 
+          password // You may want to avoid passing password here
+        })).unwrap();
+        
         console.log("Login successful, redirecting to feed");
         router.push("/feed");
       } else {
@@ -39,11 +51,14 @@ const LoginForm = () => {
     }
   };
 
+  // Display either local error or API error
+  const errorMessage = localError || (apiError ? apiError.message : null);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {(error || localError) && (
+      {errorMessage && (
         <div className="bg-red-100 text-red-800 p-3 rounded-md text-sm">
-          {error || localError}
+          {errorMessage}
         </div>
       )}
 

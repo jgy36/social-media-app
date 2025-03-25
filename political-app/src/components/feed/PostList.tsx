@@ -5,16 +5,18 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import Post from "./Post";
 import { PostType } from "@/types/post";
-import { fetchPostsWithFallback } from "@/utils/apiErrorHandler";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+
+// Import our new API
+import { posts } from "@/api";
 
 interface PostListProps {
   activeTab: "for-you" | "following";
 }
 
 const PostList: React.FC<PostListProps> = ({ activeTab }) => {
-  const [posts, setPosts] = useState<PostType[]>([]);
+  const [postData, setPosts] = useState<PostType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
@@ -35,7 +37,8 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
 
     try {
       console.log(`Fetching posts from endpoint: ${endpoint}`);
-      const data = await fetchPostsWithFallback(endpoint);
+      // Use our new API function
+      const data = await posts.getPosts(endpoint);
       
       // Check if we received fallback data vs actual data
       const isFallbackData = data.length > 0 && data.some(post => post.author === "NetworkIssue");
@@ -101,8 +104,8 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
         </div>
       )}
       
-      {posts.length > 0 ? (
-        posts.map((post) => (
+      {postData.length > 0 ? (
+        postData.map((post) => (
           <Post key={post.id} post={post} />
         ))
       ) : (
