@@ -1,12 +1,12 @@
 // src/components/feed/SaveButton.tsx
 import { useState, useEffect } from "react";
-import { savePost, checkPostSaveStatus } from "@/utils/api";
 import { Bookmark } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useRouter } from "next/router";
 import { toast } from "@/hooks/use-toast";
+import { useSavePost, useCheckPostSaveStatus } from "@/hooks/useApi"; // Import API hooks
 
 interface SaveButtonProps {
   postId: number;
@@ -15,9 +15,12 @@ interface SaveButtonProps {
 
 const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
   const [saved, setSaved] = useState(initialIsSaved);
-  const [isLoading, setIsLoading] = useState(false);
   const user = useSelector((state: RootState) => state.user);
   const router = useRouter();
+
+  // Use API hooks
+  const { loading: saveLoading, execute: savePost } = useSavePost();
+  const { data: savedStatus } = useCheckPostSaveStatus();
 
   // Check the actual saved status when component mounts
   useEffect(() => {
@@ -25,9 +28,11 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
       if (!user.token) return;
       
       try {
-        const status = await checkPostSaveStatus(postId);
+        const status = await savedStatus(postId);
         // Update the saved state based on the server response
-        setSaved(status.isSaved);
+        if (status) {
+          setSaved(status.isSaved);
+        }
       } catch (err) {
         console.error("Error checking save status:", err);
         // If there's an error, fall back to the prop value
@@ -39,7 +44,7 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
     if (user.token) {
       fetchSavedStatus();
     }
-  }, [postId, user.token, initialIsSaved]);
+  }, [postId, user.token, initialIsSaved, savedStatus]);
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering post navigation
@@ -50,9 +55,8 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
       return;
     }
     
-    setIsLoading(true);
-    
     try {
+      // Use the API hook to save/unsave post
       await savePost(postId);
       
       // Toggle saved state
@@ -74,8 +78,6 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
         description: "Failed to save the post. Please try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -83,11 +85,11 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
     <Button
       variant="ghost"
       onClick={handleSave}
-      disabled={isLoading}
+      disabled={saveLoading}
       className={`flex items-center gap-1 ${saved ? "text-yellow-500" : ""}`}
     >
       <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-      {isLoading ? "Saving..." : saved ? "Saved" : "Save"}
+      {saveLoading ? "Saving..." : saved ? "Saved" : "Save"}
     </Button>
   );
 };

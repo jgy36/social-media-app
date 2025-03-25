@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Users, TrendingUp, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getAllCommunities, joinCommunity, leaveCommunity } from "@/utils/api";
+import { getAllCommunities, joinCommunity, leaveCommunity } from "@/api/communities";
 import { updateUserCommunities } from "@/redux/slices/communitySlice";
 
 // Define community type

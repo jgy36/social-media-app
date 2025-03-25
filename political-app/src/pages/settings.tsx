@@ -29,7 +29,7 @@ import {
 import { useRouter } from "next/router";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import MainLayout from "@/components/layout/MainLayout";
-import { updateUsername } from "@/utils/api";
+import { updateUsername } from "@/api/users"; // Update import
 import { updateUserProfile } from "@/redux/slices/userSlice";
 
 const SettingsPage = () => {

@@ -7,7 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { addComment } from "@/utils/api"; // ✅ Token is automatically included
+import { addComment } from "@/api/posts"; // Update import
 import { Loader2 } from "lucide-react";
 
 interface CommentModalProps {

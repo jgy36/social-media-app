@@ -3,6 +3,7 @@
 
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { getCookie, setCookie, deleteCookie } from "cookies-next";
+import { api } from "@/api";  // Import from new API structure
 
 // Define the RootState type (to fix the RootState error)
 interface RootState {
@@ -10,12 +11,12 @@ interface RootState {
   // Add other state slices as needed
 }
 
-// Define the initial state
+// Define the initial state with proper types
 interface UserState {
   id: number | null;
   token: string | null;
   username: string | null;
-  email: string | null; // Add this line to include email
+  email: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -24,10 +25,18 @@ const initialState: UserState = {
   id: null,
   token: null,
   username: null,
-  email: null, // Initialize email as null
+  email: null,
   loading: false,
   error: null,
 };
+
+// Define response type to fix the errors
+interface AuthResponse {
+  id: number;
+  token: string;
+  username: string;
+  email: string;
+}
 
 // Restore auth state from local storage/cookies
 export const restoreAuthState = createAsyncThunk(
@@ -62,11 +71,11 @@ export const restoreAuthState = createAsyncThunk(
         }
       }
 
-      // Return the auth data
+      // Return the auth data with proper types
       return {
         id: userId,
         token,
-        username: username || "User",
+        username: username || null,
         email: email || null,
       };
     } catch (error) {
@@ -77,44 +86,40 @@ export const restoreAuthState = createAsyncThunk(
 );
 
 // Define async login
-export const loginUser = createAsyncThunk(
+export const loginUser = createAsyncThunk<
+  { id: number | null; username: string | null; email: string | null; token: string | null },
+  { email: string; password: string }
+>(
   "user/login",
-  async (
-    { email, password }: { email: string; password: string },
-    { rejectWithValue }
-  ) => {
+  async ({ email, password }, { rejectWithValue }) => {
     try {
-      const response = await fetch("http://localhost:8080/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      // Use the new API structure
+      const response = await api.auth.login({ email, password });
 
-      const data = await response.json();
-
-      if (!response.ok || !data.user) {
-        throw new Error(data.message || "Login failed");
+      // Ensure we have proper response
+      if (!response.token || !response.user) {
+        throw new Error("Invalid response from server");
       }
 
       // Persist data immediately after successful login
       if (typeof window !== "undefined") {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("username", data.user.username || "User");
-        localStorage.setItem("userId", String(data.user.id));
+        localStorage.setItem("token", response.token);
+        localStorage.setItem("username", response.user.username || "User");
+        localStorage.setItem("userId", String(response.user.id));
         localStorage.setItem("email", email); // Store the email too
 
         // Also set cookies as fallback
-        setCookie("token", data.token, { path: "/" });
-        setCookie("username", data.user.username || "User", { path: "/" });
-        setCookie("userId", String(data.user.id), { path: "/" });
+        setCookie("token", response.token, { path: "/" });
+        setCookie("username", response.user.username || "User", { path: "/" });
+        setCookie("userId", String(response.user.id), { path: "/" });
         setCookie("email", email, { path: "/" }); // Store email in cookie too
       }
 
       return {
-        id: data.user?.id || null,
-        username: data.user?.username || "Unknown",
-        email: email, // Return the email in the result
-        token: data.token || null,
+        id: response.user?.id || null,
+        username: response.user?.username || null,
+        email: email || null,
+        token: response.token || null,
       };
     } catch (error) {
       console.error("Login error:", error);
@@ -135,18 +140,18 @@ export const registerUser = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      const response = await fetch("http://localhost:8080/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password }),
+      // Use the new API structure
+      const response = await api.auth.register({
+        username,
+        email,
+        password
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Registration failed");
+      if (!response.success) {
+        throw new Error(response.message || "Registration failed");
       }
 
-      return await response.json();
+      return response;
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -154,7 +159,11 @@ export const registerUser = createAsyncThunk(
 );
 
 // Add this new thunk to update the username
-export const updateUserProfile = createAsyncThunk(
+export const updateUserProfile = createAsyncThunk<
+  { id: number | null; username: string | null; token: string | null },
+  void,
+  { state: RootState }
+>(
   "user/updateProfile",
   async (_, { getState, rejectWithValue }) => {
     try {
@@ -163,20 +172,12 @@ export const updateUserProfile = createAsyncThunk(
         throw new Error("Not authenticated");
       }
 
-      // Get the latest user profile from the API
-      const response = await fetch("http://localhost:8080/api/users/me", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${state.user.token}`,
-        },
-      });
-
-      if (!response.ok) {
+      // Get the latest user profile from the API using the new structure
+      const userData = await api.users.getCurrentUser();
+      
+      if (!userData) {
         throw new Error("Failed to refresh user profile");
       }
-
-      const userData = await response.json();
 
       // Update localStorage and cookies with newest data
       if (typeof window !== "undefined") {
@@ -187,8 +188,8 @@ export const updateUserProfile = createAsyncThunk(
       }
 
       return {
-        id: userData.id || state.user.id,
-        username: userData.username || "Unknown",
+        id: userData.id || null,
+        username: userData.username || null,
         token: state.user.token, // Keep existing token
       };
     } catch (error) {
@@ -244,12 +245,12 @@ const userSlice = createSlice({
       state.id = null;
       state.token = null;
       state.username = null;
-      state.email = null; // Clear email field
+      state.email = null;
       state.loading = false;
       state.error = null;
 
       // Clear persisted data
-      persistAuthData(null, null, null, null); // Update this function to handle email
+      persistAuthData(null, null, null, null);
     },
   },
 
@@ -260,25 +261,14 @@ const userSlice = createSlice({
       state.error = null;
     });
 
-    builder.addCase(
-      loginUser.fulfilled,
-      (
-        state,
-        action: PayloadAction<{
-          id: number;
-          token: string;
-          username: string;
-          email: string;
-        }>
-      ) => {
-        state.id = action.payload.id;
-        state.token = action.payload.token;
-        state.username = action.payload.username;
-        state.email = action.payload.email;
-        state.loading = false;
-        state.error = null;
-      }
-    );
+    builder.addCase(loginUser.fulfilled, (state, action) => {
+      state.id = action.payload.id;
+      state.token = action.payload.token;
+      state.username = action.payload.username;
+      state.email = action.payload.email;
+      state.loading = false;
+      state.error = null;
+    });
 
     builder.addCase(loginUser.rejected, (state, action) => {
       state.loading = false;
@@ -291,25 +281,14 @@ const userSlice = createSlice({
       state.error = null;
     });
 
-    builder.addCase(
-      restoreAuthState.fulfilled,
-      (
-        state,
-        action: PayloadAction<{
-          id: number | null;
-          token: string | null;
-          username: string | null;
-          email: string | null;
-        }>
-      ) => {
-        state.id = action.payload.id;
-        state.token = action.payload.token;
-        state.username = action.payload.username;
-        state.email = action.payload.email;
-        state.loading = false;
-        state.error = null;
-      }
-    );
+    builder.addCase(restoreAuthState.fulfilled, (state, action) => {
+      state.id = action.payload.id;
+      state.token = action.payload.token;
+      state.username = action.payload.username;
+      state.email = action.payload.email;
+      state.loading = false;
+      state.error = null;
+    });
 
     builder.addCase(restoreAuthState.rejected, (state, action) => {
       state.id = null;
@@ -317,8 +296,7 @@ const userSlice = createSlice({
       state.username = null;
       state.email = null;
       state.loading = false;
-      state.error =
-        (action.payload as string) || "Failed to restore auth state";
+      state.error = (action.payload as string) || "Failed to restore auth state";
     });
 
     // Handle updateUserProfile
@@ -327,28 +305,16 @@ const userSlice = createSlice({
       state.error = null;
     });
 
-    builder.addCase(
-      updateUserProfile.fulfilled,
-      (
-        state,
-        action: PayloadAction<{
-          id: number;
-          token: string;
-          username: string;
-          email?: string;
-        }>
-      ) => {
-        state.id = action.payload.id;
-        state.username = action.payload.username;
-        // Only update email if it's provided
-        if (action.payload.email) {
-          state.email = action.payload.email;
-        }
-        // Don't change the token
-        state.loading = false;
-        state.error = null;
+    builder.addCase(updateUserProfile.fulfilled, (state, action) => {
+      state.id = action.payload.id;
+      state.username = action.payload.username;
+      // Only update token if provided
+      if (action.payload.token) {
+        state.token = action.payload.token;
       }
-    );
+      state.loading = false;
+      state.error = null;
+    });
 
     builder.addCase(updateUserProfile.rejected, (state, action) => {
       state.loading = false;

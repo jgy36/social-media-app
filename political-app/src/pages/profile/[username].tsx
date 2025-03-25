@@ -16,7 +16,7 @@ import { getPreviousSection, storePreviousSection } from "@/utils/navigationStat
 import BackButton from "@/components/navigation/BackButton";
 import UserStats from "@/components/profile/UserStats";
 import FollowButton from "@/components/profile/FollowButton";
-import { getFollowStatus, getPostsByUsername } from "@/utils/api";
+import { getFollowStatus, getPostsByUsername } from "@/api/users"; // Update import
 
 // Interface for the user profile response
 interface UserProfile {

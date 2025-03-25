@@ -1,6 +1,6 @@
 // src/pages/saved-posts.tsx
 import { useState, useEffect } from "react";
-import { getSavedPosts } from "@/utils/api";
+import { getSavedPosts } from "@/api/posts"; // Update import
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
 import MainLayout from "@/components/layout/MainLayout";

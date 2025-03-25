@@ -28,7 +28,7 @@ import Navbar from "@/components/navbar/Navbar";
 import PoliticianCard from "@/components/politicians/PoliticianCard";
 import PaginationControls from "@/components/politicians/PaginationControls";
 import { Politician } from "@/types/politician";
-import { getAllPoliticians, getCabinetMembers } from "@/utils/api";
+import { getAllPoliticians, getCabinetMembers } from "@/api/politicians"; // Update import
 
 const PoliticiansPage = () => {
   // State for all politicians data

@@ -3,7 +3,7 @@
 // src/components/profile/FollowButton.tsx
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { followUser, unfollowUser, getFollowStatus } from '@/utils/api';
+import { followUser, unfollowUser, getFollowStatus } from "@/api/users"; // Update import
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { useRouter } from 'next/router';
