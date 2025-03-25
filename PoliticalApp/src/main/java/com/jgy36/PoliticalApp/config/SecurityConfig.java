@@ -71,6 +71,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()  // Public GET Comments
 
+                        // ✅ FIXED: Make communities endpoints public for GET requests
+                        .requestMatchers(HttpMethod.GET, "/api/communities/**").permitAll() // Public Communities
+
                         // ✅ NEW: User profile endpoints are public for better UX
                         .requestMatchers(HttpMethod.GET, "/api/users/profile/**").permitAll() // Public user profiles
                         .requestMatchers(HttpMethod.GET, "/api/users/search").permitAll() // Public user search
@@ -83,6 +86,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/comments/**").authenticated()  // ✅ Require authentication for posting/liking comments
                         .requestMatchers(HttpMethod.POST, "/api/follow/**").authenticated()  // ✅ Secure Follow API (Users must be logged in)
                         .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()  // ✅ Users must be logged in to create a post
+                        .requestMatchers(HttpMethod.POST, "/api/communities/**").authenticated() // ✅ Require auth for creating/joining communities
+                        .requestMatchers(HttpMethod.DELETE, "/api/communities/**").authenticated() // ✅ Require auth for leaving communities
 
                         // ✅ Admin Only
                         .requestMatchers("/api/admin/init-communities").permitAll()  // Temporarily public
