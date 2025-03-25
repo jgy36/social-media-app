@@ -5,8 +5,6 @@
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
-    "noImplicitAny": false,  /* Allow implicit any to reduce errors */
-    "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -20,11 +18,12 @@
     "paths": {
       "@/*": ["./src/*"]
     },
-    "typeRoots": ["./node_modules/@types", "./src/types"],
-    "noUnusedLocals": false, /* Don't error on unused variables */
-    "noUnusedParameters": false, /* Don't error on unused parameters */
-    "suppressImplicitAnyIndexErrors": true /* Suppress errors on indexing objects */
+    "noImplicitAny": false,
+    "noImplicitThis": true,
+    "strictNullChecks": true,
+    /* Remove the suppressImplicitAnyIndexErrors option */
+    "allowSyntheticDefaultImports": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "src/types/global.d.ts"],
-  "exclude": ["node_modules", "src/pages/community"]
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
 }

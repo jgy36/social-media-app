@@ -27,13 +27,13 @@ export interface ApiClientOptions {
   autoRefreshToken?: boolean;
 }
 
-// Custom types for Axios 0.24.0
-interface AxiosError<T = any> extends Error {
+// Define our own Axios error type since the imported one is causing issues
+interface CustomAxiosError extends Error {
   config?: any;
   code?: string;
   request?: any;
   response?: {
-    data: T;
+    data: any;
     status: number;
     statusText: string;
     headers: any;
@@ -90,7 +90,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   
   // Request interceptor - add auth token
   instance.interceptors.request.use(
-    (config: ExtendedRequestConfig) => {
+    (config: any) => {
       const token = getToken();
       if (token) {
         if (!config.headers) {
@@ -107,7 +107,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   if (config.autoRefreshToken) {
     instance.interceptors.response.use(
       (response) => response,
-      async (error: AxiosError) => {
+      async (error: any) => {
         const originalRequest = error.config as ExtendedRequestConfig;
         
         // Only attempt refresh on 401 errors with a config and no _retry flag
@@ -121,7 +121,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
                 originalRequest.headers = {};
               }
               originalRequest.headers['Authorization'] = `Bearer ${token}`;
-              return instance(originalRequest);
+              return instance(originalRequest as any);
             }).catch(err => {
               return Promise.reject(err);
             });
@@ -165,7 +165,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
             // Process queued requests with new token
             processQueue(null, newToken);
             
-            return instance(originalRequest);
+            return instance(originalRequest as any);
           } catch (refreshError) {
             processQueue(refreshError as Error);
             return Promise.reject(refreshError);
@@ -195,13 +195,13 @@ export const resilientApiClient = createApiClient({
  */
 export const getErrorMessage = (error: unknown): string => {
   // Type guard to check for axios errors
-  const isAxiosError = (err: any): err is AxiosError => {
+  const isAxiosError = (err: any): err is CustomAxiosError => {
     return err && err.isAxiosError === true;
   };
 
   if (isAxiosError(error)) {
     // Handle Axios errors
-    const axiosError = error as AxiosError<ApiErrorResponse>;
+    const axiosError = error as CustomAxiosError;
     
     if (axiosError.response?.data?.message) {
       return axiosError.response.data.message;
