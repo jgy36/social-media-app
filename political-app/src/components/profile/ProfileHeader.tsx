@@ -5,7 +5,7 @@ import { RootState } from "@/redux/store";
 import { useRouter } from "next/router";
 import SettingsDropdown from "./SettingsDropdown";
 import UserStats from "./UserStats";
-import { getFollowStatus } from "@/utils/api";
+import { getFollowStatus } from "@/api/users"; // Update import
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "lucide-react";
 
@@ -49,7 +49,7 @@ const ProfileHeader = () => {
       
       fetchStats();
     }
-  }, [user?.id, token, API_BASE_URL]);
+  }, [user?.id, token]);
 
   // Handle stats changes (for example, when a user is followed/unfollowed in modals)
   const handleStatsChange = (newFollowersCount: number, newFollowingCount: number) => {

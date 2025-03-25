@@ -1,10 +1,11 @@
+// src/components/feed/PostForm.tsx
 import { useState } from "react";
-import { createPost } from "@/utils/api";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
+import { useCreatePost } from "@/hooks/useApi"; // Import the API hook
 
 interface PostFormProps {
   onPostCreated: () => void;
@@ -12,42 +13,48 @@ interface PostFormProps {
 
 const PostForm = ({ onPostCreated }: PostFormProps) => {
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  const [localError, setLocalError] = useState<string | null>(null);
+  
   const user = useSelector((state: RootState) => state.user);
+  const { loading, error, execute: createPost } = useCreatePost(); // Use the API hook
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!content.trim()) {
-      setError("Post content cannot be empty");
+      setLocalError("Post content cannot be empty");
       return;
     }
     
     if (!user.token) {
-      setError("You must be logged in to post.");
+      setLocalError("You must be logged in to post.");
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    setLocalError(null);
 
     try {
-      await createPost({ content }, user.token);
-      setContent(""); // Clear input after posting
-      onPostCreated(); // Notify parent component
-    } catch (error) {
-      console.error("Error creating post:", error);
-      setError("Failed to create post. Please try again.");
-    } finally {
-      setLoading(false);
+      // Use the API hook to create post
+      const result = await createPost({ content });
+      
+      if (result) {
+        setContent(""); // Clear input after posting
+        onPostCreated(); // Notify parent component
+      } else {
+        setLocalError("Failed to create post. Please try again.");
+      }
+    } catch (err) {
+      console.error("Error creating post:", err);
+      setLocalError("Failed to create post. Please try again.");
     }
   };
 
+  // Use either local error or API error
+  const errorMessage = localError || (error ? error.message : null);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {errorMessage && <p className="text-destructive text-sm">{errorMessage}</p>}
 
       <Textarea
         placeholder="What's on your mind?"

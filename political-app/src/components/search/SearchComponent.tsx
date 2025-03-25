@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/search/SearchComponent.tsx
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Search, User, Users, Hash, X } from 'lucide-react';
@@ -15,37 +16,12 @@ import {
   PopoverTrigger
 } from '@/components/ui/popover';
 import { useRouter } from 'next/router';
-import { api } from '@/utils/api';
+import { useSearchAll } from "@/hooks/useApi"; // Import the API hook
 import { Button } from '@/components/ui/button';
 import { debounce } from 'lodash';
 import { storePreviousSection } from '@/utils/navigationStateManager';
 
-// Define interfaces for API responses
-interface UserResponse {
-  id?: string | number;
-  username: string;
-  bio?: string;
-  followersCount?: number;
-  avatar?: string;
-}
-
-interface CommunityResponse {
-  id?: string | number;
-  slug?: string;
-  name: string;
-  description?: string;
-  members?: number;
-}
-
-interface HashtagResponse {
-  id?: string | number;
-  tag?: string;
-  count?: number;
-  postCount?: number;
-  name?: string;
-}
-
-// Define types for search results
+// Define interfaces for search results
 interface SearchResult {
   id: string | number;
   type: 'user' | 'community' | 'hashtag';
@@ -65,124 +41,44 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
   const [query, setQuery] = useState(initialQuery);
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+  
+  // Use the search hook from your API
+  const { loading, error, execute: searchAll } = useSearchAll();
   
   // Define the search function
   const performSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
       setResults([]);
-      setLoading(false);
+      setIsSearchLoading(false);
       return;
     }
     
-    setLoading(true);
+    setIsSearchLoading(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+      // Use the searchAll function from your hook to get unified results
+      const searchResults = await searchAll(searchQuery);
       
-      // Fetch users
-      console.log(`Searching users with query: ${searchQuery}`);
-      const userResults = await api.get(`${API_BASE_URL}/users/search?query=${encodeURIComponent(searchQuery)}`)
-        .then(res => {
-          console.log('User search results:', res.data);
-          return res.data as UserResponse[];
-        })
-        .catch(() => {
-          console.error('Error fetching users');
-          return [] as UserResponse[];
-        });
+      console.log('Search results:', searchResults);
       
-      // Fetch communities
-      console.log(`Searching communities with query: ${searchQuery}`);
-      const communityResults = await api.get(`${API_BASE_URL}/communities/search?query=${encodeURIComponent(searchQuery)}`)
-        .then(res => {
-          console.log('Community search results:', res.data);
-          return res.data as CommunityResponse[];
-        })
-        .catch(() => {
-          console.error('Error fetching communities');
-          return [] as CommunityResponse[];
-        });
+      // If the results are already in the expected format, use them directly
+      if (Array.isArray(searchResults) && searchResults.length > 0 && 'type' in searchResults[0]) {
+        setResults(searchResults as SearchResult[]);
+      } else {
+        // If we need to transform the results
+        const transformedResults: SearchResult[] = [];
         
-      // Fetch hashtags
-      console.log(`Searching hashtags with query: ${searchQuery}`);
-      const hashtagResults = await api.get(`${API_BASE_URL}/hashtags/search?query=${encodeURIComponent(searchQuery)}`)
-        .then(res => {
-          console.log('Hashtag search results:', res.data);
-          return res.data as HashtagResponse[];
-        })
-        .catch((error) => {
-          console.error('Error fetching hashtags:', error);
-          return [] as HashtagResponse[];
-        });
+        // Add transformation logic here if needed based on your API response format
         
-      // Transform and combine results with detailed logging
-      console.log('Transforming users:', userResults);
-      const transformedUsers = (userResults || []).map((user: UserResponse) => ({
-        id: user.id || user.username,
-        type: 'user' as const,
-        name: user.username,
-        description: user.bio || 'User profile',
-        followers: user.followersCount,
-        avatar: user.avatar
-      }));
-      
-      console.log('Transforming communities:', communityResults);
-      const transformedCommunities = (communityResults || []).map((community: CommunityResponse) => ({
-        id: community.id || community.slug || community.name,
-        type: 'community' as const,
-        name: community.name,
-        description: community.description,
-        members: community.members
-      }));
-      
-      console.log('Transforming hashtags:', hashtagResults);
-      const transformedHashtags = (hashtagResults || []).map((hashtag: HashtagResponse) => {
-        console.log('Processing hashtag item:', hashtag);
-        
-        // Extract proper tag name
-        let tagName = '';
-        if (typeof hashtag === 'string') {
-          // Some APIs might return just strings
-          tagName = typeof hashtag === 'string' && (hashtag as string).startsWith('#') ? hashtag : `#${hashtag}`;
-        } else {
-          // Get tag from object - could be in different properties
-          tagName = hashtag.tag || hashtag.name || '';
-          if (tagName && !tagName.startsWith('#')) {
-            tagName = `#${tagName}`;
-          }
-        }
-        
-        // Get count from appropriate property
-        const count = hashtag.count || hashtag.postCount || 0;
-        
-        const result = {
-          id: hashtag.id || tagName.replace(/^#/, '') || Math.random().toString(36).substring(7),
-          type: 'hashtag' as const,
-          name: tagName,
-          description: `${count} posts`,
-          postCount: count
-        };
-        
-        console.log('Transformed hashtag:', result);
-        return result;
-      });
-      
-      // Combine all results
-      const allResults = [
-        ...transformedUsers,
-        ...transformedCommunities,
-        ...transformedHashtags
-      ];
-      
-      console.log('All search results:', allResults);
-      setResults(allResults);
+        setResults(transformedResults);
+      }
     } catch (error) {
       console.error('Error performing search:', error);
       setResults([]);
     } finally {
-      setLoading(false);
+      setIsSearchLoading(false);
     }
   };
 
@@ -289,10 +185,9 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
         
         <PopoverContent className="p-0 w-96" align="start">
           <Command>
-            {/* No duplicate CommandInput here - that was causing the double search bar */}
             <CommandList>
               <CommandEmpty>
-                {loading ? 'Searching...' : 'No results found.'}
+                {isSearchLoading || loading ? 'Searching...' : 'No results found.'}
               </CommandEmpty>
               
               {/* Users Group */}

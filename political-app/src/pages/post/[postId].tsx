@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { getPostComments, getPostById, likePost } from "@/utils/api";
+import { getPostComments, getPostById, likePost } from "@/api/posts"; // Update import
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CommentModal from "@/components/comments/CommentModal";

@@ -4,7 +4,7 @@ import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PoliticianList } from "@/components/politicians/PoliticianList";
 import { Politician } from "@/types/politician";
-import { getAllRelevantPoliticians } from "@/utils/api";
+import { getAllRelevantPoliticians } from "@/api/politicians"; // Update import
 import { AlertCircle } from "lucide-react";
 
 // ✅ Dynamically Import ElectionMap to Disable SSR
@@ -21,23 +21,23 @@ const MapPage = () => {
 
   // Function to fetch politicians data
   const fetchPoliticians = useCallback(async (county: string, state: string) => {
-    if (!county || !state) return;
+  if (!county || !state) return;
 
-    setIsLoading(true);
-    setError(null);
+  setIsLoading(true);
+  setError(null);
 
-    try {
-      console.log(`Fetching politicians for ${county}, ${state}`);
-      const relevantPoliticians = await getAllRelevantPoliticians(county, state);
-      setPoliticians(relevantPoliticians);
-    } catch (err) {
-      console.error("Error fetching politicians:", err);
-      setError("Failed to load politicians data. Please try again later.");
-      setPoliticians([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  try {
+    console.log(`Fetching politicians for ${county}, ${state}`);
+    const relevantPoliticians = await getAllRelevantPoliticians(county, state);
+    setPoliticians(relevantPoliticians);
+  } catch (err) {
+    console.error("Error fetching politicians:", err);
+    setError("Failed to load politicians data. Please try again later.");
+    setPoliticians([]);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 
   // County selection handler
   const handleCountySelected = useCallback((county: string, state: string) => {

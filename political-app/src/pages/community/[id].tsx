@@ -14,11 +14,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
 import { Users, Bell, BellOff, MessageCircle, Info, Calendar, Flame, TrendingUp, Shield, User } from "lucide-react";
-import { getCommunityBySlug, getCommunityPosts, joinCommunity, leaveCommunity, createCommunityPost } from "@/utils/api";
+import { 
+  getCommunityBySlug, 
+  getCommunityPosts, 
+  joinCommunity, 
+  leaveCommunity, 
+  createCommunityPost 
+} from "@/api/communities";
 import BackButton from "@/components/navigation/BackButton";
 import useSWR from "swr";
 import axios from "axios";
 import { GetServerSideProps } from "next";
+
 
 
 
