@@ -66,7 +66,12 @@ export const createCommunity = async (data: CreateCommunityRequest): Promise<Com
 export const joinCommunity = async (slug: string): Promise<CommunityMembershipResponse> => {
   try {
     const response = await apiClient.post<CommunityMembershipResponse>(`/communities/${slug}/join`);
-    return { success: true, ...response.data };
+    // Spread the response data and add success property if not already present
+    return { 
+      ...response.data,
+      // Only set success to true if it's not already defined in response.data
+      ...(response.data.success === undefined ? { success: true } : {})
+    };
   } catch (error) {
     console.error(`Error joining community ${slug}:`, error);
     return { success: false, message: getErrorMessage(error) };
@@ -79,7 +84,12 @@ export const joinCommunity = async (slug: string): Promise<CommunityMembershipRe
 export const leaveCommunity = async (slug: string): Promise<CommunityMembershipResponse> => {
   try {
     const response = await apiClient.delete<CommunityMembershipResponse>(`/communities/${slug}/leave`);
-    return { success: true, ...response.data };
+    // Spread the response data and add success property if not already present
+    return { 
+      ...response.data,
+      // Only set success to true if it's not already defined in response.data
+      ...(response.data.success === undefined ? { success: true } : {})
+    };
   } catch (error) {
     console.error(`Error leaving community ${slug}:`, error);
     return { success: false, message: getErrorMessage(error) };
