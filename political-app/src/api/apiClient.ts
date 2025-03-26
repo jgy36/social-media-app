@@ -1,7 +1,12 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/api/apiClient.ts
 import axios from 'axios';
 import { getToken, setToken } from '@/utils/tokenUtils';
+import { 
+  getErrorMessage, 
+  ApiError,
+  hasResponseProperty,
+  isNetworkError
+} from '@/utils/apiErrorHandler';
 
 // API configuration
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
@@ -30,7 +35,7 @@ interface ExtendedRequestConfig {
   headers?: Record<string, string>;
   data?: unknown;
   _retry?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 // Token refresh state tracking
@@ -92,11 +97,11 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
       (response) => response,
       async (error) => {
         // Check if error has a response
-        const errorWithResponse = error && error.response;
+        const errorWithResponse = hasResponseProperty(error) && error.response;
         const originalRequest = error.config as ExtendedRequestConfig;
         
         // Only attempt refresh on 401 errors with a config and no _retry flag
-        if (errorWithResponse?.status === 401 && originalRequest && !originalRequest._retry) {
+        if (errorWithResponse && error.response?.status === 401 && originalRequest && !originalRequest._retry) {
           if (isRefreshing) {
             // If already refreshing, add to queue
             return new Promise<string>((resolve, reject) => {
@@ -156,16 +161,11 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
         }
         
         // Add retry logic for network issues
-        const isNetworkOrServerError = 
-          error.code === 'ECONNABORTED' || 
-          (error.message && (
-            error.message.includes('timeout') || 
-            error.message.includes('Network Error')
-          )) || 
-          (errorWithResponse && errorWithResponse.status >= 500);
+        const networkError = error instanceof Error && isNetworkError(error);
+        const serverError = errorWithResponse && error.response?.status && error.response.status >= 500;
+        const shouldRetry = config.retry && !originalRequest._retry && (networkError || serverError);
             
-        if (config.retry && !originalRequest._retry && isNetworkOrServerError) {
-          
+        if (shouldRetry) {
           originalRequest._retry = true;
           
           return new Promise((resolve) => {
@@ -181,56 +181,8 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   return instance;
 };
 
-/**
- * Helper function to extract error messages from API errors
- */
-export const getErrorMessage = (error: unknown): string => {
-  // Type guard for error with response
-  const hasResponse = (err: unknown): err is { 
-    response?: { 
-      data?: { message?: string },
-      status?: number,
-      statusText?: string
-    },
-    message?: string
-  } => {
-    return typeof err === 'object' && 
-           err !== null && 
-           'response' in err;
-  };
-
-  if (hasResponse(error)) {
-    // Handle errors with response
-    if (error.response?.data?.message) {
-      return error.response.data.message;
-    }
-    
-    if (error.response) {
-      return `Request failed with status ${error.response.status || 'unknown'}: ${error.response.statusText || 'Unknown error'}`;
-    }
-    
-    if (error.message) {
-      if (typeof error.message === 'string') {
-        if (error.message.includes('timeout')) {
-          return 'Request timed out. Please try again.';
-        }
-        
-        if (error.message.includes('Network Error')) {
-          return 'Network error. Please check your connection.';
-        }
-        
-        return error.message;
-      }
-    }
-  }
-  
-  // Handle non-response errors
-  if (error instanceof Error) {
-    return error.message;
-  }
-  
-  return 'An unknown error occurred';
-};
+// Re-export error handling functions from the utility
+export { getErrorMessage, ApiError, safeApiCall } from '@/utils/apiErrorHandler';
 
 // Create default API clients
 export const apiClient = createApiClient();
@@ -264,6 +216,6 @@ export const fetchWithToken = async (
     return expectTextResponse ? response.data : response.data;
   } catch (error) {
     console.error("API request failed:", error);
-    return null;
+    throw new ApiError(getErrorMessage(error));
   }
 };

@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/auth.ts
-import { apiClient, getErrorMessage } from "./apiClient";
+import { apiClient, safeApiCall } from "./apiClient";
 import {
   LoginRequest,
   RegisterRequest,
@@ -14,7 +15,7 @@ import { setToken, removeToken } from "@/utils/tokenUtils";
 export const login = async (
   credentials: LoginRequest
 ): Promise<AuthResponse> => {
-  try {
+  return safeApiCall(async () => {
     const response = await apiClient.post<AuthResponse>(
       "/auth/login",
       credentials
@@ -33,10 +34,7 @@ export const login = async (
     }
 
     return response.data;
-  } catch (error) {
-    console.error("Login error:", error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, "Login error");
 };
 
 /**
@@ -45,16 +43,13 @@ export const login = async (
 export const register = async (
   userData: RegisterRequest
 ): Promise<ApiResponse<AuthResponse>> => {
-  try {
+  return safeApiCall(async () => {
     const response = await apiClient.post<ApiResponse<AuthResponse>>(
       "/auth/register",
       userData
     );
     return response.data;
-  } catch (error) {
-    console.error("Registration error:", error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, "Registration error");
 };
 
 /**
@@ -80,7 +75,7 @@ export const logout = async (): Promise<void> => {
  * Refresh the authentication token
  */
 export const refreshToken = async (): Promise<string> => {
-  try {
+  return safeApiCall(async () => {
     const response = await apiClient.post<{ token: string }>("/auth/refresh");
 
     if (response.data.token) {
@@ -89,10 +84,7 @@ export const refreshToken = async (): Promise<string> => {
     }
 
     throw new Error("No token received");
-  } catch (error) {
-    console.error("Token refresh error:", error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, "Token refresh error");
 };
 
 /**
@@ -102,9 +94,7 @@ export const checkAuthStatus = async (): Promise<boolean> => {
   try {
     await apiClient.get("/users/me");
     return true;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   } catch (error) {
     return false;
   }
 };
-
