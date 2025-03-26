@@ -5,7 +5,7 @@ import Navbar from "@/components/navbar/Navbar";
 import SearchComponent from "@/components/search/SearchComponent";
 import SearchResultsHandler, { SearchResult } from "@/components/search/SearchResultsHandler";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getUnifiedSearchResults } from "@/utils/api";
+import { getUnifiedSearchResults } from "@/api/search";
 import { User, Users, Hash, FileText, SearchIcon } from "lucide-react";
 
 // Stable Tab Header Component that won't re-render when content changes
