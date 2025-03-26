@@ -1,6 +1,8 @@
 // src/api/search.ts
 import { apiClient } from "./client";
-import { SearchResult, HashtagInfo } from "./types";
+import { HashtagInfo } from "./types";
+import { ApiSearchResult } from '@/types/search';
+
 
 /**
  * Get trending hashtags
@@ -92,18 +94,18 @@ export const searchHashtags = async (query: string): Promise<HashtagInfo[]> => {
 export const getUnifiedSearchResults = async (
   query: string,
   type?: "user" | "community" | "hashtag" | "post"
-): Promise<SearchResult[]> => {
+): Promise<ApiSearchResult[]> => {
   try {
     // If a specific type is provided, use a more targeted endpoint
     if (type) {
-      const response = await apiClient.get<SearchResult[]>(
+      const response = await apiClient.get<ApiSearchResult[]>(
         `/search?query=${encodeURIComponent(query)}&type=${type}`
       );
       return response.data;
     }
 
     // Otherwise, use the general search endpoint
-    const response = await apiClient.get<SearchResult[]>(
+    const response = await apiClient.get<ApiSearchResult[]>(
       `/search?query=${encodeURIComponent(query)}`
     );
     return response.data;
@@ -111,7 +113,7 @@ export const getUnifiedSearchResults = async (
     console.error(`Error in unified search for "${query}":`, error);
 
     // Manual fallback: Try to search each type individually and combine results
-    const results: SearchResult[] = [];
+    const results: ApiSearchResult[] = [];
 
     try {
       // Try to search users
@@ -124,8 +126,9 @@ export const getUnifiedSearchResults = async (
             id: user.id,
             type: "user" as const,
             name: user.username,
-            description: user.bio || `@${user.username}`,
-            followers: user.followersCount,
+            username: user.username,
+            bio: user.bio,
+            followersCount: user.followersCount,
           }))
         );
       }
@@ -158,12 +161,13 @@ export const getUnifiedSearchResults = async (
       const hashtagResults = await searchHashtags(query);
       results.push(
         ...hashtagResults.map((hashtag) => ({
-          id: hashtag.tag.replace(/^#/, ""),
-          type: "hashtag" as const,
-          name: hashtag.tag,
-          description: `${hashtag.useCount} posts`,
-          postCount: hashtag.useCount,
-        }))
+            id: hashtag.tag.replace(/^#/, ""),
+            type: "hashtag" as const,
+            name: hashtag.tag,
+            tag: hashtag.tag,
+            count: hashtag.useCount,
+            postCount: hashtag.useCount,
+          }))
       );
     } catch (hashtagError) {
       console.error("Error searching hashtags:", hashtagError);

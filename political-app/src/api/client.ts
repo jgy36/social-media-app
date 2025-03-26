@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/api/client.ts
 import axios from 'axios';
@@ -230,4 +231,64 @@ export const getErrorMessage = (error: unknown): string => {
   }
   
   return 'An unknown error occurred';
+};
+
+export const fetchWithToken = async (
+  endpoint: string,
+  method = "GET",
+  body?: any,
+  expectTextResponse = false
+) => {
+  const token = getToken();
+
+  if (!token && endpoint !== "/auth/login") {
+    console.warn("No token available for API request");
+    return null;
+  }
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const normalizedEndpoint = endpoint.startsWith("/")
+    ? endpoint
+    : `/${endpoint}`;
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      console.error(`API Error: ${response.status}`);
+      return null;
+    }
+
+    if (expectTextResponse) {
+      const text = await response.text();
+      if (!text || text.trim() === "") {
+        return { success: true };
+      }
+
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        return {
+          success: true,
+          message: text,
+        };
+      }
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("API request failed:", error);
+    return null;
+  }
 };

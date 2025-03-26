@@ -3,19 +3,26 @@ import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import Navbar from "@/components/navbar/Navbar";
 import SearchComponent from "@/components/search/SearchComponent";
-import SearchResultsHandler, { SearchResult } from "@/components/search/SearchResultsHandler";
+import { SearchResult } from "@/types/search"; // Import both interfaces
+import SearchResultsHandler from "@/components/search/SearchResultsHandler";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getUnifiedSearchResults } from "@/api/search";
 import { User, Users, Hash, FileText, SearchIcon } from "lucide-react";
 
 // Stable Tab Header Component that won't re-render when content changes
-function SearchTabs({ 
-  activeTab, 
-  counts, 
-  onTabChange
-}: { 
-  activeTab: string; 
-  counts: { all: number; user: number; community: number; hashtag: number; post: number; };
+function SearchTabs({
+  activeTab,
+  counts,
+  onTabChange,
+}: {
+  activeTab: string;
+  counts: {
+    all: number;
+    user: number;
+    community: number;
+    hashtag: number;
+    post: number;
+  };
   onTabChange: (tab: string) => void;
 }) {
   return (
@@ -80,21 +87,22 @@ function SearchTabs({
 }
 
 // Separate component for the tab content
-function TabContent({ 
-  activeTab, 
-  results, 
-  loading, 
-  query 
-}: { 
-  activeTab: string; 
+function TabContent({
+  activeTab,
+  results,
+  loading,
+  query,
+}: {
+  activeTab: string;
   results: SearchResult[];
   loading: boolean;
   query: string;
 }) {
   // Filter results based on active tab
-  const filteredResults = activeTab === "all" 
-    ? results 
-    : results.filter(result => result.type === activeTab);
+  const filteredResults =
+    activeTab === "all"
+      ? results
+      : results.filter((result) => result.type === activeTab);
 
   return (
     <div className="mt-4">
@@ -121,14 +129,14 @@ const SearchPage = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
-  
+
   // Calculate and store counts separately to ensure stability
   const [tabCounts, setTabCounts] = useState({
     all: 0,
     user: 0,
     community: 0,
     hashtag: 0,
-    post: 0
+    post: 0,
   });
 
   // Set active tab based on URL parameter
@@ -159,66 +167,71 @@ const SearchPage = () => {
     try {
       // Get results from API - use no type filter to get all results
       const searchResults = await getUnifiedSearchResults(query);
-      
-      // Transform results to match the SearchResult interface
-      const transformedResults: SearchResult[] = searchResults.map(result => {
-        // Base properties common to all result types
-        const baseResult: SearchResult = {
-          id: result.id || result.username || result.tag,
-          type: result.type,
-          name: result.name || result.username || result.tag,
-        };
 
-        // Add type-specific properties
-        switch (result.type) {
-          case 'user':
-            return {
-              ...baseResult,
-              description: result.bio || `@${result.username || baseResult.name}`,
-              followers: result.followersCount || 0,
-            };
-            
-          case 'community':
-            return {
-              ...baseResult,
-              description: result.description,
-              members: result.members || 0,
-            };
-            
-          case 'hashtag':
-            const tagName = result.tag || result.name;
-            return {
-              ...baseResult,
-              name: tagName?.startsWith('#') ? tagName : `#${tagName}`,
-              description: `${result.count || result.postCount || 0} posts with this hashtag`,
-              postCount: result.count || result.postCount || 0,
-            };
-            
-          case 'post':
-            return {
-              ...baseResult,
-              content: result.content,
-              author: result.author || result.username,
-              timestamp: new Date(result.createdAt).toLocaleDateString(),
-            };
-            
-          default:
-            return baseResult;
-        }
-      });
+      // Transform results to match the SearchResult interface
+      // Use non-null assertion or provide fallback values in the search function
+const transformedResults: SearchResult[] = searchResults.map((result) => {
+  // Base properties common to all result types
+  const baseResult: SearchResult = {
+    id: result.id || result.username || result.tag || 0,
+    type: result.type,
+    name: result.name || result.username || result.tag || '',
+  };
+
+  // Add type-specific properties
+  switch (result.type) {
+    case "user":
+      return {
+        ...baseResult,
+        description:
+          result.bio || `@${result.username || baseResult.name}`,
+        followers: result.followersCount || 0,
+      };
+
+    case "community":
+      return {
+        ...baseResult,
+        description: result.description || '',
+        members: result.members || 0,
+      };
+
+    case "hashtag":
+      const tagName = result.tag || result.name || '';
+      return {
+        ...baseResult,
+        name: tagName.startsWith("#") ? tagName : `#${tagName}`,
+        description: `${
+          result.count || result.postCount || 0
+        } posts with this hashtag`,
+        postCount: result.count || result.postCount || 0,
+      };
+
+    case "post":
+      return {
+        ...baseResult,
+        content: result.content || '',
+        author: result.author || result.username || 'Unknown',
+        timestamp: result.createdAt ? new Date(result.createdAt).toLocaleDateString() : '',
+      };
+
+    default:
+      return baseResult;
+  }
+});
 
       // Update results
       setResults(transformedResults);
-      
+
       // Calculate counts once and store them
       const counts = {
         all: transformedResults.length,
-        user: transformedResults.filter(r => r.type === "user").length,
-        community: transformedResults.filter(r => r.type === "community").length,
-        hashtag: transformedResults.filter(r => r.type === "hashtag").length,
-        post: transformedResults.filter(r => r.type === "post").length
+        user: transformedResults.filter((r) => r.type === "user").length,
+        community: transformedResults.filter((r) => r.type === "community")
+          .length,
+        hashtag: transformedResults.filter((r) => r.type === "hashtag").length,
+        post: transformedResults.filter((r) => r.type === "post").length,
       };
-      
+
       setTabCounts(counts);
       console.log("Tab counts set:", counts);
     } catch (error) {
@@ -234,13 +247,17 @@ const SearchPage = () => {
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
     // Update URL to include type filter
-    router.push({
-      pathname: '/search',
-      query: { 
-        q: searchQuery,
-        ...(tab !== 'all' ? { type: tab } : {})
-      }
-    }, undefined, { shallow: true });
+    router.push(
+      {
+        pathname: "/search",
+        query: {
+          q: searchQuery,
+          ...(tab !== "all" ? { type: tab } : {}),
+        },
+      },
+      undefined,
+      { shallow: true }
+    );
   };
 
   return (
@@ -269,12 +286,12 @@ const SearchPage = () => {
 
         <div className="space-y-6">
           {/* Tabs header (separated component) */}
-          <SearchTabs 
-            activeTab={activeTab} 
+          <SearchTabs
+            activeTab={activeTab}
             counts={tabCounts}
             onTabChange={handleTabChange}
           />
-          
+
           {/* Tab content (separated component) */}
           <TabContent
             activeTab={activeTab}

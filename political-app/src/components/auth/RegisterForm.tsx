@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/redux/store";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { registerUser } from "@/redux/slices/userSlice";
 import { useRouter } from "next/router";
 import { useRegister } from "@/hooks/useApi"; // Use the API hook
 
 const RegisterForm = () => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const { loading, error, execute: register } = useRegister(); // Use the hook

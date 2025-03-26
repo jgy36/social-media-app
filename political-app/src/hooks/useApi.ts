@@ -49,6 +49,37 @@ export function useApi<T, P extends any[]>(
   return { data, loading, error, execute, reset };
 }
 
+export const useCheckPostSaveStatus = () => {
+  const [data, setData] = useState<{ isSaved: boolean } | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  /**
+   * Execute the API call to check post save status
+   */
+  const execute = useCallback(
+    async (postId: number): Promise<{ isSaved: boolean } | null> => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const result = await api.posts.checkPostSaveStatus(postId);
+        setData(result);
+        return result;
+      } catch (error) {
+        const typedError = error instanceof Error ? error : new Error(String(error));
+        setError(typedError);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  return { data, loading, error, execute };
+};
+
 /**
  * Create hooks for specific API functions
  */

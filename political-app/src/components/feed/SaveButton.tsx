@@ -28,7 +28,15 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
       if (!user.token) return;
       
       try {
-        const status = await savedStatus(postId);
+        if (typeof savedStatus === "function") {
+          const status = await savedStatus(postId);
+          if (status) {
+            setSaved(status.isSaved);
+          }
+        } else {
+          console.error("savedStatus is not a function or is null");
+          setSaved(initialIsSaved);
+        }
         // Update the saved state based on the server response
         if (status) {
           setSaved(status.isSaved);
