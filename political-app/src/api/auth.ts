@@ -107,3 +107,4 @@ export const checkAuthStatus = async (): Promise<boolean> => {
     return false;
   }
 };
+

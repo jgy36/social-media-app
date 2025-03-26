@@ -206,7 +206,8 @@ const CommunityList = () => {
 
       if (isCurrentlyJoined) {
         // Leave community
-        success = await leaveCommunity(communityId);
+        const response = await leaveCommunity(communityId);
+        success = response.success; // Assuming 'success' is a property in the response
         if (success) {
           // Update Redux store
           dispatch(
@@ -217,7 +218,8 @@ const CommunityList = () => {
         }
       } else {
         // Join community
-        success = await joinCommunity(communityId);
+        const response = await joinCommunity(communityId);
+        success = response.success; // Assuming 'success' is a property in the response
         if (success) {
           // Update Redux store
           dispatch(updateUserCommunities([...userCommunities, communityId]));

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getSavedPosts } from "@/utils/api";
+import { getSavedPosts } from "@/api/posts";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import Post from "@/components/feed/Post";

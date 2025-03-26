@@ -4,20 +4,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { User, Users, Hash, FileText, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/router";
+import { SearchResult } from "@/types/search";
 
 // Define types for search results
-export interface SearchResult {
-  id: string | number;
-  type: "user" | "community" | "hashtag" | "post";
-  name: string;
-  description?: string;
-  content?: string;
-  author?: string;
-  timestamp?: string;
-  followers?: number;
-  members?: number;
-  postCount?: number;
-}
 
 interface SearchResultsHandlerProps {
   results: SearchResult[];
@@ -53,9 +42,11 @@ const SearchResultsHandler: React.FC<SearchResultsHandlerProps> = ({
             : "Enter a search term to find users, communities, hashtags, and posts."}
         </p>
         {query && (
-          <Button 
-            onClick={() => router.push(`/search?q=${encodeURIComponent(query)}`)}
-            variant="outline" 
+          <Button
+            onClick={() =>
+              router.push(`/search?q=${encodeURIComponent(query)}`)
+            }
+            variant="outline"
             className="mt-4"
           >
             View all results
@@ -88,7 +79,9 @@ const ResultCard: React.FC<{ result: SearchResult }> = ({ result }) => {
         break;
       case "hashtag":
         // Remove # if present in the name for the URL
-        const hashtagId = result.name.startsWith('#') ? result.name.substring(1) : result.name;
+        const hashtagId = result.name.startsWith("#")
+          ? result.name.substring(1)
+          : result.name;
         router.push(`/hashtag/${hashtagId}`);
         break;
       case "post":
