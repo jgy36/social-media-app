@@ -1,5 +1,5 @@
 // src/api/users.ts
-import { apiClient, getErrorMessage } from './client';
+import { apiClient, getErrorMessage } from './apiClient';
 import { 
   UserProfile, 
   UpdateUsernameRequest, 

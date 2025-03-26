@@ -1,5 +1,5 @@
 // src/api/search.ts
-import { apiClient } from "./client";
+import { apiClient } from "./apiClient";
 import { HashtagInfo } from "./types";
 import { ApiSearchResult } from '@/types/search';
 

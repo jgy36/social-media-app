@@ -1,5 +1,5 @@
 // src/api/posts.ts
-import { apiClient, resilientApiClient, getErrorMessage } from "./client";
+import { apiClient, resilientApiClient, getErrorMessage } from "./apiClient";
 import {
   PostResponse,
   CreatePostRequest,

@@ -1,19 +1,11 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/api/client.ts
+// src/api/apiClient.ts
 import axios from 'axios';
-import { getToken } from '@/utils/tokenUtils';
+import { getToken, setToken } from '@/utils/tokenUtils';
 
 // API configuration
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
 export const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:8080';
-
-// Type for API error responses
-export interface ApiErrorResponse {
-  message: string;
-  code?: string;
-  details?: unknown;
-}
 
 // Interface for token refresh
 export interface TokenRefreshResponse {
@@ -26,27 +18,18 @@ export interface ApiClientOptions {
   timeout?: number;
   withCredentials?: boolean;
   autoRefreshToken?: boolean;
+  retry?: boolean;
+  retryDelay?: number;
+  maxRetries?: number;
 }
 
-// Define our own Axios error type since the imported one is causing issues
-interface CustomAxiosError extends Error {
-  config?: any;
-  code?: string;
-  request?: any;
-  response?: {
-    data: any;
-    status: number;
-    statusText: string;
-    headers: any;
-    config: any;
-  };
-  isAxiosError: boolean;
-}
-
-// Add _retry property to AxiosRequestConfig
+// Extended request config with retry flag
 interface ExtendedRequestConfig {
-  _retry?: boolean;
+  url: string;  // Make url required, not optional
+  method?: string;
   headers?: Record<string, string>;
+  data?: unknown;
+  _retry?: boolean;
   [key: string]: any;
 }
 
@@ -54,9 +37,7 @@ interface ExtendedRequestConfig {
 let isRefreshing = false;
 let failedQueue: { resolve: (token: string) => void; reject: (error: Error) => void }[] = [];
 
-/**
- * Process the queue of failed requests
- */
+// Process the queue of failed requests
 const processQueue = (error: Error | null, token: string | null = null) => {
   failedQueue.forEach(promise => {
     if (error) {
@@ -77,7 +58,10 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
     baseURL: API_BASE_URL,
     timeout: 10000,
     withCredentials: false,
-    autoRefreshToken: true
+    autoRefreshToken: true,
+    retry: false,
+    retryDelay: 1000,
+    maxRetries: 1
   };
   
   const config: ApiClientOptions = { ...defaultOptions, ...options };
@@ -91,12 +75,10 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   
   // Request interceptor - add auth token
   instance.interceptors.request.use(
-    (config: any) => {
+    (config) => {
       const token = getToken();
       if (token) {
-        if (!config.headers) {
-          config.headers = {};
-        }
+        config.headers = config.headers || {};
         config.headers['Authorization'] = `Bearer ${token}`;
       }
       return config;
@@ -108,21 +90,21 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   if (config.autoRefreshToken) {
     instance.interceptors.response.use(
       (response) => response,
-      async (error: any) => {
+      async (error) => {
+        // Check if error has a response
+        const errorWithResponse = error && error.response;
         const originalRequest = error.config as ExtendedRequestConfig;
         
         // Only attempt refresh on 401 errors with a config and no _retry flag
-        if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+        if (errorWithResponse?.status === 401 && originalRequest && !originalRequest._retry) {
           if (isRefreshing) {
             // If already refreshing, add to queue
             return new Promise<string>((resolve, reject) => {
               failedQueue.push({ resolve, reject });
             }).then(token => {
-              if (!originalRequest.headers) {
-                originalRequest.headers = {};
-              }
+              originalRequest.headers = originalRequest.headers || {};
               originalRequest.headers['Authorization'] = `Bearer ${token}`;
-              return instance(originalRequest as any);
+              return instance(originalRequest);
             }).catch(err => {
               return Promise.reject(err);
             });
@@ -155,24 +137,40 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
             }
             
             // Store the new token
-            localStorage.setItem('token', newToken);
+            setToken(newToken);
             
             // Update header for the original request
-            if (!originalRequest.headers) {
-              originalRequest.headers = {};
-            }
+            originalRequest.headers = originalRequest.headers || {};
             originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
             
             // Process queued requests with new token
             processQueue(null, newToken);
             
-            return instance(originalRequest as any);
+            return instance(originalRequest);
           } catch (refreshError) {
-            processQueue(refreshError as Error);
+            processQueue(refreshError instanceof Error ? refreshError : new Error('Unknown refresh error'));
             return Promise.reject(refreshError);
           } finally {
             isRefreshing = false;
           }
+        }
+        
+        // Add retry logic for network issues
+        const isNetworkOrServerError = 
+          error.code === 'ECONNABORTED' || 
+          (error.message && (
+            error.message.includes('timeout') || 
+            error.message.includes('Network Error')
+          )) || 
+          (errorWithResponse && errorWithResponse.status >= 500);
+            
+        if (config.retry && !originalRequest._retry && isNetworkOrServerError) {
+          
+          originalRequest._retry = true;
+          
+          return new Promise((resolve) => {
+            setTimeout(() => resolve(instance(originalRequest)), config.retryDelay);
+          });
         }
         
         return Promise.reject(error);
@@ -183,49 +181,50 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   return instance;
 };
 
-// Create default API client
-export const apiClient = createApiClient();
-
-// Create a more resilient client for non-critical operations
-export const resilientApiClient = createApiClient({
-  timeout: 30000
-});
-
 /**
  * Helper function to extract error messages from API errors
  */
 export const getErrorMessage = (error: unknown): string => {
-  // Type guard to check for axios errors
-  const isAxiosError = (err: any): err is CustomAxiosError => {
-    return err && err.isAxiosError === true;
+  // Type guard for error with response
+  const hasResponse = (err: unknown): err is { 
+    response?: { 
+      data?: { message?: string },
+      status?: number,
+      statusText?: string
+    },
+    message?: string
+  } => {
+    return typeof err === 'object' && 
+           err !== null && 
+           'response' in err;
   };
 
-  if (isAxiosError(error)) {
-    // Handle Axios errors
-    const axiosError = error as CustomAxiosError;
-    
-    if (axiosError.response?.data?.message) {
-      return axiosError.response.data.message;
+  if (hasResponse(error)) {
+    // Handle errors with response
+    if (error.response?.data?.message) {
+      return error.response.data.message;
     }
     
-    if (axiosError.response) {
-      return `Request failed with status ${axiosError.response.status}: ${axiosError.response.statusText}`;
+    if (error.response) {
+      return `Request failed with status ${error.response.status || 'unknown'}: ${error.response.statusText || 'Unknown error'}`;
     }
     
-    if (axiosError.message) {
-      if (axiosError.message.includes('timeout')) {
-        return 'Request timed out. Please try again.';
+    if (error.message) {
+      if (typeof error.message === 'string') {
+        if (error.message.includes('timeout')) {
+          return 'Request timed out. Please try again.';
+        }
+        
+        if (error.message.includes('Network Error')) {
+          return 'Network error. Please check your connection.';
+        }
+        
+        return error.message;
       }
-      
-      if (axiosError.message.includes('Network Error')) {
-        return 'Network error. Please check your connection.';
-      }
-      
-      return axiosError.message;
     }
   }
   
-  // Handle non-Axios errors
+  // Handle non-response errors
   if (error instanceof Error) {
     return error.message;
   }
@@ -233,60 +232,36 @@ export const getErrorMessage = (error: unknown): string => {
   return 'An unknown error occurred';
 };
 
+// Create default API clients
+export const apiClient = createApiClient();
+
+// Create a more resilient client for non-critical operations
+export const resilientApiClient = createApiClient({
+  timeout: 30000,
+  retry: true,
+  retryDelay: 1000,
+  maxRetries: 2
+});
+
+// Simplified fetch with token function (for backward compatibility if needed)
 export const fetchWithToken = async (
   endpoint: string,
   method = "GET",
-  body?: any,
+  body?: unknown,
   expectTextResponse = false
 ) => {
-  const token = getToken();
-
-  if (!token && endpoint !== "/auth/login") {
-    console.warn("No token available for API request");
-    return null;
-  }
-
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-  };
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  const normalizedEndpoint = endpoint.startsWith("/")
-    ? endpoint
-    : `/${endpoint}`;
-
   try {
-    const response = await fetch(`${API_BASE_URL}${normalizedEndpoint}`, {
+    const config: ExtendedRequestConfig = {
       method,
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    if (!response.ok) {
-      console.error(`API Error: ${response.status}`);
-      return null;
+      url: endpoint
+    };
+    
+    if (body) {
+      config.data = body;
     }
-
-    if (expectTextResponse) {
-      const text = await response.text();
-      if (!text || text.trim() === "") {
-        return { success: true };
-      }
-
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        return {
-          success: true,
-          message: text,
-        };
-      }
-    }
-
-    return await response.json();
+    
+    const response = await apiClient(config);
+    return expectTextResponse ? response.data : response.data;
   } catch (error) {
     console.error("API request failed:", error);
     return null;

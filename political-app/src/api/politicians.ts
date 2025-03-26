@@ -1,6 +1,6 @@
 // src/api/politicians.ts
 import axios from 'axios';
-import { BASE_URL } from './client';
+import { BASE_URL } from './apiClient';
 import { Politician } from '@/types/politician';
 
 /**
