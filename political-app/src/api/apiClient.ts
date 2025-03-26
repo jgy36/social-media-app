@@ -1,16 +1,18 @@
 // src/api/apiClient.ts
-import axios from 'axios';
-import { getToken, setToken } from '@/utils/tokenUtils';
-import { 
-  getErrorMessage, 
+import axios from "axios";
+import { getToken, setToken } from "@/utils/tokenUtils";
+import {
+  getErrorMessage,
   ApiError,
   hasResponseProperty,
-  isNetworkError
-} from '@/utils/apiErrorHandler';
+  isNetworkError,
+} from "@/utils/apiErrorHandler";
 
 // API configuration
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
-export const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:8080';
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+export const BASE_URL =
+  process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8080";
 
 // Interface for token refresh
 export interface TokenRefreshResponse {
@@ -30,7 +32,7 @@ export interface ApiClientOptions {
 
 // Extended request config with retry flag
 interface ExtendedRequestConfig {
-  url: string;  // Make url required, not optional
+  url: string; // Make url required, not optional
   method?: string;
   headers?: Record<string, string>;
   data?: unknown;
@@ -40,18 +42,21 @@ interface ExtendedRequestConfig {
 
 // Token refresh state tracking
 let isRefreshing = false;
-let failedQueue: { resolve: (token: string) => void; reject: (error: Error) => void }[] = [];
+let failedQueue: {
+  resolve: (token: string) => void;
+  reject: (error: Error) => void;
+}[] = [];
 
 // Process the queue of failed requests
 const processQueue = (error: Error | null, token: string | null = null) => {
-  failedQueue.forEach(promise => {
+  failedQueue.forEach((promise) => {
     if (error) {
       promise.reject(error);
     } else if (token) {
       promise.resolve(token);
     }
   });
-  
+
   failedQueue = [];
 };
 
@@ -61,36 +66,35 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 export const createApiClient = (options: ApiClientOptions = {}) => {
   const defaultOptions: ApiClientOptions = {
     baseURL: API_BASE_URL,
-    timeout: 10000,
     withCredentials: false,
     autoRefreshToken: true,
     retry: false,
     retryDelay: 1000,
-    maxRetries: 1
+    maxRetries: 1,
   };
-  
+
   const config: ApiClientOptions = { ...defaultOptions, ...options };
-  
+
   // Create the axios instance
   const instance = axios.create({
     baseURL: config.baseURL,
     timeout: config.timeout,
-    withCredentials: config.withCredentials
+    withCredentials: config.withCredentials,
   });
-  
+
   // Request interceptor - add auth token
   instance.interceptors.request.use(
     (config) => {
       const token = getToken();
       if (token) {
         config.headers = config.headers || {};
-        config.headers['Authorization'] = `Bearer ${token}`;
+        config.headers["Authorization"] = `Bearer ${token}`;
       }
       return config;
     },
     (error) => Promise.reject(error)
   );
-  
+
   // Response interceptor - handle token refresh
   if (config.autoRefreshToken) {
     instance.interceptors.response.use(
@@ -99,90 +103,114 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
         // Check if error has a response
         const errorWithResponse = hasResponseProperty(error) && error.response;
         const originalRequest = error.config as ExtendedRequestConfig;
-        
+
         // Only attempt refresh on 401 errors with a config and no _retry flag
-        if (errorWithResponse && error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+        if (
+          errorWithResponse &&
+          error.response?.status === 401 &&
+          originalRequest &&
+          !originalRequest._retry
+        ) {
           if (isRefreshing) {
             // If already refreshing, add to queue
             return new Promise<string>((resolve, reject) => {
               failedQueue.push({ resolve, reject });
-            }).then(token => {
-              originalRequest.headers = originalRequest.headers || {};
-              originalRequest.headers['Authorization'] = `Bearer ${token}`;
-              return instance(originalRequest);
-            }).catch(err => {
-              return Promise.reject(err);
-            });
+            })
+              .then((token) => {
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers["Authorization"] = `Bearer ${token}`;
+                return instance(originalRequest);
+              })
+              .catch((err) => {
+                return Promise.reject(err);
+              });
           }
-          
+
           // Mark request as retried and set refreshing flag
           originalRequest._retry = true;
           isRefreshing = true;
-          
+
           // Attempt to refresh the token
           try {
             const token = getToken();
-            
+
             if (!token) {
-              processQueue(new Error('No token available'));
+              processQueue(new Error("No token available"));
               return Promise.reject(error);
             }
-            
+
             const refreshResponse = await axios.post<TokenRefreshResponse>(
               `${API_BASE_URL}/auth/refresh`,
               {},
               { headers: { Authorization: `Bearer ${token}` } }
             );
-            
+
             const newToken = refreshResponse.data.token;
-            
+
             if (!newToken) {
-              processQueue(new Error('Token refresh failed'));
+              processQueue(new Error("Token refresh failed"));
               return Promise.reject(error);
             }
-            
+
             // Store the new token
             setToken(newToken);
-            
+
             // Update header for the original request
             originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-            
+            originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+
             // Process queued requests with new token
             processQueue(null, newToken);
-            
+
             return instance(originalRequest);
           } catch (refreshError) {
-            processQueue(refreshError instanceof Error ? refreshError : new Error('Unknown refresh error'));
+            processQueue(
+              refreshError instanceof Error
+                ? refreshError
+                : new Error("Unknown refresh error")
+            );
             return Promise.reject(refreshError);
           } finally {
             isRefreshing = false;
           }
         }
-        
+
         // Add retry logic for network issues
         const networkError = error instanceof Error && isNetworkError(error);
-        const serverError = errorWithResponse && error.response?.status && error.response.status >= 500;
-        const shouldRetry = config.retry && !originalRequest._retry && (networkError || serverError);
-            
+        const serverError =
+          errorWithResponse &&
+          error.response?.status &&
+          error.response.status >= 500;
+        const shouldRetry =
+          config.retry &&
+          !originalRequest._retry &&
+          (networkError || serverError);
+
         if (shouldRetry) {
           originalRequest._retry = true;
-          
+
           return new Promise((resolve) => {
-            setTimeout(() => resolve(instance(originalRequest)), config.retryDelay);
+            setTimeout(
+              () => resolve(instance(originalRequest)),
+              config.retryDelay
+            );
           });
         }
-        
+
         return Promise.reject(error);
       }
     );
   }
-  
+
   return instance;
 };
 
 // Re-export error handling functions from the utility
-export { getErrorMessage, ApiError, safeApiCall } from '@/utils/apiErrorHandler';
+export {
+  getErrorMessage,
+  ApiError,
+  safeApiCall,
+} from "@/utils/apiErrorHandler";
 
 // Create default API clients
 export const apiClient = createApiClient();
@@ -192,7 +220,7 @@ export const resilientApiClient = createApiClient({
   timeout: 30000,
   retry: true,
   retryDelay: 1000,
-  maxRetries: 2
+  maxRetries: 2,
 });
 
 // Simplified fetch with token function (for backward compatibility if needed)
@@ -205,13 +233,13 @@ export const fetchWithToken = async (
   try {
     const config: ExtendedRequestConfig = {
       method,
-      url: endpoint
+      url: endpoint,
     };
-    
+
     if (body) {
       config.data = body;
     }
-    
+
     const response = await apiClient(config);
     return expectTextResponse ? response.data : response.data;
   } catch (error) {

@@ -19,6 +19,8 @@ import { Community } from "@/api/types";
 import { CommunityData, CommunityMembershipResponse } from "@/types/community";
 import { PostType } from "@/types/post";
 import { useCommunity } from "@/hooks/useCommunity";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 
 interface ServerSideProps {
   initialCommunityData?: CommunityData;
@@ -71,17 +73,35 @@ const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError 
   }
 
   // Loading state
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Navbar />
-        <div className="max-w-5xl mx-auto p-4 flex flex-col items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <p className="mt-4 text-muted-foreground">Loading community...</p>
-        </div>
+ if (isLoading) {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Navbar />
+      <div className="max-w-5xl mx-auto p-6">
+        <LoadingState message="Loading community..." />
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+if (error) {
+  const handleRetry = (): void => {
+    // Either refresh the page
+    router.reload();
+    // Or we could implement a manual refetch if the useCommunity hook provides such functionality
+    // For example: refetchCommunity(id as string);
+  };
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <Navbar />
+      <div className="max-w-5xl mx-auto p-6">
+        <BackButton fallbackUrl="/community" className="mb-4" />
+        <ErrorState message={error || "Community not found"} onRetry={handleRetry} />
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="min-h-screen bg-background text-foreground">
