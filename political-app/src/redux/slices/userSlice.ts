@@ -1,9 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Enhanced: political-app/src/redux/slices/userSlice.ts
 
-import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { getCookie, setCookie, deleteCookie } from "cookies-next";
-import { api } from "@/api";  // Import from new API structure
+import api from "@/api"; // Updated import to correctly import the default API object
 
 // Define the RootState type (to fix the RootState error)
 interface RootState {
@@ -30,24 +30,16 @@ const initialState: UserState = {
   error: null,
 };
 
-// Define response type to fix the errors
-interface AuthResponse {
-  id: number;
-  token: string;
-  username: string;
-  email: string;
-}
-
 // Restore auth state from local storage/cookies
 export const restoreAuthState = createAsyncThunk(
   "user/restoreAuthState",
   async (_, { rejectWithValue }) => {
     try {
       // First try to get token from localStorage (for better persistence)
-      let token = null;
-      let username = null;
-      let userId = null;
-      let email = null;
+      let token: string | null = null;
+      let username: string | null = null;
+      let userId: string | null = null;
+      let email: string | null = null;
 
       // Try localStorage first (better persistence)
       if (typeof window !== "undefined") {
@@ -55,7 +47,7 @@ export const restoreAuthState = createAsyncThunk(
         username = localStorage.getItem("username");
         email = localStorage.getItem("email");
         const storedId = localStorage.getItem("userId");
-        userId = storedId ? parseInt(storedId) : null;
+        userId = storedId ? String(parseInt(storedId)) : null;
       }
 
       // If not in localStorage, try cookies
@@ -65,7 +57,7 @@ export const restoreAuthState = createAsyncThunk(
           username = (getCookie("username") as string) || null;
           email = (getCookie("email") as string) || null;
           const cookieId = getCookie("userId");
-          userId = cookieId ? Number(cookieId) : null;
+          userId = cookieId ? String(Number(cookieId)) : null;
         } catch (cookieError) {
           console.error("Error reading cookies:", cookieError);
         }
@@ -87,46 +79,48 @@ export const restoreAuthState = createAsyncThunk(
 
 // Define async login
 export const loginUser = createAsyncThunk<
-  { id: number | null; username: string | null; email: string | null; token: string | null },
+  {
+    id: number | null;
+    username: string | null;
+    email: string | null;
+    token: string | null;
+  },
   { email: string; password: string }
->(
-  "user/login",
-  async ({ email, password }, { rejectWithValue }) => {
-    try {
-      // Use the new API structure
-      const response = await api.auth.login({ email, password });
+>("user/login", async ({ email, password }, { rejectWithValue }) => {
+  try {
+    // Use the new API structure
+    const response = await api.auth.login({ email, password });
 
-      // Ensure we have proper response
-      if (!response.token || !response.user) {
-        throw new Error("Invalid response from server");
-      }
-
-      // Persist data immediately after successful login
-      if (typeof window !== "undefined") {
-        localStorage.setItem("token", response.token);
-        localStorage.setItem("username", response.user.username || "User");
-        localStorage.setItem("userId", String(response.user.id));
-        localStorage.setItem("email", email); // Store the email too
-
-        // Also set cookies as fallback
-        setCookie("token", response.token, { path: "/" });
-        setCookie("username", response.user.username || "User", { path: "/" });
-        setCookie("userId", String(response.user.id), { path: "/" });
-        setCookie("email", email, { path: "/" }); // Store email in cookie too
-      }
-
-      return {
-        id: response.user?.id || null,
-        username: response.user?.username || null,
-        email: email || null,
-        token: response.token || null,
-      };
-    } catch (error) {
-      console.error("Login error:", error);
-      return rejectWithValue((error as Error).message);
+    // Ensure we have proper response
+    if (!response.token || !response.user) {
+      throw new Error("Invalid response from server");
     }
+
+    // Persist data immediately after successful login
+    if (typeof window !== "undefined") {
+      localStorage.setItem("token", response.token);
+      localStorage.setItem("username", response.user.username || "User");
+      localStorage.setItem("userId", String(response.user.id));
+      localStorage.setItem("email", email); // Store the email too
+
+      // Also set cookies as fallback
+      setCookie("token", response.token, { path: "/" });
+      setCookie("username", response.user.username || "User", { path: "/" });
+      setCookie("userId", String(response.user.id), { path: "/" });
+      setCookie("email", email, { path: "/" }); // Store email in cookie too
+    }
+
+    return {
+      id: response.user?.id || null,
+      username: response.user?.username || null,
+      email: email || null,
+      token: response.token || null,
+    };
+  } catch (error) {
+    console.error("Login error:", error);
+    return rejectWithValue((error as Error).message);
   }
-);
+});
 
 // Define async register
 export const registerUser = createAsyncThunk(
@@ -144,7 +138,7 @@ export const registerUser = createAsyncThunk(
       const response = await api.auth.register({
         username,
         email,
-        password
+        password,
       });
 
       if (!response.success) {
@@ -163,44 +157,46 @@ export const updateUserProfile = createAsyncThunk<
   { id: number | null; username: string | null; token: string | null },
   void,
   { state: RootState }
->(
-  "user/updateProfile",
-  async (_, { getState, rejectWithValue }) => {
-    try {
-      const state = getState() as RootState;
-      if (!state.user.token) {
-        throw new Error("Not authenticated");
-      }
-
-      // Get the latest user profile from the API using the new structure
-      const userData = await api.users.getCurrentUser();
-      
-      if (!userData) {
-        throw new Error("Failed to refresh user profile");
-      }
-
-      // Update localStorage and cookies with newest data
-      if (typeof window !== "undefined") {
-        localStorage.setItem("username", userData.username || "User");
-
-        // Also set cookies as fallback
-        setCookie("username", userData.username || "User", { path: "/" });
-      }
-
-      return {
-        id: userData.id || null,
-        username: userData.username || null,
-        token: state.user.token, // Keep existing token
-      };
-    } catch (error) {
-      console.error("Profile refresh error:", error);
-      return rejectWithValue((error as Error).message);
+>("user/updateProfile", async (_, { getState, rejectWithValue }) => {
+  try {
+    const state = getState() as RootState;
+    if (!state.user.token) {
+      throw new Error("Not authenticated");
     }
+
+    // Get the latest user profile from the API using the new structure
+    const userData = await api.users.getCurrentUser();
+
+    if (!userData) {
+      throw new Error("Failed to refresh user profile");
+    }
+
+    // Update localStorage and cookies with newest data
+    if (typeof window !== "undefined") {
+      localStorage.setItem("username", userData.username || "User");
+
+      // Also set cookies as fallback
+      setCookie("username", userData.username || "User", { path: "/" });
+    }
+
+    return {
+      id: userData.id || null,
+      username: userData.username || null,
+      token: state.user.token, // Keep existing token
+    };
+  } catch (error) {
+    console.error("Profile refresh error:", error);
+    return rejectWithValue((error as Error).message);
   }
-);
+});
 
 // Persist auth data helper function
-const persistAuthData = (id: number | null, token: string | null, username: string | null, email: string | null) => {
+const persistAuthData = (
+  id: number | null,
+  token: string | null,
+  username: string | null,
+  email: string | null
+) => {
   if (typeof window !== "undefined") {
     try {
       if (token && username && id !== null) {
@@ -211,7 +207,7 @@ const persistAuthData = (id: number | null, token: string | null, username: stri
         if (email) {
           localStorage.setItem("email", email);
         }
-        
+
         // Also set cookies as fallback
         setCookie("token", token, { path: "/" });
         setCookie("username", username, { path: "/" });
@@ -231,7 +227,7 @@ const persistAuthData = (id: number | null, token: string | null, username: stri
         deleteCookie("email");
       }
     } catch (error) {
-      console.error('Error persisting auth data:', error);
+      console.error("Error persisting auth data:", error);
     }
   }
 };
@@ -262,7 +258,7 @@ const userSlice = createSlice({
     });
 
     builder.addCase(loginUser.fulfilled, (state, action) => {
-      state.id = action.payload.id;
+      state.id = action.payload.id !== undefined ? action.payload.id : null;
       state.token = action.payload.token;
       state.username = action.payload.username;
       state.email = action.payload.email;
@@ -282,7 +278,7 @@ const userSlice = createSlice({
     });
 
     builder.addCase(restoreAuthState.fulfilled, (state, action) => {
-      state.id = action.payload.id;
+      state.id = action.payload.id ? parseInt(action.payload.id, 10) : null;
       state.token = action.payload.token;
       state.username = action.payload.username;
       state.email = action.payload.email;
@@ -296,7 +292,8 @@ const userSlice = createSlice({
       state.username = null;
       state.email = null;
       state.loading = false;
-      state.error = (action.payload as string) || "Failed to restore auth state";
+      state.error =
+        (action.payload as string) || "Failed to restore auth state";
     });
 
     // Handle updateUserProfile
