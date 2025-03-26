@@ -738,7 +738,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     
     // Fetch community data
     const communityResponse = await axios.get(`${API_BASE_URL}/communities/${id}`);
-    const communityData = communityResponse.data;
+    const communityData = communityResponse.data as Community;
     
     // Transform API response to CommunityData
     const typedCommunityData: CommunityData = {
