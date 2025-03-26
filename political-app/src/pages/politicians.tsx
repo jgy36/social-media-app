@@ -112,15 +112,15 @@ const PoliticiansPage = () => {
         ...cabinet.filter((c) => !politicians.some((p) => p.id === c.id)),
       ];
 
-      const states = [...new Set(allPoliticiansWithCabinet.map((p) => p.state))]
-        .filter(Boolean)
-        .sort();
+      const uniqueStates = new Set(
+        allPoliticiansWithCabinet.map((p) => p.state)
+      );
+      const states = Array.from(uniqueStates).filter(Boolean).sort();
 
-      const parties = [
-        ...new Set(allPoliticiansWithCabinet.map((p) => p.party)),
-      ]
-        .filter(Boolean)
-        .sort();
+      const uniqueParties = new Set(
+        allPoliticiansWithCabinet.map((p) => p.party)
+      );
+      const parties = Array.from(uniqueParties).filter(Boolean).sort();
 
       setAvailableStates(states);
       setAvailableParties(parties);

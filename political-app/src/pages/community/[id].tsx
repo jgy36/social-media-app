@@ -26,21 +26,29 @@ import useSWR from "swr";
 import axios from "axios";
 import { GetServerSideProps } from "next";
 
+// Create types file in src/types/community.ts
+// Import the new types
+import { Community } from "@/api/types";
 
-
-
+// Define community data interface - this should ideally be moved to src/types/community.ts
 interface CommunityData {
   id: string;
   name: string;
   description: string;
   members: number;
   created: string;
-  rules: string[];
+  rules: string[]; // Not optional
   moderators: string[];
   banner?: string;
   color?: string;
   isJoined: boolean;
   isNotificationsOn: boolean;
+}
+
+// Define response type for membership operations
+interface CommunityMembershipResponse {
+  success: boolean;
+  message?: string;
 }
 
 interface ServerSideProps {
@@ -54,8 +62,22 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8
 // SWR fetcher function
 const fetcher = async (url: string): Promise<CommunityData> => {
   try {
-    const response = await axios.get<CommunityData>(url);
-    return response.data;
+    const response = await axios.get<Community>(url);
+    // Transform API Community type to our CommunityData type
+    const data = response.data;
+    return {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      members: data.members,
+      created: data.created,
+      rules: data.rules || [], // Ensure rules is always an array
+      moderators: data.moderators || [],
+      banner: data.banner,
+      color: data.color,
+      isJoined: data.isJoined,
+      isNotificationsOn: data.isNotificationsOn || false
+    };
   } catch (error) {
     console.error(`Error fetching ${url}:`, error);
     throw error;
@@ -189,11 +211,27 @@ const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError 
         }
         
         console.log("Community data received:", communityData);
-        setCommunity(communityData);
+        
+        // Convert to CommunityData type with defaults for optional fields
+        const typedCommunity: CommunityData = {
+          id: communityData.id,
+          name: communityData.name,
+          description: communityData.description,
+          members: communityData.members,
+          created: communityData.created,
+          rules: communityData.rules || [], // Ensure rules is always an array
+          moderators: communityData.moderators || [],
+          banner: communityData.banner,
+          color: communityData.color,
+          isJoined: isInJoinedList,
+          isNotificationsOn: communityData.isNotificationsOn || false
+        };
+        
+        setCommunity(typedCommunity);
         // Use Redux state as source of truth for joined status 
         setIsJoined(isInJoinedList);
-        setIsNotificationsOn(communityData.isNotificationsOn || false);
-        setMemberCount(communityData.members || 0);
+        setIsNotificationsOn(typedCommunity.isNotificationsOn);
+        setMemberCount(typedCommunity.members);
         
         // Fetch posts for this community
         try {
@@ -233,29 +271,29 @@ const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError 
     setMemberCount(prevCount => isJoined ? prevCount - 1 : prevCount + 1);
     
     try {
-      let success: boolean;
+      let response: CommunityMembershipResponse;
       
       if (isJoined) {
         // Leave community
-        success = await leaveCommunity(community.id);
+        response = await leaveCommunity(community.id);
         
-        // Update Redux store
-        if (success) {
+        // Update Redux store if operation was successful
+        if (response.success) {
           dispatch(leaveCommunityAction(community.id));
           console.log(`Left community ${community.id}, removed from Redux store`);
         }
       } else {
         // Join community
-        success = await joinCommunity(community.id);
+        response = await joinCommunity(community.id);
         
-        // Update Redux store
-        if (success) {
+        // Update Redux store if operation was successful
+        if (response.success) {
           dispatch(joinCommunityAction(community.id));
           console.log(`Joined community ${community.id}, added to Redux store`);
         }
       }
       
-      if (!success) {
+      if (!response.success) {
         // Revert if API call failed
         setIsJoined(!isJoined);
         setMemberCount(prevCount => isJoined ? prevCount + 1 : prevCount - 1);
@@ -719,6 +757,21 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     const communityResponse = await axios.get(`${API_BASE_URL}/communities/${id}`);
     const communityData = communityResponse.data;
     
+    // Transform API response to CommunityData
+    const typedCommunityData: CommunityData = {
+      id: communityData.id,
+      name: communityData.name,
+      description: communityData.description,
+      members: communityData.members,
+      created: communityData.created,
+      rules: communityData.rules || [], // Ensure rules is always an array
+      moderators: communityData.moderators || [],
+      banner: communityData.banner,
+      color: communityData.color,
+      isJoined: communityData.isJoined || false,
+      isNotificationsOn: communityData.isNotificationsOn || false
+    };
+    
     // Fetch posts
     const postsResponse = await axios.get<PostType[]>(`${API_BASE_URL}/communities/${id}/posts`);
     const posts = postsResponse.data;
@@ -727,7 +780,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     
     return {
       props: {
-        initialCommunityData: communityData,
+        initialCommunityData: typedCommunityData,
         initialPosts: posts
       }
     };
