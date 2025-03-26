@@ -2,6 +2,11 @@
 // src/hooks/useApi.ts
 import { useState, useCallback } from 'react';
 import { ApiError } from '@/utils/apiErrorHandler';
+import { login, register } from '@/api/auth';
+import { createPost } from '@/api/posts';
+import { searchHashtags, getUnifiedSearchResults } from '@/api/search';
+import { searchCommunities } from '@/api/communities';
+import { LoginRequest, RegisterRequest, AuthResponse, ApiResponse, PostResponse, CreatePostRequest } from '@/api/types';
 
 /**
  * Type for the executing function that can take parameters and return a result
@@ -62,8 +67,53 @@ export function useApi<T, P extends any[]>(
 }
 
 // Create hooks for specific API functions that can be imported directly
-// All of these hooks will use our consistent error handling
-// Example:
-// export const useGetPosts = () => useApi(api.posts.getPosts);
 
-// We'll add more specific hooks as needed based on our API modules
+/**
+ * Hook for user login
+ */
+export const useLogin = () => {
+  const { loading, error, execute } = useApi<AuthResponse, [LoginRequest]>(login);
+  return { loading, error, execute };
+};
+
+/**
+ * Hook for user registration
+ */
+export const useRegister = () => {
+  const { loading, error, execute } = useApi<ApiResponse<AuthResponse>, [RegisterRequest]>(register);
+  return { loading, error, execute };
+};
+
+/**
+ * Hook for creating posts
+ */
+export const useCreatePost = () => {
+  const { loading, error, execute } = useApi<PostResponse, [CreatePostRequest]>(createPost);
+  return { loading, error, execute };
+};
+
+/**
+ * Hook for searching hashtags
+ */
+export const useSearchHashtags = () => {
+  const { loading, error, execute } = useApi<any[], [string]>(searchHashtags);
+  return { loading, error, execute };
+};
+
+/**
+ * Hook for searching communities
+ */
+export const useSearchCommunities = () => {
+  const { loading, error, execute } = useApi<any[], [string]>(searchCommunities);
+  return { loading, error, execute };
+};
+
+/**
+ * Hook for unified search across all content types
+ */
+export const useSearchAll = () => {
+  const { loading, error, execute } = useApi<any[], [string, string?]>(
+    (query: string, type?: string) => getUnifiedSearchResults(query, type as any)
+  );
+  return { loading, error, execute };
+};
