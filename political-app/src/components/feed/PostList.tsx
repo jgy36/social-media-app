@@ -7,6 +7,8 @@ import Post from "./Post";
 import { PostType } from "@/types/post";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { LoadingState } from "@/components/ui/LoadingState";
+import { ErrorState } from "@/components/ui/ErrorState";
 
 // Import our new API
 import { posts } from "@/api";
@@ -77,13 +79,12 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
   if (!token && activeTab === "following") return null; // ✅ Prevent rendering before redirecting
   
   if (loading) {
-    return (
-      <div className="p-4 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-        <p>Loading posts...</p>
-      </div>
-    );
-  }
+  return <LoadingState message="Loading posts..." />;
+}
+
+if (error) {
+  return <ErrorState message={error} onRetry={handleRetry} />;
+}
 
   return (
     <div className="space-y-4">
