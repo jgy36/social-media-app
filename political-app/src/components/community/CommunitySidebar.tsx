@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getAllCommunities } from "@/utils/api";
+import { getAllCommunities } from "@/api/communities";
 import { safeNavigate } from "@/utils/routerHistoryManager";
 
 interface Community {

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Users, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getAllCommunities } from "@/utils/api";
+import { getAllCommunities } from "@/api/communities"; // Updated import
 import Link from "next/link";
 
 interface Community {

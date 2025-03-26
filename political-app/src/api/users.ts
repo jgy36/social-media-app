@@ -7,6 +7,7 @@ import {
 } from './types';
 // Import directly from the types directory
 import { FollowResponse, FollowUser } from '@/types/follow';
+import { PostType } from '@/types/post';
 
 /**
  * Get the current user's profile
@@ -174,5 +175,19 @@ export const refreshUserProfile = async (): Promise<boolean> => {
   } catch (error) {
     console.error('Error refreshing user profile:', error);
     return false;
+  }
+};
+
+export const getPostsByUsername = async (
+  username: string
+): Promise<PostType[]> => {
+  try {
+    const response = await apiClient.get<PostType[]>(
+      `/users/profile/${username}/posts`
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching posts for user ${username}:`, error);
+    return [];
   }
 };

@@ -1,7 +1,7 @@
 // components/feed/Post.tsx
 import { useState } from "react";
 import { PostType } from "@/types/post";
-import { likePost } from "@/utils/api";
+import { likePost } from "@/api/posts";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

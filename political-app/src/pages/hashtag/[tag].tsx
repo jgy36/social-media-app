@@ -8,8 +8,8 @@ import Post from "@/components/feed/Post";
 import { Hash, TrendingUp, Calendar, MessagesSquare, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getPostsByHashtag, getHashtagInfo } from "@/utils/api";
-
+import { getPostsByHashtag } from "@/api/posts";
+import { getHashtagInfo } from "@/api/search";
 // Helper function to format hashtag for display and API
 const formatHashtag = (tag: string | string[] | undefined): { display: string, api: string } => {
   if (!tag) return { display: '', api: '' };
