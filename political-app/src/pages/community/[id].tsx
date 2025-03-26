@@ -29,27 +29,10 @@ import { GetServerSideProps } from "next";
 // Create types file in src/types/community.ts
 // Import the new types
 import { Community } from "@/api/types";
+import { CommunityData, CommunityMembershipResponse } from "@/types/community";
+
 
 // Define community data interface - this should ideally be moved to src/types/community.ts
-interface CommunityData {
-  id: string;
-  name: string;
-  description: string;
-  members: number;
-  created: string;
-  rules: string[]; // Not optional
-  moderators: string[];
-  banner?: string;
-  color?: string;
-  isJoined: boolean;
-  isNotificationsOn: boolean;
-}
-
-// Define response type for membership operations
-interface CommunityMembershipResponse {
-  success: boolean;
-  message?: string;
-}
 
 interface ServerSideProps {
   initialCommunityData?: CommunityData;

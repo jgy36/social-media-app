@@ -24,3 +24,16 @@ export interface CommunityMembershipResponse {
   success: boolean;
   message?: string;
 }
+
+/**
+ * Interface for a community with minimal information
+ * Used for community listings
+ */
+export interface CommunityListing {
+  id: string;
+  name: string;
+  description: string;
+  members: number;
+  color?: string;
+  isJoined?: boolean;
+}

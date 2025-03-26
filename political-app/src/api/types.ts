@@ -1,7 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/types.ts
 import { PostType } from '@/types/post';
 import { CommentType } from '@/types/comment';
+import { CommunityData, CommunityMembershipResponse } from '@/types/community';
 import { Politician } from '@/types/politician';
+import { FollowResponse, FollowUser } from '@/types/follow';
 
 
 // Re-export these types from follow.ts
@@ -86,10 +89,8 @@ export interface CreateCommunityRequest {
   color?: string;
 }
 
-export interface CommunityMembershipResponse {
-  success: boolean;
-  message?: string;
-}
+export type { CommunityData, CommunityMembershipResponse };
+
 
 // Comment Types
 export interface CreateCommentRequest {
