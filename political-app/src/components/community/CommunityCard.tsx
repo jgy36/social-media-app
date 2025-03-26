@@ -5,21 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, TrendingUp } from "lucide-react";
 import { safeNavigate } from "@/utils/routerHistoryManager";
+import { CommunityCardProps } from "@/types/componentProps";
 
-interface CommunityCardProps {
-  community: {
-    id: string;
-    name: string;
-    description: string;
-    members: number;
-    trending?: boolean;
-    color?: string;
-    isJoined?: boolean;
-  };
-  onJoin: (e: React.MouseEvent, communityId: string) => void;
+interface ExtendedCommunityCardProps extends CommunityCardProps {
+  community: CommunityCardProps["community"] & { trending?: boolean };
 }
 
-const CommunityCard = ({ community, onJoin }: CommunityCardProps) => {
+const CommunityCard: React.FC<ExtendedCommunityCardProps> = ({
+  community,
+  onJoin,
+}) => {
   const router = useRouter();
 
   // Navigate to community page
