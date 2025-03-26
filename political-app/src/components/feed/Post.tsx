@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // components/feed/Post.tsx
 import { useState } from "react";
 import { PostType } from "@/types/post";
@@ -12,10 +13,8 @@ import { useRouter } from "next/router";
 import CommentModal from "@/components/comments/CommentModal";
 import SaveButton from "@/components/feed/SaveButton";
 import ShareButton from "@/components/feed/ShareButton";
+import { PostProps } from '@/types/componentProps';
 
-interface PostProps {
-  post: PostType;
-}
 
 // Function to render content with clickable hashtags
 const renderContentWithHashtags = (content: string, onHashtagClick: (hashtag: string) => void) => {
@@ -49,7 +48,7 @@ const renderContentWithHashtags = (content: string, onHashtagClick: (hashtag: st
   });
 };
 
-const Post = ({ post }: PostProps) => {
+const Post: React.FC<PostProps> = ({ post, onLike, onComment, onShare, onSave }) => {
   const router = useRouter();
   const user = useSelector((state: RootState) => state.user);
   const [likesCount, setLikesCount] = useState(post.likes || 0);
