@@ -1,10 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/hooks/useApi.ts
 import { useState, useCallback } from 'react';
-import api from '@/api';
+import { ApiError } from '@/utils/apiErrorHandler';
+
+/**
+ * Type for the executing function that can take parameters and return a result
+ */
+type ExecuteFunction<T, P extends any[]> = (...args: P) => Promise<T | null>;
 
 /**
  * Hook for handling API calls with loading and error states
+ * @param apiFunction The API function to call
+ * @param initialLoading Initial loading state
+ * @returns Object with data, loading, error, and execute function
  */
 export function useApi<T, P extends any[]>(
   apiFunction: (...args: P) => Promise<T>,
@@ -12,12 +20,12 @@ export function useApi<T, P extends any[]>(
 ) {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState<boolean>(initialLoading);
-  const [error, setError] = useState<Error | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
 
   /**
    * Execute the API call
    */
-  const execute = useCallback(
+  const execute: ExecuteFunction<T, P> = useCallback(
     async (...args: P): Promise<T | null> => {
       setLoading(true);
       setError(null);
@@ -26,8 +34,12 @@ export function useApi<T, P extends any[]>(
         const result = await apiFunction(...args);
         setData(result);
         return result;
-      } catch (error) {
-        const typedError = error instanceof Error ? error : new Error(String(error));
+      } catch (err) {
+        // Use ApiError if it's already that type, otherwise create a new one
+        const typedError = err instanceof ApiError 
+          ? err 
+          : new ApiError(err instanceof Error ? err.message : String(err));
+        
         setError(typedError);
         return null;
       } finally {
@@ -49,67 +61,9 @@ export function useApi<T, P extends any[]>(
   return { data, loading, error, execute, reset };
 }
 
-export const useCheckPostSaveStatus = () => {
-  const [data, setData] = useState<{ isSaved: boolean } | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<Error | null>(null);
+// Create hooks for specific API functions that can be imported directly
+// All of these hooks will use our consistent error handling
+// Example:
+// export const useGetPosts = () => useApi(api.posts.getPosts);
 
-  /**
-   * Execute the API call to check post save status
-   */
-  const execute = useCallback(
-    async (postId: number): Promise<{ isSaved: boolean } | null> => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        const result = await api.posts.checkPostSaveStatus(postId);
-        setData(result);
-        return result;
-      } catch (error) {
-        const typedError = error instanceof Error ? error : new Error(String(error));
-        setError(typedError);
-        return null;
-      } finally {
-        setLoading(false);
-      }
-    },
-    []
-  );
-
-  return { data, loading, error, execute };
-};
-
-/**
- * Create hooks for specific API functions
- */
-
-// Auth hooks
-export const useLogin = () => useApi(api.auth.login);
-export const useRegister = () => useApi(api.auth.register);
-export const useLogout = () => useApi(api.auth.logout);
-
-// Posts hooks
-export const useCreatePost = () => useApi(api.posts.createPost);
-export const useLikePost = () => useApi(api.posts.likePost);
-export const useSavePost = () => useApi(api.posts.savePost);
-export const useGetPostById = () => useApi(api.posts.getPostById);
-export const useGetPostComments = () => useApi(api.posts.getPostComments);
-export const useAddComment = () => useApi(api.posts.addComment);
-
-// Communities hooks
-export const useGetCommunities = () => useApi(api.communities.getAllCommunities);
-export const useGetCommunityBySlug = () => useApi(api.communities.getCommunityBySlug);
-export const useCreateCommunity = () => useApi(api.communities.createCommunity);
-export const useJoinCommunity = () => useApi(api.communities.joinCommunity);
-export const useLeaveCommunity = () => useApi(api.communities.leaveCommunity);
-
-// Users hooks
-export const useGetCurrentUser = () => useApi(api.users.getCurrentUser);
-export const useGetUserProfile = () => useApi(api.users.getUserProfile);
-export const useUpdateUsername = () => useApi(api.users.updateUsername);
-export const useFollowUser = () => useApi(api.users.followUser);
-export const useUnfollowUser = () => useApi(api.users.unfollowUser);
-
-// Search hooks
-export const useSearchAll = () => useApi(api.search.getUnifiedSearchResults);
+// We'll add more specific hooks as needed based on our API modules

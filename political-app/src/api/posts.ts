@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/posts.ts
-import { apiClient, resilientApiClient, getErrorMessage } from "./apiClient";
+import { apiClient, resilientApiClient, safeApiCall } from "./apiClient";
 import {
   PostResponse,
   CreatePostRequest,
@@ -17,10 +18,11 @@ export const getPosts = async (endpoint: string): Promise<PostResponse[]> => {
     const normalizedEndpoint = endpoint.startsWith("/")
       ? endpoint
       : `/${endpoint}`;
-    const response = await resilientApiClient.get<PostResponse[]>(
-      normalizedEndpoint
-    );
-    return response.data;
+    
+    return await safeApiCall(async () => {
+      const response = await resilientApiClient.get<PostResponse[]>(normalizedEndpoint);
+      return response.data;
+    }, `Fetching posts from ${endpoint}`);
   } catch (error) {
     console.error(`Error fetching posts from ${endpoint}:`, error);
 
@@ -44,15 +46,12 @@ export const getPosts = async (endpoint: string): Promise<PostResponse[]> => {
 export const getPostsByHashtag = async (
   hashtag: string
 ): Promise<PostResponse[]> => {
-  try {
+  return safeApiCall(async () => {
     // Remove # if present
     const tag = hashtag.startsWith("#") ? hashtag.substring(1) : hashtag;
     const response = await apiClient.get<PostResponse[]>(`/hashtags/${tag}`);
     return response.data;
-  } catch (error) {
-    console.error(`Error fetching posts for hashtag ${hashtag}:`, error);
-    return [];
-  }
+  }, `Fetching posts for hashtag ${hashtag}`);
 };
 
 /**
@@ -62,8 +61,10 @@ export const getPostById = async (
   postId: number
 ): Promise<PostResponse | null> => {
   try {
-    const response = await apiClient.get<PostResponse>(`/posts/${postId}`);
-    return response.data;
+    return await safeApiCall(async () => {
+      const response = await apiClient.get<PostResponse>(`/posts/${postId}`);
+      return response.data;
+    }, `Fetching post ${postId}`);
   } catch (error) {
     console.error(`Error fetching post ${postId}:`, error);
     return null;
@@ -77,10 +78,12 @@ export const getPostsByUsername = async (
   username: string
 ): Promise<PostResponse[]> => {
   try {
-    const response = await apiClient.get<PostResponse[]>(
-      `/users/profile/${username}/posts`
-    );
-    return response.data;
+    return await safeApiCall(async () => {
+      const response = await apiClient.get<PostResponse[]>(
+        `/users/profile/${username}/posts`
+      );
+      return response.data;
+    }, `Fetching posts for user ${username}`);
   } catch (error) {
     console.error(`Error fetching posts for user ${username}:`, error);
     return [];
@@ -93,13 +96,10 @@ export const getPostsByUsername = async (
 export const createPost = async (
   postData: CreatePostRequest
 ): Promise<PostResponse> => {
-  try {
+  return safeApiCall(async () => {
     const response = await apiClient.post<PostResponse>("/posts", postData);
     return response.data;
-  } catch (error) {
-    console.error("Error creating post:", error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, "Creating post");
 };
 
 /**
@@ -108,30 +108,24 @@ export const createPost = async (
 export const likePost = async (
   postId: number
 ): Promise<{ likesCount: number }> => {
-  try {
+  return safeApiCall(async () => {
     const response = await apiClient.post<{ likesCount: number }>(
       `/posts/${postId}/like`
     );
     return response.data;
-  } catch (error) {
-    console.error(`Error liking post ${postId}:`, error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, `Liking post ${postId}`);
 };
 
 /**
  * Save or unsave a post
  */
 export const savePost = async (postId: number): Promise<SavePostResponse> => {
-  try {
+  return safeApiCall(async () => {
     const response = await apiClient.post<SavePostResponse>(
       `/posts/${postId}/save`
     );
     return response.data;
-  } catch (error) {
-    console.error(`Error saving post ${postId}:`, error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, `Saving post ${postId}`);
 };
 
 /**
@@ -139,8 +133,10 @@ export const savePost = async (postId: number): Promise<SavePostResponse> => {
  */
 export const getSavedPosts = async (): Promise<PostResponse[]> => {
   try {
-    const response = await apiClient.get<PostResponse[]>("/posts/saved");
-    return response.data;
+    return await safeApiCall(async () => {
+      const response = await apiClient.get<PostResponse[]>("/posts/saved");
+      return response.data;
+    }, "Fetching saved posts");
   } catch (error) {
     console.error("Error fetching saved posts:", error);
     return [];
@@ -154,10 +150,12 @@ export const checkPostSaveStatus = async (
   postId: number
 ): Promise<SavePostResponse> => {
   try {
-    const response = await apiClient.get<SavePostResponse>(
-      `/posts/${postId}/saved-status`
-    );
-    return response.data;
+    return await safeApiCall(async () => {
+      const response = await apiClient.get<SavePostResponse>(
+        `/posts/${postId}/saved-status`
+      );
+      return response.data;
+    }, `Checking save status for post ${postId}`);
   } catch (error) {
     console.error(`Error checking save status for post ${postId}:`, error);
     return { isSaved: false };
@@ -170,15 +168,12 @@ export const checkPostSaveStatus = async (
 export const sharePost = async (
   postId: number
 ): Promise<{ sharesCount: number }> => {
-  try {
+  return safeApiCall(async () => {
     const response = await apiClient.post<{ sharesCount: number }>(
       `/posts/${postId}/share`
     );
     return response.data;
-  } catch (error) {
-    console.error(`Error sharing post ${postId}:`, error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, `Sharing post ${postId}`);
 };
 
 /**
@@ -188,10 +183,12 @@ export const getPostComments = async (
   postId: number
 ): Promise<CommentResponse[]> => {
   try {
-    const response = await apiClient.get<CommentResponse[]>(
-      `/posts/${postId}/comments`
-    );
-    return response.data;
+    return await safeApiCall(async () => {
+      const response = await apiClient.get<CommentResponse[]>(
+        `/posts/${postId}/comments`
+      );
+      return response.data;
+    }, `Fetching comments for post ${postId}`);
   } catch (error) {
     console.error(`Error fetching comments for post ${postId}:`, error);
     return [];
@@ -205,17 +202,14 @@ export const addComment = async (
   postId: number,
   content: string
 ): Promise<CommentResponse> => {
-  try {
+  return safeApiCall(async () => {
     const request: CreateCommentRequest = { content };
     const response = await apiClient.post<CommentResponse>(
       `/posts/${postId}/comment`,
       request
     );
     return response.data;
-  } catch (error) {
-    console.error(`Error adding comment to post ${postId}:`, error);
-    throw new Error(getErrorMessage(error));
-  }
+  }, `Adding comment to post ${postId}`);
 };
 
 /**
@@ -223,7 +217,6 @@ export const addComment = async (
  */
 function generateFallbackPosts(endpoint: string): PostResponse[] {
   const now = new Date();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
 
   if (endpoint.includes("following")) {
@@ -254,4 +247,3 @@ function generateFallbackPosts(endpoint: string): PostResponse[] {
     ];
   }
 }
-
