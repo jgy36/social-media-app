@@ -3,14 +3,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, TrendingUp, Plus, Search } from "lucide-react";
+import { Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { getAllCommunities, joinCommunity, leaveCommunity } from "@/api/communities";
+import {
+  getAllCommunities,
+  joinCommunity,
+  leaveCommunity,
+} from "@/api/communities";
 import { updateUserCommunities } from "@/redux/slices/communitySlice";
+import CommunityCard from "./CommunityCard";
+import JoinedCommunityCard from "./JoinedCommunityCard";
+import CommunitySearch from "./CommunitySearch";
 
 // Define community type
 interface Community {
@@ -49,6 +53,7 @@ const CommunityList = () => {
       setError(null);
 
       try {
+        // Get all communities from API
         const data = await getAllCommunities();
 
         // Mark community as trending if it's one of the top 2
@@ -70,74 +75,6 @@ const CommunityList = () => {
       } catch (err) {
         console.error("Error fetching communities:", err);
         setError("Failed to load communities");
-
-        // In development, use mock data if API fails
-        if (process.env.NODE_ENV === "development") {
-          const MOCK_COMMUNITIES: Community[] = [
-            {
-              id: "democrat",
-              name: "Democrat",
-              description: "Democratic Party discussions",
-              members: 15243,
-              trending: true,
-              category: "Political Party",
-              color: "blue",
-            },
-            {
-              id: "republican",
-              name: "Republican",
-              description: "Republican Party discussions",
-              members: 14876,
-              category: "Political Party",
-              color: "red",
-            },
-            {
-              id: "libertarian",
-              name: "Libertarian",
-              description: "Libertarian Party discussions",
-              members: 8932,
-              category: "Political Party",
-              color: "yellow",
-            },
-            {
-              id: "independent",
-              name: "Independent",
-              description: "Independent voter discussions",
-              members: 10547,
-              trending: true,
-              category: "Political Party",
-              color: "purple",
-            },
-            {
-              id: "conservative",
-              name: "Conservative",
-              description: "Conservative viewpoints",
-              members: 12765,
-              category: "Political Philosophy",
-              color: "darkred",
-            },
-            {
-              id: "socialist",
-              name: "Socialist",
-              description: "Socialist perspectives",
-              members: 9876,
-              category: "Political Philosophy",
-              color: "darkred",
-            },
-          ];
-
-          setCommunities(MOCK_COMMUNITIES);
-          setFilteredCommunities(MOCK_COMMUNITIES);
-
-          // Initialize joined status with mock data and Redux state
-          const statusMap: Record<string, boolean> = {};
-          MOCK_COMMUNITIES.forEach((community) => {
-            statusMap[community.id] = userCommunities.includes(community.id);
-          });
-          setJoinedStatus(statusMap);
-
-          setError(null); // Clear error if using mock data
-        }
       } finally {
         setLoading(false);
       }
@@ -146,21 +83,19 @@ const CommunityList = () => {
     fetchCommunities();
   }, [userCommunities]);
 
-  // Filter communities when search query changes
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
+  // Handle searching
+  const handleSearch = (query: string) => {
+    if (query.trim() === "") {
       setFilteredCommunities(communities);
     } else {
       const filtered = communities.filter(
         (community) =>
-          community.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          community.description
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase())
+          community.name.toLowerCase().includes(query.toLowerCase()) ||
+          community.description.toLowerCase().includes(query.toLowerCase())
       );
       setFilteredCommunities(filtered);
     }
-  }, [searchQuery, communities]);
+  };
 
   // Handle joining/leaving a community
   const handleJoinCommunity = async (
@@ -201,13 +136,28 @@ const CommunityList = () => {
       })
     );
 
+    // Also update filtered communities list
+    setFilteredCommunities((prev) =>
+      prev.map((community) => {
+        if (community.id === communityId) {
+          return {
+            ...community,
+            members: isCurrentlyJoined
+              ? Math.max(0, community.members - 1)
+              : community.members + 1,
+          };
+        }
+        return community;
+      })
+    );
+
     try {
       let success: boolean;
 
       if (isCurrentlyJoined) {
         // Leave community
         const response = await leaveCommunity(communityId);
-        success = response.success; // Assuming 'success' is a property in the response
+        success = response.success;
         if (success) {
           // Update Redux store
           dispatch(
@@ -219,7 +169,7 @@ const CommunityList = () => {
       } else {
         // Join community
         const response = await joinCommunity(communityId);
-        success = response.success; // Assuming 'success' is a property in the response
+        success = response.success;
         if (success) {
           // Update Redux store
           dispatch(updateUserCommunities([...userCommunities, communityId]));
@@ -235,6 +185,21 @@ const CommunityList = () => {
 
         // Revert member count
         setCommunities((prev) =>
+          prev.map((community) => {
+            if (community.id === communityId) {
+              return {
+                ...community,
+                members: isCurrentlyJoined
+                  ? community.members + 1
+                  : Math.max(0, community.members - 1),
+              };
+            }
+            return community;
+          })
+        );
+
+        // Also revert filtered communities
+        setFilteredCommunities((prev) =>
           prev.map((community) => {
             if (community.id === communityId) {
               return {
@@ -271,16 +236,22 @@ const CommunityList = () => {
           return community;
         })
       );
+
+      // Also revert filtered communities
+      setFilteredCommunities((prev) =>
+        prev.map((community) => {
+          if (community.id === communityId) {
+            return {
+              ...community,
+              members: isCurrentlyJoined
+                ? community.members + 1
+                : Math.max(0, community.members - 1),
+            };
+          }
+          return community;
+        })
+      );
     }
-  };
-
-  // Navigate to a community page
-  // To this (temporary fix to debug):
-  const navigateToCommunity = (communityId: string) => {
-    console.log(`Navigating to community: ${communityId}`);
-
-    // Try direct navigation instead of safeNavigate
-    router.push(`/community/${communityId}`);
   };
 
   // Loading state with skeletons
@@ -293,12 +264,10 @@ const CommunityList = () => {
         </div>
 
         {[1, 2, 3, 4].map((i) => (
-          <Card
+          <Skeleton
             key={i}
-            className="shadow-sm transition animate-pulse bg-muted/50"
-          >
-            <CardContent className="p-3 h-24"></CardContent>
-          </Card>
+            className="h-24 w-full shadow-sm transition animate-pulse bg-muted/50"
+          />
         ))}
       </div>
     );
@@ -306,28 +275,12 @@ const CommunityList = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          COMMUNITIES
-        </h3>
-
-        <div className="flex gap-2">
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search communities"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9 w-full sm:w-auto min-w-[200px]"
-            />
-          </div>
-
-          <Button size="sm" onClick={() => router.push("/community/create")}>
-            <Plus className="h-4 w-4 mr-2" />
-            <span className="hidden sm:inline">Create</span>
-          </Button>
-        </div>
-      </div>
+      <CommunitySearch
+        onSearch={(query) => {
+          setSearchQuery(query);
+          handleSearch(query);
+        }}
+      />
 
       {error && (
         <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm mb-4">
@@ -338,64 +291,11 @@ const CommunityList = () => {
       <div className="space-y-3">
         {filteredCommunities.length > 0 ? (
           filteredCommunities.map((community) => (
-            // Use a div with onClick handler
-            <div
+            <CommunityCard
               key={community.id}
-              className="block cursor-pointer"
-              onClick={() => navigateToCommunity(community.id)}
-              data-testid={`community-card-${community.id}`}
-            >
-                <a href={`/community/${community.id}`} onClick={(e) => e.stopPropagation()}>
-
-              <Card
-                className="shadow-sm hover:shadow-md transition-shadow border-l-4"
-                style={{ borderLeftColor: community.color || "var(--primary)" }}
-              >
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="text-base font-medium mr-2">
-                          {community.name}
-                        </h3>
-                        {community.trending && (
-                          <Badge
-                            variant="outline"
-                            className="bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300"
-                          >
-                            <TrendingUp className="h-3 w-3 mr-1" /> Trending
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                        {community.description}
-                      </p>
-
-                      <div className="flex items-center mt-2 text-xs text-muted-foreground">
-                        <Users className="h-3 w-3 mr-1" />
-                        <span>
-                          {community.members.toLocaleString()} members
-                        </span>
-                      </div>
-                    </div>
-
-                    <Button
-                      variant={
-                        joinedStatus[community.id] ? "outline" : "default"
-                      }
-                      size="sm"
-                      className={
-                        joinedStatus[community.id] ? "border-primary/50" : ""
-                      }
-                      onClick={(e) => handleJoinCommunity(e, community.id)}
-                    >
-                      {joinedStatus[community.id] ? "Joined" : "Join"}
-                    </Button>
-                  </div>
-                </CardContent>
-                </Card>
-                </a>
-            </div>
+              community={community}
+              onJoin={handleJoinCommunity}
+            />
           ))
         ) : (
           <div className="text-center py-12">
@@ -429,44 +329,11 @@ const CommunityList = () => {
               {communities
                 .filter((community) => joinedStatus[community.id])
                 .map((community) => (
-                  <div
+                  <JoinedCommunityCard
                     key={`joined-${community.id}`}
-                    className="block cursor-pointer"
-                    onClick={() => navigateToCommunity(community.id)}
-                  >
-                    <Card
-                      className="shadow-sm hover:shadow-md transition-shadow border-l-4"
-                      style={{
-                        borderLeftColor: community.color || "var(--primary)",
-                      }}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h3 className="font-medium">{community.name}</h3>
-                            <div className="flex items-center text-xs text-muted-foreground mt-1">
-                              <Users className="h-3 w-3 mr-1" />
-                              <span>
-                                {community.members.toLocaleString()} members
-                              </span>
-                            </div>
-                          </div>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleJoinCommunity(e, community.id);
-                            }}
-                          >
-                            Leave
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
+                    community={community}
+                    onLeave={handleJoinCommunity}
+                  />
                 ))}
             </div>
           ) : (
