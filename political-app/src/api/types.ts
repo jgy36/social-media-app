@@ -2,7 +2,6 @@
 import { PostType } from '@/types/post';
 import { CommentType } from '@/types/comment';
 import { Politician } from '@/types/politician';
-import { ApiSearchResult } from '@/types/search';
 
 
 // Re-export these types from follow.ts

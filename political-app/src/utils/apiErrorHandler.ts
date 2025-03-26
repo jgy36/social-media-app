@@ -1,7 +1,6 @@
 // src/utils/apiErrorHandler.ts
-import api from "@/api";
+import axios from 'axios';
 import { PostType } from "@/types/post";
-
 
 /**
  * Enhanced version of fetchPosts with better error handling and fallback
@@ -20,9 +19,8 @@ export const fetchPostsWithFallback = async (
       process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
     try {
-      // First attempt with shorter timeout using custom timeout option
-      // Instead of using signal, just use the timeout option provided by axios
-      const response = await api.get(`${API_BASE_URL}${normalizedEndpoint}`, {
+      // Instead of using api.get, use axios directly
+      const response = await axios.get(`${API_BASE_URL}${normalizedEndpoint}`, {
         timeout: 5000, // 5 second timeout
       });
 

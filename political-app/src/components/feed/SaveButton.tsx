@@ -6,7 +6,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useRouter } from "next/router";
 import { toast } from "@/hooks/use-toast";
-import { useSavePost, useCheckPostSaveStatus } from "@/hooks/useApi"; // Import API hooks
+import { savePost, checkPostSaveStatus } from "@/api/posts"; // Import directly from posts api
 
 interface SaveButtonProps {
   postId: number;
@@ -15,12 +15,9 @@ interface SaveButtonProps {
 
 const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
   const [saved, setSaved] = useState(initialIsSaved);
+  const [isLoading, setIsLoading] = useState(false);
   const user = useSelector((state: RootState) => state.user);
   const router = useRouter();
-
-  // Use API hooks
-  const { loading: saveLoading, execute: savePost } = useSavePost();
-  const { data: savedStatus } = useCheckPostSaveStatus();
 
   // Check the actual saved status when component mounts
   useEffect(() => {
@@ -28,15 +25,8 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
       if (!user.token) return;
       
       try {
-        if (typeof savedStatus === "function") {
-          const status = await savedStatus(postId);
-          if (status) {
-            setSaved(status.isSaved);
-          }
-        } else {
-          console.error("savedStatus is not a function or is null");
-          setSaved(initialIsSaved);
-        }
+        // Use direct API call instead of hook
+        const status = await checkPostSaveStatus(postId);
         // Update the saved state based on the server response
         if (status) {
           setSaved(status.isSaved);
@@ -52,19 +42,21 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
     if (user.token) {
       fetchSavedStatus();
     }
-  }, [postId, user.token, initialIsSaved, savedStatus]);
+  }, [postId, user.token, initialIsSaved]);
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent triggering post navigation
+    setIsLoading(true);
     
     if (!user.token) {
       // Redirect to login if not authenticated
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+      setIsLoading(false);
       return;
     }
     
     try {
-      // Use the API hook to save/unsave post
+      // Use direct API call
       await savePost(postId);
       
       // Toggle saved state
@@ -86,6 +78,8 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
         description: "Failed to save the post. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -93,11 +87,11 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
     <Button
       variant="ghost"
       onClick={handleSave}
-      disabled={saveLoading}
+      disabled={isLoading}
       className={`flex items-center gap-1 ${saved ? "text-yellow-500" : ""}`}
     >
       <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-      {saveLoading ? "Saving..." : saved ? "Saved" : "Save"}
+      {isLoading ? "Saving..." : saved ? "Saved" : "Save"}
     </Button>
   );
 };

@@ -1,5 +1,6 @@
+// src/components/profile/ProfileSettings.tsx
 import { useEffect, useState } from "react";
-import { getSavedPosts } from "@/api/posts";
+import { getSavedPosts } from "@/api/posts"; // Update import
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import Post from "@/components/feed/Post";
@@ -13,25 +14,10 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout }) => {
   const user = useSelector((state: RootState) => state.user);
   const [savedPosts, setSavedPosts] = useState<PostType[]>([]);
 
-  useEffect(() => {<div className="mt-6">
-  <h2 className="text-xl font-bold">Project Overview</h2>
-  <p className="mt-2">This project is a social media platform that allows users to create and share posts.</p>
-  <ul className="mt-4 list-disc list-inside">
-    <li>Users can create and manage their own profiles.</li>
-    <li>Users can create and share posts with others.</li>
-    <li>Users can save posts for later.</li>
-  </ul>
-</div>
-    if (user.token) {<div className="mt-6">
-  <h2 className="text-xl font-bold">Project Overview</h2>
-  <p className="mt-2">This project is a social media platform that allows users to create and share posts.</p>
-  <ul className="mt-4 list-disc list-inside">
-    <li>Users can create and manage their own profiles.</li>
-    <li>Users can create and share posts with others.</li>
-    <li>Users can save posts for later.</li>
-  </ul>
-</div>
-      getSavedPosts(user.token).then(setSavedPosts);
+  useEffect(() => {
+    if (user.token) {
+      // Remove the token argument - getSavedPosts no longer needs it
+      getSavedPosts().then(setSavedPosts);
     }
   }, [user.token]);
 
@@ -46,7 +32,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({ onLogout }) => {
         Logout
       </button>
 
-      {/* ✅ Saved Posts */}
+      {/* Saved Posts */}
       <div className="mt-6">
         <h2 className="text-xl font-bold">Saved Posts</h2>
         {savedPosts.length === 0 ? (
