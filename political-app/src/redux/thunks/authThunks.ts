@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import { fetchWithToken } from "@/utils/api"; // ✅ Custom fetch helper
+import { fetchWithToken } from "@/api/client"; // ✅ Custom fetch helper
 import { setCookie, deleteCookie } from "cookies-next";
 
 // ✅ Login User

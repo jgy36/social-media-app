@@ -1,6 +1,7 @@
 // src/utils/apiErrorHandler.ts
-import { api } from "./api";
+import api from "@/api";
 import { PostType } from "@/types/post";
+
 
 /**
  * Enhanced version of fetchPosts with better error handling and fallback
