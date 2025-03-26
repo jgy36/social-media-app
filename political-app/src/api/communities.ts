@@ -1,5 +1,5 @@
 // src/api/communities.ts
-import { apiClient, getErrorMessage } from './client';
+import { apiClient, getErrorMessage } from './apiClient';
 import { 
   Community, 
   CreateCommunityRequest, 

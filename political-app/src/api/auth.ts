@@ -1,5 +1,5 @@
 // src/api/auth.ts
-import { apiClient, getErrorMessage } from "./client";
+import { apiClient, getErrorMessage } from "./apiClient";
 import {
   LoginRequest,
   RegisterRequest,

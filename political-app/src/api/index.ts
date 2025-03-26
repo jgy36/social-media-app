@@ -1,6 +1,6 @@
 // src/api/index.ts
 // Export the API client
-export * from './client';
+export * from './apiClient';
 
 // Export all API modules
 import * as auth from './auth';
