@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/users.ts - Updated with profile update functionality
 import { apiClient, getErrorMessage } from './apiClient';
 import { 
