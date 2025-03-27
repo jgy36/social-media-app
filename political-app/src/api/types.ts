@@ -1,11 +1,9 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// src/api/types.ts
+// src/api/types.ts - Updated with profile fields
 import { PostType } from '@/types/post';
 import { CommentType } from '@/types/comment';
 import { CommunityData, CommunityMembershipResponse } from '@/types/community';
 import { Politician } from '@/types/politician';
 import { FollowResponse, FollowUser } from '@/types/follow';
-
 
 // Re-export these types from follow.ts
 export type { FollowResponse, FollowUser } from '@/types/follow';
@@ -28,6 +26,9 @@ export interface AuthResponse {
     id: number;
     username: string;
     email: string;
+    displayName?: string;
+    bio?: string;
+    profileImageUrl?: string;
   };
 }
 
@@ -36,7 +37,9 @@ export interface UserProfile {
   id: number;
   username: string;
   email?: string;
+  displayName?: string;
   bio?: string;
+  profileImageUrl?: string;
   joinDate: string;
   followersCount: number;
   followingCount: number;
@@ -51,6 +54,19 @@ export interface UpdateUsernameRequest {
 export interface UpdateUsernameResponse {
   success: boolean;
   message?: string;
+}
+
+export interface UpdateProfileRequest {
+  displayName?: string;
+  bio?: string;
+  profileImage?: File;
+}
+
+export interface UpdateProfileResponse {
+  success: boolean;
+  message?: string;
+  user?: UserProfile;
+  profileImageUrl?: string;
 }
 
 // Post Types
@@ -90,7 +106,6 @@ export interface CreateCommunityRequest {
 }
 
 export type { CommunityData, CommunityMembershipResponse };
-
 
 // Comment Types
 export interface CreateCommentRequest {

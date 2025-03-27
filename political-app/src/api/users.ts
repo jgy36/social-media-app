@@ -1,9 +1,11 @@
-// src/api/users.ts
+// src/api/users.ts - Updated with profile update functionality
 import { apiClient, getErrorMessage } from './apiClient';
 import { 
   UserProfile, 
   UpdateUsernameRequest, 
-  UpdateUsernameResponse
+  UpdateUsernameResponse,
+  UpdateProfileRequest,
+  UpdateProfileResponse
 } from './types';
 // Import directly from the types directory
 import { FollowResponse, FollowUser } from '@/types/follow';
@@ -61,6 +63,75 @@ export const updateUsername = async (newUsername: string): Promise<UpdateUsernam
   } catch (error) {
     console.error('Error updating username:', error);
     return { success: false, message: getErrorMessage(error) };
+  }
+};
+
+/**
+ * Update the current user's profile information
+ */
+export const updateProfile = async (
+  profile: {
+    displayName?: string;
+    bio?: string;
+    profileImage?: File;
+  }
+): Promise<UpdateProfileResponse> => {
+  try {
+    // Create FormData for file upload
+    const formData = new FormData();
+    
+    if (profile.displayName) {
+      formData.append('displayName', profile.displayName);
+    }
+    
+    if (profile.bio !== undefined) {
+      formData.append('bio', profile.bio);
+    }
+    
+    if (profile.profileImage) {
+      formData.append('profileImage', profile.profileImage);
+    }
+    
+    // Use FormData for multipart/form-data request (necessary for file upload)
+    const response = await apiClient.put<UpdateProfileResponse>(
+      '/users/update-profile',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    
+    // Update localStorage for better UX
+    if (response.data.success) {
+      if (profile.displayName) {
+        localStorage.setItem('displayName', profile.displayName);
+      }
+      
+      if (profile.bio) {
+        localStorage.setItem('bio', profile.bio);
+      }
+      
+      if (response.data.profileImageUrl) {
+        localStorage.setItem('profileImageUrl', response.data.profileImageUrl);
+      }
+      
+      // Dispatch a custom event for components that need to update
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('userProfileUpdated', { detail: response.data.user })
+        );
+      }
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    return { 
+      success: false, 
+      message: getErrorMessage(error)
+    };
   }
 };
 
@@ -159,6 +230,18 @@ export const refreshUserProfile = async (): Promise<boolean> => {
       // Update local storage with updated data
       if (response.data.username) {
         localStorage.setItem('username', response.data.username);
+      }
+      
+      if (response.data.displayName) {
+        localStorage.setItem('displayName', response.data.displayName);
+      }
+      
+      if (response.data.bio) {
+        localStorage.setItem('bio', response.data.bio);
+      }
+      
+      if (response.data.profileImageUrl) {
+        localStorage.setItem('profileImageUrl', response.data.profileImageUrl);
       }
       
       // Dispatch a custom event for components that need to update
