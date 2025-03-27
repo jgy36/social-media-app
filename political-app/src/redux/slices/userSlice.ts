@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // src/redux/slices/userSlice.ts - Complete file
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";

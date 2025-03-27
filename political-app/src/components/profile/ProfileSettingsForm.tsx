@@ -217,7 +217,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
         username,
         displayName,
         bio,
-        profileImageUrl: updatedImageUrl
+        profileImageUrl: updatedImageUrl || undefined
       }));
       
       setSuccess(true);
@@ -339,7 +339,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
               <p className="text-sm text-destructive">{displayNameError}</p>
             )}
             <p className="text-sm text-muted-foreground">
-              This is your public display name. It can be your real name or any name you'd like to be called.
+              This is your public display name. It can be your real name or any name you&apos;d like to be called.
             </p>
           </div>
           

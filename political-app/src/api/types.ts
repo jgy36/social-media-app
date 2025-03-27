@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/types.ts - Updated with profile fields
 import { PostType } from '@/types/post';
 import { CommentType } from '@/types/comment';
