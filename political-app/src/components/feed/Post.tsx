@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// components/feed/Post.tsx
+// components/feed/Post.tsx - Fixed version
 import { useState } from "react";
 import { PostType } from "@/types/post";
 import { likePost } from "@/api/posts";
@@ -15,8 +16,7 @@ import SaveButton from "@/components/feed/SaveButton";
 import ShareButton from "@/components/feed/ShareButton";
 import { PostProps } from '@/types/componentProps';
 
-
-// Function to render content with clickable hashtags
+// Function to safely render content with clickable hashtags
 const renderContentWithHashtags = (content: string, onHashtagClick: (hashtag: string) => void) => {
   if (!content) return content;
   
@@ -46,6 +46,36 @@ const renderContentWithHashtags = (content: string, onHashtagClick: (hashtag: st
     // Return regular text
     return <span key={index}>{part}</span>;
   });
+};
+
+// Helper function to safely get hashtags as an array of strings
+const safeGetHashtags = (post: PostType): string[] => {
+  if (!post.hashtags) return [];
+  
+  // If hashtags is already a string array, return it
+  if (Array.isArray(post.hashtags) && post.hashtags.every(tag => typeof tag === 'string')) {
+    return post.hashtags;
+  }
+  
+  // If hashtags is an array but contains objects, extract the tag property
+  if (Array.isArray(post.hashtags)) {
+    return post.hashtags.map(tag => {
+      if (typeof tag === 'string') return tag;
+      if (tag && typeof tag === 'object' && 'tag' in (tag as Record<string, unknown>)) {
+        return (tag as Record<string, unknown>).tag as string;
+      }
+      return '';
+    }).filter(tag => tag !== '');
+  }
+  
+  // If hashtags is a single object with a tag property
+  if (post.hashtags && typeof post.hashtags === 'object' && 'tag' in post.hashtags) {
+    const tag = (post.hashtags as any).tag;
+    return typeof tag === 'string' ? [tag] : [];
+  }
+  
+  // Fallback to empty array
+  return [];
 };
 
 const Post: React.FC<PostProps> = ({ post, onLike, onComment, onShare, onSave }) => {
@@ -101,6 +131,9 @@ const Post: React.FC<PostProps> = ({ post, onLike, onComment, onShare, onSave })
   const postContent = typeof post.content === 'string' ? post.content : 
                       post.content ? JSON.stringify(post.content) : '';
 
+  // Safely get hashtags as an array of strings
+  const safeHashtags = safeGetHashtags(post);
+
   return (
     <Card className="p-4 shadow-md border border-border transition-all hover:shadow-lg mb-4">
       {/* Post Content - Clickable to view full post */}
@@ -137,9 +170,9 @@ const Post: React.FC<PostProps> = ({ post, onLike, onComment, onShare, onSave })
         </p>
         
         {/* Display hashtags as badges if available */}
-        {post.hashtags && post.hashtags.length > 0 && (
+        {safeHashtags.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {post.hashtags.map((tag, index) => (
+            {safeHashtags.map((tag, index) => (
               <Badge 
                 key={index} 
                 variant="outline" 
