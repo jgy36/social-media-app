@@ -45,4 +45,23 @@ public class NotificationService {
         notification.setMessage(message);
         notificationRepository.save(notification);
     }
+
+    // Update the markAllAsRead method in NotificationService.java
+    public void markAllAsRead() {
+        // Get current user using the same approach as in getUserNotifications
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        User currentUser = userRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Find all unread notifications for the user
+        List<Notification> unreadNotifications = notificationRepository.findByRecipientAndReadFalse(currentUser);
+
+        // Mark each as read
+        for (Notification notification : unreadNotifications) {
+            notification.setRead(true);
+        }
+
+        // Save all updated notifications
+        notificationRepository.saveAll(unreadNotifications);
+    }
 }
