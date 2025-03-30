@@ -14,9 +14,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-
-import java.util.List;
 
 @Configuration
 public class SecurityConfig {
@@ -53,47 +50,36 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                .cors(cors -> cors.configurationSource(request -> {
-                    CorsConfiguration config = new CorsConfiguration();
-                    config.setAllowedOrigins(List.of("http://localhost:3000")); // ✅ Allow frontend
-                    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                    config.setAllowedHeaders(List.of("*"));
-                    return config;
-                }))
+                // Use cors() with no parameter - this will let our CorsFilter handle it
+                .cors().and()
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Allow access to static resources without authentication
                         .requestMatchers("/images/**", "/css/**", "/js/**").permitAll()
 
-                        // ✅ Public Endpoints
+                        // Public Endpoints
                         .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()  // Public GET Comments
-
-                        // ✅ FIXED: Make communities endpoints public for GET requests
                         .requestMatchers(HttpMethod.GET, "/api/communities/**").permitAll() // Public Communities
-
-                        // ✅ NEW: User profile endpoints are public for better UX
                         .requestMatchers(HttpMethod.GET, "/api/users/profile/**").permitAll() // Public user profiles
                         .requestMatchers(HttpMethod.GET, "/api/users/search").permitAll() // Public user search
-
-                        // ✅ FIX: Also allow access to politician endpoints without /api prefix
                         .requestMatchers(HttpMethod.GET, "/politicians/**").permitAll()  // Public GET Politicians
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // ✅ Allow CORS Preflight
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow CORS Preflight
 
-                        // ✅ PROTECTED Endpoints (Require JWT Token)
-                        .requestMatchers(HttpMethod.POST, "/api/comments/**").authenticated()  // ✅ Require authentication for posting/liking comments
-                        .requestMatchers(HttpMethod.POST, "/api/follow/**").authenticated()  // ✅ Secure Follow API (Users must be logged in)
-                        .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()  // ✅ Users must be logged in to create a post
-                        .requestMatchers(HttpMethod.POST, "/api/communities/**").authenticated() // ✅ Require auth for creating/joining communities
-                        .requestMatchers(HttpMethod.DELETE, "/api/communities/**").authenticated() // ✅ Require auth for leaving communities
+                        // PROTECTED Endpoints (Require JWT Token)
+                        .requestMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/follow/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/communities/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/communities/**").authenticated()
 
-                        // ✅ Admin Only
+                        // Admin Only
                         .requestMatchers("/api/admin/init-communities").permitAll()  // Temporarily public
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")  // ✅ Use hasRole instead of hasAuthority
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        .anyRequest().authenticated() // ✅ Everything else requires authentication
+                        .anyRequest().authenticated() // Everything else requires authentication
                 )
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(jwtAuthenticationEntryPoint)) // Custom 401 Response
                 .addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
