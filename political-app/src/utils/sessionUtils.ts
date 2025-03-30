@@ -1,11 +1,18 @@
 // src/utils/sessionUtils.ts
 
 /**
+ * Check if code is running in browser environment
+ */
+const isBrowser = typeof window !== 'undefined';
+
+/**
  * Set an item in sessionStorage with proper user isolation
  * @param key The key to set
  * @param value The value to store
  */
 export function setSessionItem(key: string, value: string): void {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     // Get current user ID for isolation
     const currentUserId = localStorage.getItem("currentUserId");
@@ -27,6 +34,8 @@ export function setSessionItem(key: string, value: string): void {
  * @param defaultValue Optional default value if not found
  */
 export function getSessionItem(key: string, defaultValue: string | null = null): string | null {
+  if (!isBrowser) return defaultValue; // Return default if not in browser
+  
   try {
     // Get current user ID for isolation
     const currentUserId = localStorage.getItem("currentUserId");
@@ -49,6 +58,8 @@ export function getSessionItem(key: string, defaultValue: string | null = null):
  * @param key The key to remove
  */
 export function removeSessionItem(key: string): void {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     // Get current user ID for isolation
     const currentUserId = localStorage.getItem("currentUserId");
@@ -70,6 +81,8 @@ export function removeSessionItem(key: string): void {
  * @param defaultValue Optional default value if not found
  */
 export function getUserData(key: string, defaultValue: string | null = null): string | null {
+  if (!isBrowser) return defaultValue; // Return default if not in browser
+  
   try {
     const currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) return defaultValue;
@@ -88,6 +101,8 @@ export function getUserData(key: string, defaultValue: string | null = null): st
  * @param value The value to store
  */
 export function setUserData(key: string, value: string): void {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     const currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) {
@@ -105,6 +120,8 @@ export function setUserData(key: string, value: string): void {
  * Clear all data for the current user
  */
 export function clearCurrentUserData(): void {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     const currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) return;

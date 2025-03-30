@@ -66,7 +66,7 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 export const createApiClient = (options: ApiClientOptions = {}) => {
   const defaultOptions: ApiClientOptions = {
     baseURL: API_BASE_URL,
-    withCredentials: true, // UPDATED: Always use credentials for cookies
+    withCredentials: true, // Enable cookies for auth
     autoRefreshToken: true,
     retry: false,
     retryDelay: 1000,
@@ -78,8 +78,12 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   // Create the axios instance
   const instance = axios.create({
     baseURL: config.baseURL,
-    timeout: config.timeout,
-    withCredentials: config.withCredentials, // Allows cookies to be sent/received
+    timeout: config.timeout || 30000,
+    withCredentials: true, // Always enable credentials
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
   });
 
   // Request interceptor - add auth token
@@ -91,9 +95,9 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
         config.headers["Authorization"] = `Bearer ${token}`;
       }
       
-      // Add a unique request identifier to prevent cache issues
+      // Add cache busting headers
       config.headers = config.headers || {};
-      config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      config.headers['Cache-Control'] = 'no-cache';
       config.headers['Pragma'] = 'no-cache';
       
       return config;
@@ -136,7 +140,6 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
           originalRequest._retry = true;
           isRefreshing = true;
 
-          // Attempt to refresh the token
           try {
             const token = getToken();
 
@@ -150,7 +153,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
               {},
               { 
                 headers: { Authorization: `Bearer ${token}` },
-                withCredentials: true // Important for cookies
+                withCredentials: true
               }
             );
 
@@ -232,7 +235,7 @@ export const resilientApiClient = createApiClient({
   maxRetries: 2,
 });
 
-// Simplified fetch with token function (for backward compatibility if needed)
+// Simplified fetch with token function
 export const fetchWithToken = async (
   endpoint: string,
   method = "GET",
@@ -243,6 +246,7 @@ export const fetchWithToken = async (
     const config: ExtendedRequestConfig = {
       method,
       url: endpoint,
+      withCredentials: true // Always use credentials
     };
 
     if (body) {
