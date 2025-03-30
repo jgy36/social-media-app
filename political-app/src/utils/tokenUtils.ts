@@ -1,9 +1,12 @@
-// src/utils/tokenUtils.ts - Updated version
+// src/utils/tokenUtils.ts - Updated version with SSR support
 import { 
   setSessionItem, 
   getSessionItem, 
   removeSessionItem 
 } from './sessionUtils';
+
+// Check if code is running in browser environment
+const isBrowser = typeof window !== 'undefined';
 
 // Keys for token storage
 const TOKEN_KEY = 'token';
@@ -16,6 +19,8 @@ const PROFILE_IMAGE_KEY = 'profileImageUrl';
 
 // Store token in session-specific storage
 export const setToken = (token: string) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     setSessionItem(TOKEN_KEY, token);
   } catch (error) {
@@ -25,6 +30,8 @@ export const setToken = (token: string) => {
 
 // Get token from session-specific storage
 export const getToken = (): string | null => {
+  if (!isBrowser) return null; // Return null if not in browser
+  
   try {
     return getSessionItem(TOKEN_KEY);
   } catch (error) {
@@ -35,6 +42,8 @@ export const getToken = (): string | null => {
 
 // Remove token from session-specific storage
 export const removeToken = () => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     removeSessionItem(TOKEN_KEY);
   } catch (error) {
@@ -49,6 +58,8 @@ export const hasToken = (): boolean => {
 
 // Store user ID
 export const setUserId = (userId: string) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     setSessionItem(USER_ID_KEY, userId);
   } catch (error) {
@@ -58,6 +69,8 @@ export const setUserId = (userId: string) => {
 
 // Get user ID
 export const getUserId = (): string | null => {
+  if (!isBrowser) return null; // Return null if not in browser
+  
   try {
     return getSessionItem(USER_ID_KEY);
   } catch (error) {
@@ -68,6 +81,8 @@ export const getUserId = (): string | null => {
 
 // Store username
 export const setUsername = (username: string) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     setSessionItem(USERNAME_KEY, username);
   } catch (error) {
@@ -77,6 +92,8 @@ export const setUsername = (username: string) => {
 
 // Get username
 export const getUsername = (): string | null => {
+  if (!isBrowser) return null; // Return null if not in browser
+  
   try {
     return getSessionItem(USERNAME_KEY);
   } catch (error) {
@@ -87,6 +104,8 @@ export const getUsername = (): string | null => {
 
 // Store email
 export const setEmail = (email: string) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     setSessionItem(EMAIL_KEY, email);
   } catch (error) {
@@ -96,6 +115,8 @@ export const setEmail = (email: string) => {
 
 // Get email
 export const getEmail = (): string | null => {
+  if (!isBrowser) return null; // Return null if not in browser
+  
   try {
     return getSessionItem(EMAIL_KEY);
   } catch (error) {
@@ -106,6 +127,8 @@ export const getEmail = (): string | null => {
 
 // Store display name
 export const setDisplayName = (displayName: string) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     setSessionItem(DISPLAY_NAME_KEY, displayName);
   } catch (error) {
@@ -115,6 +138,8 @@ export const setDisplayName = (displayName: string) => {
 
 // Get display name
 export const getDisplayName = (): string | null => {
+  if (!isBrowser) return null; // Return null if not in browser
+  
   try {
     return getSessionItem(DISPLAY_NAME_KEY);
   } catch (error) {
@@ -125,6 +150,8 @@ export const getDisplayName = (): string | null => {
 
 // Store bio
 export const setBio = (bio: string) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     setSessionItem(BIO_KEY, bio);
   } catch (error) {
@@ -134,6 +161,8 @@ export const setBio = (bio: string) => {
 
 // Get bio
 export const getBio = (): string | null => {
+  if (!isBrowser) return null; // Return null if not in browser
+  
   try {
     return getSessionItem(BIO_KEY);
   } catch (error) {
@@ -144,6 +173,8 @@ export const getBio = (): string | null => {
 
 // Store profile image URL
 export const setProfileImageUrl = (profileImageUrl: string) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   try {
     setSessionItem(PROFILE_IMAGE_KEY, profileImageUrl);
   } catch (error) {
@@ -153,6 +184,8 @@ export const setProfileImageUrl = (profileImageUrl: string) => {
 
 // Get profile image URL
 export const getProfileImageUrl = (): string | null => {
+  if (!isBrowser) return null; // Return null if not in browser
+  
   try {
     return getSessionItem(PROFILE_IMAGE_KEY);
   } catch (error) {
@@ -170,6 +203,8 @@ export const setUserData = (userData: {
   bio?: string,
   profileImageUrl?: string
 }) => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   setUserId(String(userData.id));
   setUsername(userData.username);
   setEmail(userData.email);
@@ -189,6 +224,18 @@ export const setUserData = (userData: {
 
 // Get all user data at once
 export const getUserData = () => {
+  if (!isBrowser) {
+    // Return empty data if not in browser
+    return {
+      id: null,
+      username: null,
+      email: null,
+      displayName: null,
+      bio: null,
+      profileImageUrl: null
+    };
+  }
+  
   return {
     id: getUserId(),
     username: getUsername(),
@@ -201,6 +248,8 @@ export const getUserData = () => {
 
 // Clear all user data
 export const clearUserData = () => {
+  if (!isBrowser) return; // Skip if not in browser
+  
   removeSessionItem(USER_ID_KEY);
   removeSessionItem(USERNAME_KEY);
   removeSessionItem(EMAIL_KEY);

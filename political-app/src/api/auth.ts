@@ -1,4 +1,4 @@
-// src/api/auth.ts
+// src/api/auth.ts - Fixed version with consistent CORS handling
 import { apiClient, safeApiCall } from "./apiClient";
 import {
   LoginRequest,
@@ -18,7 +18,13 @@ export const login = async (
     const response = await apiClient.post<AuthResponse>(
       "/auth/login",
       credentials,
-      { withCredentials: true }  // Ensure cookies are sent/received
+      { 
+        withCredentials: true, // Ensure cookies are sent/received
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        }
+      }
     );
 
     // Store the token
@@ -64,7 +70,8 @@ export const register = async (
   return safeApiCall(async () => {
     const response = await apiClient.post<ApiResponse<AuthResponse>>(
       "/auth/register",
-      userData
+      userData,
+      { withCredentials: true }
     );
     return response.data;
   }, "Registration error");

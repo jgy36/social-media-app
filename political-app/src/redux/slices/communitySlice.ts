@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/redux/slices/communitySlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { 
@@ -7,9 +6,9 @@ import {
   removeSessionItem 
 } from '@/utils/sessionUtils';
 import { getUserId } from '@/utils/tokenUtils';
-// At the top of src/redux/slices/communitySlice.ts
-import { getCookie, setCookie } from "cookies-next";
-import { setUserData, getUserData } from "@/utils/sessionUtils";
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
 interface CommunityState {
   joinedCommunities: string[]; // Array of community IDs the user has joined
@@ -24,16 +23,24 @@ const SIDEBAR_STATE_KEY = 'communitySidebarOpen';
 
 // Load initial state from session storage
 const loadInitialState = (): CommunityState => {
+  // Default initial state for server-side rendering or in case of errors
+  const defaultState: CommunityState = {
+    joinedCommunities: [],
+    featuredCommunities: [],
+    isSidebarOpen: true
+  };
+
+  // Skip localStorage operations if not in browser
+  if (!isBrowser) {
+    return defaultState;
+  }
+
   try {
     const currentUserId = getUserId();
     
     // If no user ID, return default state
     if (!currentUserId) {
-      return {
-        joinedCommunities: [],
-        featuredCommunities: [],
-        isSidebarOpen: true
-      };
+      return defaultState;
     }
     
     // Try to get joined communities
@@ -75,12 +82,8 @@ const loadInitialState = (): CommunityState => {
     console.error('Error loading initial community state:', e);
   }
 
-  // Default initial state if nothing in storage
-  return {
-    joinedCommunities: [],
-    featuredCommunities: [],
-    isSidebarOpen: true
-  };
+  // Default initial state if nothing in storage or there was an error
+  return defaultState;
 };
 
 const initialState: CommunityState = loadInitialState();
@@ -96,8 +99,10 @@ const communitySlice = createSlice({
       // Update featured communities (top 5)
       state.featuredCommunities = action.payload.slice(0, 5);
       
-      // Save to session storage
-      setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(action.payload));
+      // Save to session storage (only in browser)
+      if (isBrowser) {
+        setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(action.payload));
+      }
     },
     
     // Add a single community to joined list
@@ -111,9 +116,11 @@ const communitySlice = createSlice({
           state.featuredCommunities.push(communityId);
         }
         
-        // Save to session storage
-        setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(state.joinedCommunities));
-        setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+        // Save to session storage (only in browser)
+        if (isBrowser) {
+          setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(state.joinedCommunities));
+          setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+        }
       }
     },
     
@@ -133,25 +140,31 @@ const communitySlice = createSlice({
         state.featuredCommunities = [...state.featuredCommunities, ...additionalFeatures];
       }
       
-      // Save to session storage
-      setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(state.joinedCommunities));
-      setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+      // Save to session storage (only in browser)
+      if (isBrowser) {
+        setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(state.joinedCommunities));
+        setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+      }
     },
     
     // Toggle sidebar state
     toggleSidebar: (state) => {
       state.isSidebarOpen = !state.isSidebarOpen;
       
-      // Save preference
-      setSessionItem(SIDEBAR_STATE_KEY, String(state.isSidebarOpen));
+      // Save preference (only in browser)
+      if (isBrowser) {
+        setSessionItem(SIDEBAR_STATE_KEY, String(state.isSidebarOpen));
+      }
     },
     
     // Set sidebar state explicitly
     setSidebarOpen: (state, action: PayloadAction<boolean>) => {
       state.isSidebarOpen = action.payload;
       
-      // Save preference
-      setSessionItem(SIDEBAR_STATE_KEY, String(action.payload));
+      // Save preference (only in browser)
+      if (isBrowser) {
+        setSessionItem(SIDEBAR_STATE_KEY, String(action.payload));
+      }
     },
     
     // Update the featured communities (top 5 for profile)
@@ -164,8 +177,10 @@ const communitySlice = createSlice({
       // Limit to 5
       state.featuredCommunities = validFeatured.slice(0, 5);
       
-      // Save to session storage
-      setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+      // Save to session storage (only in browser)
+      if (isBrowser) {
+        setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+      }
     },
     
     // Clear communities when logging out
@@ -173,9 +188,11 @@ const communitySlice = createSlice({
       state.joinedCommunities = [];
       state.featuredCommunities = [];
       
-      // Remove from session storage
-      removeSessionItem(JOINED_COMMUNITIES_KEY);
-      removeSessionItem(FEATURED_COMMUNITIES_KEY);
+      // Remove from session storage (only in browser)
+      if (isBrowser) {
+        removeSessionItem(JOINED_COMMUNITIES_KEY);
+        removeSessionItem(FEATURED_COMMUNITIES_KEY);
+      }
     }
   },
 });
