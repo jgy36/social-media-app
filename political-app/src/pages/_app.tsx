@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/pages/_app.tsx
 import { Provider } from "react-redux";
 import { SessionProvider } from "next-auth/react";
@@ -14,11 +15,12 @@ import AppRouterHandler from "@/components/AppRouterHandler";
 import { Toaster } from "@/components/ui/toaster";
 import { SWRConfig } from 'swr';
 import axios from 'axios';
+import { checkAuthStatus } from "@/api/auth";
 
 // Global fetcher function
 const fetcher = async (url: string) => {
   try {
-    const response = await axios.get(url);
+    const response = await axios.get(url, { withCredentials: true });
     return response.data;
   } catch (error) {
     console.error(`Error fetching ${url}:`, error);
@@ -31,11 +33,12 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(true);
-  const [authAttempted, setAuthAttempted] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [redirectInProgress, setRedirectInProgress] = useState(false);
   const token = useSelector((state: RootState) => state.user.token);
   
-  // Add an event listener for profile updates from the API
   useEffect(() => {
+    // Add an event listener for profile updates from the API
     const handleProfileUpdate = (event: Event) => {
       // Check if we're authenticated and have dispatch function
       if (token && dispatch) {
@@ -62,13 +65,15 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
     };
   }, [token, dispatch]);
 
-  // This will catch the custom event dispatched from refreshUserProfile in api.ts 
-  // and ensure the Redux store state is updated to match
-
   useEffect(() => {
+    // Set timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false);
+    }, 2000);
+
     // Skip auth check for public routes immediately
     const publicRoutes = ["/login", "/register", "/", "/community", "/map", "/politicians"];
-    const isPublicRoute = publicRoutes.includes(router.pathname);
+    const isPublicRoute = publicRoutes.some(route => router.pathname.startsWith(route));
     
     if (isPublicRoute) {
       console.log("Public route detected, skipping auth check:", router.pathname);
@@ -76,35 +81,41 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Function to check if user is logged in based on token existence
+    // Check if the user is already authenticated
+    if (token) {
+      console.log("User already authenticated, continuing");
+      setIsLoading(false);
+      return;
+    }
+
+    // Function to check if user is logged in with server
     const checkAuth = async () => {
       try {
         console.log("Checking auth status for path:", router.pathname);
         
-        // Only attempt to restore auth once
-        if (!authAttempted) {
-          const result = await dispatch(restoreAuthState()).unwrap();
-          setAuthAttempted(true);
-          
-          // If we didn't get a token but are on a protected route, redirect to login
-          if (!result.token && !isPublicRoute) {
-            console.log("No token found, redirecting to login");
-            router.push("/login");
-            return;
-          }
-          
-          console.log("Auth check complete, allowing access");
-          setIsLoading(false);
-        } else {
-          // Already attempted auth once, don't keep loading
-          setIsLoading(false);
+        // Check auth status with server
+        const isAuthenticated = await checkAuthStatus();
+        
+        if (!isAuthenticated && !isPublicRoute) {
+          console.log("Not authenticated, redirecting to login");
+          setRedirectInProgress(true);
+          router.push("/login");
+          return;
         }
+        
+        // If authenticated with server but not with Redux, restore state
+        if (isAuthenticated && !token) {
+          await dispatch(restoreAuthState()).unwrap();
+        }
+        
+        setIsLoading(false);
       } catch (error) {
         console.error("Error checking auth:", error);
         setIsLoading(false);
         
         // On error, redirect to login for protected routes
         if (!isPublicRoute) {
+          setRedirectInProgress(true);
           router.push("/login");
         }
       }
@@ -113,19 +124,8 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
     // Call checkAuth immediately 
     checkAuth();
 
-    // Add a safety timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      console.log("Force-ending loading state after timeout");
-      setIsLoading(false);
-      
-      // If still loading after timeout and on protected route, redirect to login
-      if (!authAttempted && !isPublicRoute) {
-        router.push("/login");
-      }
-    }, 3000); // 3 seconds max
-
     return () => clearTimeout(timeoutId);
-  }, [router, router.pathname, dispatch, authAttempted, token]);
+  }, [router, router.pathname, dispatch, token]);
 
   // Show loading state with a cancel button
   if (isLoading) {
@@ -142,6 +142,16 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
         >
           Cancel
         </button>
+      </div>
+    );
+  }
+
+  // If we're redirecting, show a loading indicator
+  if (redirectInProgress) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+        <p>Redirecting to login...</p>
       </div>
     );
   }

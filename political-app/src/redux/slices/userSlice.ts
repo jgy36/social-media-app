@@ -1,9 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/redux/slices/userSlice.ts - Complete file
-
+// src/redux/slices/userSlice.ts - Updated for cookie-based auth
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { getCookie, setCookie, deleteCookie } from "cookies-next";
 import api from "@/api"; // Import the default API object
+import { clearCommunities } from "./communitySlice";
 
 // Define the RootState type (to fix the RootState error)
 interface RootState {
@@ -36,60 +35,89 @@ const initialState: UserState = {
   error: null,
 };
 
-// Restore auth state from local storage/cookies
+// Restore auth state from client-side storage
 export const restoreAuthState = createAsyncThunk(
   "user/restoreAuthState",
   async (_, { rejectWithValue }) => {
     try {
-      // First try to get data from localStorage (for better persistence)
-      let token: string | null = null;
-      let username: string | null = null;
-      let userId: string | null = null;
-      let email: string | null = null;
-      let displayName: string | null = null;
-      let bio: string | null = null;
-      let profileImageUrl: string | null = null;
-
-      // Try localStorage first (better persistence)
-      if (typeof window !== "undefined") {
-        token = localStorage.getItem("token");
-        username = localStorage.getItem("username");
-        email = localStorage.getItem("email");
-        displayName = localStorage.getItem("displayName");
-        bio = localStorage.getItem("bio");
-        profileImageUrl = localStorage.getItem("profileImageUrl");
-        const storedId = localStorage.getItem("userId");
-        userId = storedId ? String(parseInt(storedId)) : null;
-      }
-
-      // If not in localStorage, try cookies
-      if (!token && typeof getCookie === "function") {
-        try {
-          token = (getCookie("token") as string) || null;
-          username = (getCookie("username") as string) || null;
-          email = (getCookie("email") as string) || null;
-          displayName = (getCookie("displayName") as string) || null;
-          bio = (getCookie("bio") as string) || null;
-          profileImageUrl = (getCookie("profileImageUrl") as string) || null;
-          const cookieId = getCookie("userId");
-          userId = cookieId ? String(Number(cookieId)) : null;
-        } catch (cookieError) {
-          console.error("Error reading cookies:", cookieError);
+      // Import auth module dynamically to avoid circular dependencies
+      const auth = await import("@/api/auth");
+      
+      // Check with the server if we have a valid session
+      const isAuthenticated = await auth.checkAndRestoreSession();
+      
+      if (isAuthenticated) {
+        // Get minimal user info from session storage
+        const userInfo = auth.getCurrentUserInfo();
+        
+        // Fetch the full profile if we have a user ID
+        if (userInfo.userId) {
+          try {
+            // If we have a username, fetch the full profile
+            if (userInfo.username) {
+              const userProfile = await api.users.getUserProfile(userInfo.username);
+              
+              return {
+                id: parseInt(userInfo.userId),
+                username: userInfo.username,
+                token: "authenticated-via-cookie", // Placeholder - real token is in HTTP-only cookie
+                email: userProfile?.email || null,
+                displayName: userProfile?.displayName || null,
+                bio: userProfile?.bio || null,
+                profileImageUrl: userProfile?.profileImageUrl || null
+              };
+            }
+            
+            // If we have user ID but no username, return basic info
+            return {
+              id: parseInt(userInfo.userId),
+              username: userInfo.username,
+              token: "authenticated-via-cookie",
+              email: userInfo.email,
+              displayName: userInfo.displayName,
+              bio: userInfo.bio,
+              profileImageUrl: userInfo.profileImageUrl
+            };
+          } catch (profileError) {
+            console.error("Error fetching full profile:", profileError);
+            
+            // Return basic info if we couldn't get the full profile
+            return {
+              id: parseInt(userInfo.userId),
+              username: userInfo.username,
+              token: "authenticated-via-cookie",
+              email: userInfo.email,
+              displayName: userInfo.displayName,
+              bio: userInfo.bio,
+              profileImageUrl: userInfo.profileImageUrl
+            };
+          }
         }
+        
+        // If we're authenticated but don't have user info, return placeholder state
+        return {
+          id: null,
+          username: userInfo.username || null,
+          token: "authenticated-via-cookie",
+          email: null,
+          displayName: null,
+          bio: null,
+          profileImageUrl: null
+        };
       }
-
-      // Return the auth data with proper types
+      
+      // If not authenticated, return null values
       return {
-        id: userId,
-        token,
-        username: username || null,
-        email: email || null,
-        displayName: displayName || null,
-        bio: bio || null,
-        profileImageUrl: profileImageUrl || null,
+        id: null,
+        token: null,
+        username: null,
+        email: null,
+        displayName: null,
+        bio: null,
+        profileImageUrl: null
       };
     } catch (error) {
-      console.error("Uncaught error in restoreAuthState:", error);
+      console.error("Error restoring auth state:", error);
       return rejectWithValue("Failed to restore authentication state");
     }
   }
@@ -109,55 +137,19 @@ export const loginUser = createAsyncThunk<
   { email: string; password: string }
 >("user/login", async ({ email, password }, { rejectWithValue }) => {
   try {
-    // Use the new API structure
+    // Use the auth module to login
     const response = await api.auth.login({ email, password });
 
     // Ensure we have proper response
-    if (!response.token || !response.user) {
+    if (!response.user) {
       throw new Error("Invalid response from server");
-    }
-
-    // Persist data immediately after successful login
-    if (typeof window !== "undefined") {
-      localStorage.setItem("token", response.token);
-      localStorage.setItem("username", response.user.username || "User");
-      localStorage.setItem("userId", String(response.user.id));
-      localStorage.setItem("email", email); // Store the email too
-      
-      // Store additional profile fields if available
-      if (response.user.displayName) {
-        localStorage.setItem("displayName", response.user.displayName);
-      }
-      if (response.user.bio) {
-        localStorage.setItem("bio", response.user.bio);
-      }
-      if (response.user.profileImageUrl) {
-        localStorage.setItem("profileImageUrl", response.user.profileImageUrl);
-      }
-
-      // Also set cookies as fallback
-      setCookie("token", response.token, { path: "/" });
-      setCookie("username", response.user.username || "User", { path: "/" });
-      setCookie("userId", String(response.user.id), { path: "/" });
-      setCookie("email", email, { path: "/" });
-      
-      // Set additional profile fields in cookies too
-      if (response.user.displayName) {
-        setCookie("displayName", response.user.displayName, { path: "/" });
-      }
-      if (response.user.bio) {
-        setCookie("bio", response.user.bio, { path: "/" });
-      }
-      if (response.user.profileImageUrl) {
-        setCookie("profileImageUrl", response.user.profileImageUrl, { path: "/" });
-      }
     }
 
     return {
       id: response.user?.id || null,
       username: response.user?.username || null,
-      email: email || null,
-      token: response.token || null,
+      email: response.user?.email || email || null,
+      token: response.token || "authenticated-via-cookie", // Token is now in HTTP-only cookie
       displayName: response.user?.displayName || null,
       bio: response.user?.bio || null,
       profileImageUrl: response.user?.profileImageUrl || null,
@@ -180,7 +172,7 @@ export const registerUser = createAsyncThunk(
     { rejectWithValue }
   ) => {
     try {
-      // Use the new API structure
+      // Use the API structure for registration
       const response = await api.auth.register({
         username,
         email,
@@ -218,79 +210,59 @@ export const updateUserProfile = createAsyncThunk<
 >("user/updateProfile", async (profileData, { getState, rejectWithValue }) => {
   try {
     const state = getState() as RootState;
+    // Check if we're authenticated
     if (!state.user.token) {
       throw new Error("Not authenticated");
     }
 
     if (!profileData) {
-      // If no data provided, just get the latest profile
-      const userData = await api.users.getCurrentUser();
-
-      if (!userData) {
-        throw new Error("Failed to refresh user profile");
-      }
-
-      // Update localStorage and cookies with newest data
-      if (typeof window !== "undefined") {
-        localStorage.setItem("username", userData.username || "User");
-        setCookie("username", userData.username || "User", { path: "/" });
+      // If no data provided, just get the latest profile from the server
+      try {
+        // Import dynamically to avoid circular dependencies
+        const authModule = await import('@/api/auth');
+        const isAuthenticated = await authModule.checkAuthStatus();
         
-        // Store additional fields if available
-        if (userData.displayName) {
-          localStorage.setItem("displayName", userData.displayName);
-          setCookie("displayName", userData.displayName, { path: "/" });
+        if (!isAuthenticated) {
+          throw new Error("Not authenticated");
         }
-        if (userData.bio) {
-          localStorage.setItem("bio", userData.bio);
-          setCookie("bio", userData.bio, { path: "/" });
+        
+        const userInfo = authModule.getCurrentUserInfo();
+        
+        if (!userInfo.username) {
+          throw new Error("Username not found");
         }
-        if (userData.profileImageUrl) {
-          localStorage.setItem("profileImageUrl", userData.profileImageUrl);
-          setCookie("profileImageUrl", userData.profileImageUrl, { path: "/" });
-        }
-      }
+        
+        const userData = await api.users.getUserProfile(userInfo.username);
 
-      return {
-        id: userData.id || null,
-        username: userData.username || null,
-        token: state.user.token,
-        displayName: userData.displayName || null,
-        bio: userData.bio || null,
-        profileImageUrl: userData.profileImageUrl || null,
-      };
+        if (!userData) {
+          throw new Error("Failed to refresh user profile");
+        }
+
+        return {
+          id: userData.id || null,
+          username: userData.username || null,
+          token: state.user.token,
+          displayName: userData.displayName || null,
+          bio: userData.bio || null,
+          profileImageUrl: userData.profileImageUrl || null,
+        };
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        throw error;
+      }
     } else {
       // If profile data is provided, update with new values
-      // In a real app, you would send this data to the server
-      // For now, we'll just update local storage and return the new state
+      // In a real implementation, you would send this to your backend API
       
+      // For now, we'll just update our local state with the new values
+      // and assume the actual profile update was successful
       const updatedUsername = profileData.username || state.user.username;
       const updatedDisplayName = profileData.displayName || state.user.displayName;
       const updatedBio = profileData.bio !== undefined ? profileData.bio : state.user.bio;
       const updatedProfileImageUrl = profileData.profileImageUrl || state.user.profileImageUrl;
       
-      // Update localStorage and cookies
-      if (typeof window !== "undefined") {
-        if (updatedUsername) {
-          localStorage.setItem("username", updatedUsername);
-          setCookie("username", updatedUsername, { path: "/" });
-        }
-        
-        if (updatedDisplayName) {
-          localStorage.setItem("displayName", updatedDisplayName);
-          setCookie("displayName", updatedDisplayName, { path: "/" });
-        }
-        
-        if (updatedBio) {
-          localStorage.setItem("bio", updatedBio);
-          setCookie("bio", updatedBio, { path: "/" });
-        }
-        
-        if (updatedProfileImageUrl) {
-          localStorage.setItem("profileImageUrl", updatedProfileImageUrl);
-          setCookie("profileImageUrl", updatedProfileImageUrl, { path: "/" });
-        }
-      }
-      
+      // In a real implementation, you would make an API call here to update the profile
+
       // Return updated user data
       return {
         id: state.user.id,
@@ -307,97 +279,70 @@ export const updateUserProfile = createAsyncThunk<
   }
 });
 
-// Persist auth data helper function - updated to handle new fields
-const persistAuthData = (
-  id: number | null,
-  token: string | null,
-  username: string | null,
-  email: string | null,
-  displayName: string | null,
-  bio: string | null,
-  profileImageUrl: string | null
-) => {
-  if (typeof window !== "undefined") {
+// Check initial auth state on app load
+export const checkInitialAuth = createAsyncThunk(
+  "user/checkInitialAuth",
+  async () => {
     try {
-      if (token && username && id !== null) {
-        // Persist to localStorage (better for persistence)
-        localStorage.setItem("token", token);
-        localStorage.setItem("username", username);
-        localStorage.setItem("userId", String(id));
-        if (email) {
-          localStorage.setItem("email", email);
-        }
-        if (displayName) {
-          localStorage.setItem("displayName", displayName);
-        }
-        if (bio) {
-          localStorage.setItem("bio", bio);
-        }
-        if (profileImageUrl) {
-          localStorage.setItem("profileImageUrl", profileImageUrl);
-        }
-
-        // Also set cookies as fallback
-        setCookie("token", token, { path: "/" });
-        setCookie("username", username, { path: "/" });
-        setCookie("userId", String(id), { path: "/" });
-        if (email) {
-          setCookie("email", email, { path: "/" });
-        }
-        if (displayName) {
-          setCookie("displayName", displayName, { path: "/" });
-        }
-        if (bio) {
-          setCookie("bio", bio, { path: "/" });
-        }
-        if (profileImageUrl) {
-          setCookie("profileImageUrl", profileImageUrl, { path: "/" });
-        }
-      } else {
-        // Clear data
-        localStorage.removeItem("token");
-        localStorage.removeItem("username");
-        localStorage.removeItem("userId");
-        localStorage.removeItem("email");
-        localStorage.removeItem("displayName");
-        localStorage.removeItem("bio");
-        localStorage.removeItem("profileImageUrl");
+      // Import dynamically to avoid circular dependencies
+      const auth = await import('@/api/auth');
+      const isAuthenticated = await auth.checkAuthStatus();
+      
+      if (isAuthenticated) {
+        // Get current user info from session storage
+        const userInfo = auth.getCurrentUserInfo();
         
-        deleteCookie("token");
-        deleteCookie("username");
-        deleteCookie("userId");
-        deleteCookie("email");
-        deleteCookie("displayName");
-        deleteCookie("bio");
-        deleteCookie("profileImageUrl");
+        // If we have user info, return it
+        if (userInfo.username && userInfo.userId) {
+          return {
+            isAuthenticated: true,
+            id: parseInt(userInfo.userId),
+            username: userInfo.username,
+            // Auth token is in an HTTP-only cookie
+            token: "authenticated-via-cookie"
+          };
+        }
+        
+        // Otherwise just return authenticated status
+        return { isAuthenticated: true };
       }
+      
+      return { isAuthenticated: false };
     } catch (error) {
-      console.error("Error persisting auth data:", error);
+      console.error("Auth check error:", error);
+      return { isAuthenticated: false };
     }
   }
-};
+);
+
+// Logout async thunk
+export const logoutUser = createAsyncThunk(
+  "user/logout",
+  async (_, { dispatch }) => {
+    try {
+      // Import auth dynamically to avoid circular dependencies
+      const auth = await import('@/api/auth');
+      await auth.logout();
+      
+      // Clear communities
+      dispatch(clearCommunities());
+      
+      return true;
+    } catch (error) {
+      console.error("Logout error:", error);
+      return false;
+    }
+  }
+);
 
 // Create slice
 const userSlice = createSlice({
   name: "user",
   initialState,
   reducers: {
-    logoutUser: (state) => {
-      state.id = null;
-      state.token = null;
-      state.username = null;
-      state.email = null;
-      state.displayName = null;
-      state.bio = null;
-      state.profileImageUrl = null;
-      state.loading = false;
-      state.error = null;
-
-      // Clear persisted data
-      persistAuthData(null, null, null, null, null, null, null);
-    },
+    // We keep this empty because we're using thunks for all actions
+    // The logout logic is handled by the logoutUser thunk
   },
-
   extraReducers: (builder) => {
     // Login states
     builder.addCase(loginUser.pending, (state) => {
@@ -429,13 +374,24 @@ const userSlice = createSlice({
     });
 
     builder.addCase(restoreAuthState.fulfilled, (state, action) => {
-      state.id = action.payload.id ? parseInt(action.payload.id, 10) : null;
-      state.token = action.payload.token;
-      state.username = action.payload.username;
-      state.email = action.payload.email;
-      state.displayName = action.payload.displayName;
-      state.bio = action.payload.bio;
-      state.profileImageUrl = action.payload.profileImageUrl;
+      if (action.payload.token) {
+        state.id = action.payload.id;
+        state.token = action.payload.token;
+        state.username = action.payload.username;
+        state.email = action.payload.email;
+        state.displayName = action.payload.displayName;
+        state.bio = action.payload.bio;
+        state.profileImageUrl = action.payload.profileImageUrl;
+      } else {
+        // Clear state if no token
+        state.id = null;
+        state.token = null;
+        state.username = null;
+        state.email = null;
+        state.displayName = null;
+        state.bio = null;
+        state.profileImageUrl = null;
+      }
       state.loading = false;
       state.error = null;
     });
@@ -477,8 +433,65 @@ const userSlice = createSlice({
       state.loading = false;
       state.error = (action.payload as string) || "Failed to update profile";
     });
+    
+    // Handle checkInitialAuth
+    builder.addCase(checkInitialAuth.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    
+    builder.addCase(checkInitialAuth.fulfilled, (state, action) => {
+      state.loading = false;
+      
+      if (action.payload.isAuthenticated) {
+        // If we have more user data, use it
+        if (action.payload.id) {
+          state.id = action.payload.id;
+        }
+        
+        if (action.payload.username) {
+          state.username = action.payload.username;
+        }
+        
+        // Set token to a placeholder - actual token is in HTTP-only cookie
+        state.token = "authenticated-via-cookie";
+      } else {
+        // Reset state if not authenticated
+        state.id = null;
+        state.token = null;
+        state.username = null;
+        state.email = null;
+        state.displayName = null;
+        state.bio = null;
+        state.profileImageUrl = null;
+      }
+    });
+    
+    builder.addCase(checkInitialAuth.rejected, (state) => {
+      state.loading = false;
+      state.id = null;
+      state.token = null;
+      state.username = null;
+      state.email = null;
+      state.displayName = null;
+      state.bio = null;
+      state.profileImageUrl = null;
+    });
+    
+    // Handle logoutUser
+    builder.addCase(logoutUser.fulfilled, (state) => {
+      // Reset state to initial values
+      state.id = null;
+      state.token = null;
+      state.username = null;
+      state.email = null;
+      state.displayName = null;
+      state.bio = null;
+      state.profileImageUrl = null;
+      state.loading = false;
+      state.error = null;
+    });
   },
 });
 
-export const { logoutUser } = userSlice.actions;
 export default userSlice.reducer;

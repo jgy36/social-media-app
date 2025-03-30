@@ -80,7 +80,22 @@ export const getNavigationState = (): NavigationState => {
  */
 export const getLastPath = (section: string): string => {
   const state = getNavigationState();
-  return state[section] || `/${section}`;
+  const path = state[section] || `/${section}`;
+
+  // For profile section, always ensure it's the bare "/profile" route for safety
+  // unless the current path includes the current user's username
+  if (section === "profile") {
+    const currentUsername = localStorage.getItem("username");
+    // If the path contains a username that isn't the current user, reset to /profile
+    if (
+      path.match(/\/profile\/([^/]+)/) &&
+      !path.includes(`/profile/${currentUsername}`)
+    ) {
+      return "/profile";
+    }
+  }
+
+  return path;
 };
 
 /**
