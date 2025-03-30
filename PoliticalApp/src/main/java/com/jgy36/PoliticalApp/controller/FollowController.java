@@ -10,7 +10,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/follow")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:3000") // FIX: Use specific origin
 public class FollowController {
 
     private final FollowService followService;
