@@ -40,10 +40,12 @@ const UserProfilePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("posts");
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
   
   // Get current user from Redux store
   const currentUser = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!currentUser.token;
+  
   // Check if this is the current user's profile
   const isCurrentUserProfile = profile?.username === currentUser.username;
 
@@ -58,14 +60,23 @@ const UserProfilePage = () => {
 
   useEffect(() => {
     const fetchProfileData = async () => {
-      if (!username || typeof username !== "string") return;
+      if (!username || typeof username !== "string" || !router.isReady) return;
       
       setIsLoading(true);
       setError(null);
       
       try {
-        // Fetch user profile
-        const profileResponse = await axios.get<UserProfile>(`${API_BASE_URL}/users/profile/${username}`);
+        // Fetch user profile - always get fresh data, no caching
+        const profileResponse = await axios.get<UserProfile>(
+          `${API_BASE_URL}/users/profile/${username}`,
+          {
+            headers: { 
+              // Add cache-busting query parameter
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          }
+        );
         
         let userProfile = profileResponse.data;
         
@@ -90,6 +101,7 @@ const UserProfilePage = () => {
         }
         
         setProfile(userProfile);
+        setLastFetchTime(Date.now());
         
         // Fetch user posts
         try {
@@ -109,7 +121,7 @@ const UserProfilePage = () => {
     };
 
     fetchProfileData();
-  }, [username, currentUser.token]);
+  }, [username, router.isReady, currentUser.token]);
 
   // Handle follow/unfollow profile update
   const handleFollowChange = (isFollowing: boolean, followerCount: number, followingCount: number) => {
@@ -142,6 +154,42 @@ const UserProfilePage = () => {
     }
     router.push(`/profile/${username}`);
   };
+  
+  // Force refresh profile data if viewed for more than 30 seconds
+  useEffect(() => {
+    const now = Date.now();
+    const thirtySecondsMs = 30 * 1000;
+    
+    // If it's been more than 30 seconds since last fetch, refresh
+    if (!isLoading && profile && now - lastFetchTime > thirtySecondsMs) {
+      const refreshProfile = async () => {
+        try {
+          // Only refresh if this isn't the current user's profile
+          if (!isCurrentUserProfile && typeof username === 'string') {
+            // Create a new fetch timestamp
+            console.log("Refreshing profile data after 30 seconds");
+            
+            const profileResponse = await axios.get<UserProfile>(
+              `${API_BASE_URL}/users/profile/${username}?t=${Date.now()}`, // Add timestamp to prevent caching
+              {
+                headers: { 
+                  'Cache-Control': 'no-cache',
+                  'Pragma': 'no-cache'
+                }
+              }
+            );
+            
+            setProfile(profileResponse.data);
+            setLastFetchTime(Date.now());
+          }
+        } catch (error) {
+          console.error("Error refreshing profile:", error);
+        }
+      };
+      
+      refreshProfile();
+    }
+  }, [isLoading, profile, lastFetchTime, isCurrentUserProfile, username]);
 
   // Loading state
   if (isLoading) {

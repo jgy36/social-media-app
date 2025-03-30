@@ -66,7 +66,7 @@ const processQueue = (error: Error | null, token: string | null = null) => {
 export const createApiClient = (options: ApiClientOptions = {}) => {
   const defaultOptions: ApiClientOptions = {
     baseURL: API_BASE_URL,
-    withCredentials: false,
+    withCredentials: true, // UPDATED: Always use credentials for cookies
     autoRefreshToken: true,
     retry: false,
     retryDelay: 1000,
@@ -79,7 +79,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   const instance = axios.create({
     baseURL: config.baseURL,
     timeout: config.timeout,
-    withCredentials: config.withCredentials,
+    withCredentials: config.withCredentials, // Allows cookies to be sent/received
   });
 
   // Request interceptor - add auth token
@@ -90,6 +90,12 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
         config.headers = config.headers || {};
         config.headers["Authorization"] = `Bearer ${token}`;
       }
+      
+      // Add a unique request identifier to prevent cache issues
+      config.headers = config.headers || {};
+      config.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      config.headers['Pragma'] = 'no-cache';
+      
       return config;
     },
     (error) => Promise.reject(error)
@@ -142,7 +148,10 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
             const refreshResponse = await axios.post<TokenRefreshResponse>(
               `${API_BASE_URL}/auth/refresh`,
               {},
-              { headers: { Authorization: `Bearer ${token}` } }
+              { 
+                headers: { Authorization: `Bearer ${token}` },
+                withCredentials: true // Important for cookies
+              }
             );
 
             const newToken = refreshResponse.data.token;

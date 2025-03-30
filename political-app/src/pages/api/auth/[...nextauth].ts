@@ -1,3 +1,4 @@
+// handles Google OAuth integration and calls /api/auth/google-login to create a user or log them in
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
