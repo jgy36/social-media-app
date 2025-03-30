@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/communities")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "http://localhost:3000") // FIX: Use specific origin
 public class CommunityController {
 
     private final CommunityService communityService;

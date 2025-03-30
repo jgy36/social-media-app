@@ -23,7 +23,13 @@ public class CorsFilter implements Filter {
         response.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
         response.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS, DELETE, PUT");
         response.setHeader("Access-Control-Max-Age", "3600");
-        response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers");
+
+        // Add all required headers including cache-control, pragma
+        response.setHeader("Access-Control-Allow-Headers",
+                "Authorization, Content-Type, Accept, X-Requested-With, Origin, " +
+                        "Access-Control-Request-Method, Access-Control-Request-Headers, " +
+                        "Cache-Control, Pragma, Expires");
+
         response.setHeader("Access-Control-Allow-Credentials", "true");
 
         // Handle preflight OPTIONS requests

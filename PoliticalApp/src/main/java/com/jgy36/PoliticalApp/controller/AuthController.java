@@ -29,7 +29,16 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*", allowCredentials = "true")
+@CrossOrigin(
+        origins = "http://localhost:3000",
+        allowCredentials = "true",
+        allowedHeaders = {
+                "Authorization", "Content-Type", "Accept", "X-Requested-With",
+                "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers",
+                "Cache-Control", "Pragma", "Expires"
+        },
+        exposedHeaders = {"Authorization"}
+)
 public class AuthController {
 
     private final UserService userService;
@@ -88,6 +97,9 @@ public class AuthController {
         sessionCookie.setPath("/");
         sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
         response.addCookie(sessionCookie);
+
+        // Also set the token as Authorization header for API clients
+        response.setHeader("Authorization", "Bearer " + token);
 
         // ✅ Return user info only (token is in cookie)
         Map<String, Object> userResponse = new HashMap<>();
@@ -256,6 +268,9 @@ public class AuthController {
             sessionCookie.setPath("/");
             sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
             response.addCookie(sessionCookie);
+
+            // Also set the new token as Authorization header for API clients
+            response.setHeader("Authorization", "Bearer " + newToken);
 
             // Return both token & user info
             Map<String, Object> userResponse = new HashMap<>();

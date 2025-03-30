@@ -18,7 +18,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-@CrossOrigin(origins = "*") // ✅ Enable CORS for frontend
+@CrossOrigin(origins = "http://localhost:3000") // FIX: Use specific origin
 @RestController
 @RequestMapping("/api/posts")
 public class PostController {
@@ -217,5 +217,3 @@ public class PostController {
         }
     }
 }
-
-
