@@ -32,4 +32,12 @@ public class NotificationController {
         notificationService.markAsRead(notificationId);
         return ResponseEntity.ok("Notification marked as read.");
     }
+
+    // ✅ Mark All Notifications as Read
+    @PutMapping("/read-all")
+    @PreAuthorize("hasAuthority('ROLE_USER') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<String> markAllAsRead() {
+        notificationService.markAllAsRead();
+        return ResponseEntity.ok("All notifications marked as read.");
+    }
 }
