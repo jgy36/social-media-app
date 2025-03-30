@@ -1,11 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+// src/components/profile/ProfileHeader.tsx
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useRouter } from "next/router";
 import SettingsDropdown from "./SettingsDropdown";
 import UserStats from "./UserStats";
-import { getFollowStatus } from "@/api/users"; // Update import
+import { getFollowStatus } from "@/api/users";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "lucide-react";
 
@@ -28,7 +29,7 @@ const ProfileHeader = () => {
     if (user?.id && token) {
       setLoading(true);
       setError(null);
-      
+
       const fetchStats = async () => {
         try {
           if (typeof user.id === "number") {
@@ -46,17 +47,20 @@ const ProfileHeader = () => {
           setLoading(false);
         }
       };
-      
+
       fetchStats();
     }
   }, [user?.id, token]);
 
   // Handle stats changes (for example, when a user is followed/unfollowed in modals)
-  const handleStatsChange = (newFollowersCount: number, newFollowingCount: number) => {
-    setStats(prevStats => ({
+  const handleStatsChange = (
+    newFollowersCount: number,
+    newFollowingCount: number
+  ) => {
+    setStats((prevStats) => ({
       ...prevStats,
       followersCount: newFollowersCount,
-      followingCount: newFollowingCount
+      followingCount: newFollowingCount,
     }));
   };
 
@@ -65,21 +69,29 @@ const ProfileHeader = () => {
       {/* Avatar */}
       <div className="flex-shrink-0">
         <Avatar className="h-24 w-24 border-2 border-primary/20">
-          <AvatarImage 
-            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`} 
-            alt={user.username || "User"} 
+          <AvatarImage
+            src={
+              user.profileImageUrl
+                ? user.profileImageUrl
+                : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
+            }
+            alt={user.username || "User"}
           />
           <AvatarFallback>
             {user.username ? user.username.charAt(0).toUpperCase() : "U"}
           </AvatarFallback>
         </Avatar>
       </div>
-      
+
       {/* User Info */}
       <div className="flex-1 text-center md:text-left">
-        <h2 className="text-2xl font-bold">{user.username || "Guest"}</h2>
+        <h2 className="text-2xl font-bold">{user.displayName || "Guest"}</h2>
         <p className="text-muted-foreground">@{user.username || "unknown"}</p>
-        
+
+        { user.bio && (
+          <p className="mt-2">{user.bio}</p>
+        )}
+
         {/* User Stats - Now with clickable followers/following */}
         {user.id && (
           <UserStats
@@ -91,14 +103,14 @@ const ProfileHeader = () => {
             onFollowChange={handleStatsChange}
           />
         )}
-        
+
         {/* Join date could go here if available */}
         <div className="flex items-center mt-2 justify-center md:justify-start">
           <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
           <span>Joined {new Date().toLocaleDateString()}</span>
         </div>
       </div>
-      
+
       {/* Settings */}
       <div className="flex items-center gap-2">
         <SettingsDropdown />

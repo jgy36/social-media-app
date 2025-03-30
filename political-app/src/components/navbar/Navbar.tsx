@@ -14,6 +14,8 @@ import {
   LogIn,
   MapPin
 } from 'lucide-react';
+import NotificationIcon from './NotificationIcon';
+import MessageIcon from './MessageIcon';
 
 const Navbar = () => {
   const { handleSectionClick, currentSection } = useSectionNavigation();
@@ -84,24 +86,33 @@ const Navbar = () => {
             <SearchComponent />
           </div>
           
-          {/* Profile or Login */}
-          {isAuthenticated ? (
-            <Button
-              variant={isActive('profile') ? 'default' : 'ghost'}
-              onClick={() => handleSectionClick('profile')}
-              className="flex items-center gap-1.5"
-            >
-              <User className="h-4 w-4" />
-              <span className="hidden md:inline">Profile</span>
-            </Button>
-          ) : (
-            <Link href="/login">
-              <Button variant="ghost" className="flex items-center gap-1.5">
-                <LogIn className="h-4 w-4" />
-                <span className="hidden md:inline">Login</span>
+          <div className="flex items-center space-x-4">
+            {isAuthenticated && (
+              <>
+                <NotificationIcon />
+                <MessageIcon />
+              </>
+            )}
+
+            {/* Profile or Login */}
+            {isAuthenticated ? (
+              <Button
+                variant={isActive('profile') ? 'default' : 'ghost'}
+                onClick={() => handleSectionClick('profile')}
+                className="flex items-center gap-1.5"
+              >
+                <User className="h-4 w-4" />
+                <span className="hidden md:inline">Profile</span>
               </Button>
-            </Link>
-          )}
+            ) : (
+              <Link href="/login">
+                <Button variant="ghost" className="flex items-center gap-1.5">
+                  <LogIn className="h-4 w-4" />
+                  <span className="hidden md:inline">Login</span>
+                </Button>
+              </Link>
+            )}
+          </div>
           
           {/* Settings (if authenticated) */}
           {isAuthenticated && (
