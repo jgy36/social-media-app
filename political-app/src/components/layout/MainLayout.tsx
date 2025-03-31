@@ -6,6 +6,7 @@ import { useNavigationStateTracker } from "@/utils/navigationStateManager";
 import { useRouter } from 'next/router';
 import Navbar from "@/components/navbar/Navbar";
 import CommunitySidebar from "@/components/community/CommunitySidebar";
+import { useRestoreCommunities } from "@/hooks/useRestoreCommunities";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -22,6 +23,9 @@ const MainLayout = ({ children, section }: MainLayoutProps) => {
     (state: RootState) => state.communities.joinedCommunities
   );
   const user = useSelector((state: RootState) => state.user);
+
+  // Use the community restoration hook to ensure communities are loaded
+  useRestoreCommunities();
 
   // Auto-detect current section if not explicitly provided
   const currentPath = router.asPath;

@@ -228,3 +228,34 @@ export const checkAndRestoreSession = async (): Promise<boolean> => {
     return false;
   }
 };
+
+export const loginWithCommunities = async (
+  credentials: LoginRequest
+): Promise<AuthResponse> => {
+  try {
+    // First perform the normal login
+    const loginResponse = await login(credentials);
+    
+    // If login successful, now restore communities
+    if (loginResponse && loginResponse.token) {
+      try {
+        // Import redux store and thunks
+        const { store } = await import('@/redux/store');
+        const { fetchAndRestoreUserCommunities } = await import('@/redux/slices/communitySlice');
+        
+        // Dispatch the thunk to restore communities
+        store.dispatch(fetchAndRestoreUserCommunities());
+        
+        console.log('Communities restoration initiated');
+      } catch (communitiesError) {
+        console.error('Error restoring communities after login:', communitiesError);
+        // We still want to continue even if community restoration fails
+      }
+    }
+    
+    return loginResponse;
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+};

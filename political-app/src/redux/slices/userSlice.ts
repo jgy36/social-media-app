@@ -103,7 +103,7 @@ export const loginUser = createAsyncThunk<
     isAuthenticated: boolean;
   },
   { email: string; password: string }
->("user/login", async ({ email, password }, { rejectWithValue }) => {
+>("user/login", async ({ email, password }, { dispatch, rejectWithValue }) => {
   try {
     // Use the auth module to login
     const response = await api.auth.login({ email, password });
@@ -115,6 +115,18 @@ export const loginUser = createAsyncThunk<
 
     // Mark as authenticated
     setAuthenticated(true);
+
+    // After successful login, restore user's communities
+    try {
+      // Import the community thunk dynamically
+      const { fetchAndRestoreUserCommunities } = await import('./communitySlice');
+      
+      // Dispatch the thunk to restore communities
+      dispatch(fetchAndRestoreUserCommunities());
+    } catch (communitiesError) {
+      console.error('Failed to restore communities after login:', communitiesError);
+      // Continue with login even if community restoration fails
+    }
 
     return {
       id: response.user?.id || null,
@@ -198,7 +210,7 @@ export const updateUserProfile = createAsyncThunk<
           throw new Error("Failed to refresh user profile");
         }
         
-        // Also update localStorage with the new data for cross-tab consistency
+        // Update localStorage with the new data for cross-tab consistency
         if (userData.id) {
           setUserData({
             id: userData.id,
@@ -209,6 +221,15 @@ export const updateUserProfile = createAsyncThunk<
             bio: userData.bio || undefined,
             profileImageUrl: userData.profileImageUrl || undefined
           });
+          
+          // Explicitly notify components of profile image update
+          if (userData.profileImageUrl) {
+            window.dispatchEvent(
+              new CustomEvent('profileImageUpdated', {
+                detail: userData.profileImageUrl
+              })
+            );
+          }
         }
 
         return {
@@ -225,47 +246,48 @@ export const updateUserProfile = createAsyncThunk<
         throw error;
       }
     } else {
-      // If profile data is provided, update it on the server
-      try {
-        // Make an API call to update the profile
-        const response = await api.users.updateProfile({
-          displayName: profileData.displayName,
-          bio: profileData.bio,
-          profileImage: profileData.profileImageUrl ? new File([profileData.profileImageUrl], 'profile.jpg') : undefined,
+      // If profile data is provided, create updated state
+      console.log("Updating user profile with:", profileData);
+      
+      // Update localStorage with the new values
+      if (state.user.id) {
+        const userId = state.user.id.toString();
+        const userData = getUserData();
+        
+        // Store profile image without timestamp to keep it consistent
+        const profileImageUrl = profileData.profileImageUrl || userData.profileImageUrl;
+        
+        // Store data in both localStorage (for persistence) and sessionStorage (for current session)
+        setUserData({
+          id: state.user.id,
+          username: profileData.username || state.user.username || '',
+          email: userData.email || '',
+          // Fix type issues by passing undefined instead of null
+          displayName: profileData.displayName !== undefined ? profileData.displayName : undefined,
+          bio: profileData.bio !== undefined ? profileData.bio : undefined, 
+          profileImageUrl: profileImageUrl || undefined
         });
         
-        if (!response.success) {
-          throw new Error(response.message || "Failed to update profile");
+        // If profile image was updated, we should explicitly notify components
+        if (profileData.profileImageUrl) {
+          console.log("Dispatching profileImageUpdated event from Redux");
+          window.dispatchEvent(
+            new CustomEvent('profileImageUpdated', {
+              detail: profileData.profileImageUrl
+            })
+          );
         }
-        
-        // Update localStorage with the new values
-        if (state.user.id) {
-          const userData = getUserData();
-          
-          setUserData({
-            id: state.user.id,
-            username: profileData.username || state.user.username || '',
-            email: userData.email || '',
-            // Fix type issues by passing undefined instead of null
-            displayName: profileData.displayName !== undefined ? profileData.displayName : undefined,
-            bio: profileData.bio !== undefined ? profileData.bio : undefined, 
-            profileImageUrl: profileData.profileImageUrl || undefined
-          });
-        }
-        
-        return {
-          id: state.user.id,
-          username: profileData.username || state.user.username,
-          token: state.user.token,
-          displayName: profileData.displayName !== undefined ? profileData.displayName : state.user.displayName,
-          bio: profileData.bio !== undefined ? profileData.bio : state.user.bio,
-          profileImageUrl: profileData.profileImageUrl || state.user.profileImageUrl,
-          isAuthenticated: true
-        };
-      } catch (error) {
-        console.error("Error updating profile:", error);
-        throw error;
       }
+      
+      return {
+        id: state.user.id,
+        username: profileData.username || state.user.username,
+        token: state.user.token,
+        displayName: profileData.displayName !== undefined ? profileData.displayName : state.user.displayName,
+        bio: profileData.bio !== undefined ? profileData.bio : state.user.bio,
+        profileImageUrl: profileData.profileImageUrl || state.user.profileImageUrl,
+        isAuthenticated: true
+      };
     }
   } catch (error) {
     console.error("Profile update error:", error);

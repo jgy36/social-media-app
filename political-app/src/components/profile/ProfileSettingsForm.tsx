@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/profile/ProfileSettingsForm.tsx
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import {
@@ -17,10 +16,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Check, AlertCircle, Upload, Save, X, Camera } from "lucide-react";
+import { Check, AlertCircle, Camera, X, Save } from "lucide-react";
 import { updateUserProfile } from "@/redux/slices/userSlice";
-import { updateUsername } from "@/api/users";
 import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
+import { updateProfile } from "@/api/users";
 
 interface ProfileSettingsFormProps {
   onSuccess?: () => void;
@@ -36,7 +35,6 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
-  const [profileImageUrl, setProfileImageUrl] = useState("");
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
@@ -59,13 +57,14 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
       setUsername(user.username || "");
       setDisplayName(user.displayName || "");
       setBio(user.bio || "");
-      setProfileImageUrl(user.profileImageUrl || "");
 
-      // Set default image preview with our utility function
-      setImagePreview(getProfileImageUrl(user.profileImageUrl, user.username));
+      // Set initial image preview
+      if (user.profileImageUrl) {
+        setImagePreview(getProfileImageUrl(user.profileImageUrl, user.username));
+      }
     }
   }, [user]);
-  
+
   // Handle username validation
   const validateUsername = (value: string): boolean => {
     // Reset previous errors
@@ -161,14 +160,27 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
   // Clear selected image
   const handleClearImage = () => {
     setProfileImageFile(null);
+    // Use the existing profile image or fallback
     setImagePreview(
-      user.profileImageUrl ||
-        `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
+      user.profileImageUrl 
+        ? getProfileImageUrl(user.profileImageUrl, user.username)
+        : null
     );
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
+
+  // Success notification for image update
+  const notifyImageUpdate = useCallback((imageUrl: string) => {
+    console.log("Dispatching profileImageUpdated event with:", imageUrl);
+    window.dispatchEvent(
+      new CustomEvent("profileImageUpdated", {
+        detail: imageUrl,
+      })
+    );
+  }, []);
 
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -192,9 +204,6 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
     setIsSubmitting(true);
 
     try {
-      // Import the updateProfile function from API
-      const { updateProfile } = await import("@/api/users");
-
       // Call the API to update profile
       const profileResult = await updateProfile({
         displayName,
@@ -211,40 +220,35 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
         return;
       }
 
-      // Important: Make sure to update image URL with the complete URL from the response
-      // Force image refresh by appending a timestamp
-      const newImageUrl = profileResult.profileImageUrl
-        ? `${profileResult.profileImageUrl}?t=${Date.now()}`
-        : null;
-
-      // Dispatch event to update profile image across components
+      // Handle the updated profile image URL
       if (profileResult.profileImageUrl) {
-        // Update local preview first
-        const imageUrlWithTimestamp = `${profileResult.profileImageUrl}?t=${Date.now()}`;
-        setImagePreview(imageUrlWithTimestamp);
+        console.log("New profile image URL:", profileResult.profileImageUrl);
         
-        console.log("Dispatching profileImageUpdated event with:", profileResult.profileImageUrl);
-        window.dispatchEvent(new CustomEvent('profileImageUpdated', {
-          detail: profileResult.profileImageUrl // Send the clean URL without timestamp
-        }));
+        // Notify components about the image update with the raw URL
+        notifyImageUpdate(profileResult.profileImageUrl);
+        
+        // You need to update Redux after the image is successfully uploaded
+        dispatch(
+          updateUserProfile({
+            username,
+            displayName,
+            bio,
+            profileImageUrl: profileResult.profileImageUrl,
+          })
+        );
+      } else {
+        // Update Redux without changing the profile image
+        dispatch(
+          updateUserProfile({
+            username,
+            displayName,
+            bio,
+          })
+        );
       }
-
-      // Update Redux with response data
-      dispatch(
-        updateUserProfile({
-          username,
-          displayName,
-          bio,
-          profileImageUrl: newImageUrl || undefined, // Use the URL with timestamp
-        })
-      );
 
       setSuccess(true);
       setFormKey(Date.now()); // Reset form state to force re-render
-
-      // Force a refresh of the profile data to ensure it's updated everywhere
-      const { refreshUserProfile } = await import("@/api/users");
-      await refreshUserProfile();
 
       // Call the onSuccess callback if provided
       if (onSuccess) {
@@ -257,34 +261,6 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
       setIsSubmitting(false);
     }
   };
-
-  // Add this inside your component before the return statement
-  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Function to handle profile image updates from any component
-    const handleProfileImageUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      if (customEvent.detail) {
-        console.log(
-          "Profile image updated event received:",
-          customEvent.detail
-        );
-        setLocalImageUrl(String(customEvent.detail) + `?t=${Date.now()}`);
-      }
-    };
-
-    // Listen for profile image update events
-    window.addEventListener("profileImageUpdated", handleProfileImageUpdate);
-
-    // Clean up when component unmounts
-    return () => {
-      window.removeEventListener(
-        "profileImageUpdated",
-        handleProfileImageUpdate
-      );
-    };
-  }, []);
 
   return (
     <Card className="shadow-md" key={formKey}>
@@ -323,18 +299,23 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
               <Avatar className="h-24 w-24 border-2 border-primary/20">
                 {imagePreview ? (
                   <AvatarImage
-                    // Use primarily imagePreview, then local state if available, then fall back to Redux state
-                    src={
-                      imagePreview || 
-                      localImageUrl ||
-                      getProfileImageUrl(user.profileImageUrl, user.username) + `?t=${Date.now()}`
-                    }
+                    src={imagePreview}
                     alt={user.username || "User"}
                     onError={(e) => {
-                      console.error("Failed to load profile image:", e);
-                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${
-                        user.username || "default"
-                      }`;
+                      console.error("Failed to load profile image preview:", e);
+                      
+                      // Only fall back to default if not showing preview of new image
+                      if (!profileImageFile) {
+                        // Try the image proxy directly as a fallback
+                        if (user.profileImageUrl) {
+                          e.currentTarget.src = getFullImageUrl(user.profileImageUrl);
+                        } else {
+                          // Last resort: default avatar
+                          e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                            user.username || "default"
+                          }`;
+                        }
+                      }
                     }}
                   />
                 ) : (

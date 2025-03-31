@@ -1,4 +1,4 @@
-// src/redux/slices/communitySlice.ts - Updated for better persistence
+// src/redux/slices/communitySlice.ts - Updated with community restoration
 import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { 
   setSessionItem, 
@@ -21,6 +21,38 @@ interface CommunityState {
 const JOINED_COMMUNITIES_KEY = 'joinedCommunities';
 const FEATURED_COMMUNITIES_KEY = 'featuredCommunities';
 const SIDEBAR_STATE_KEY = 'communitySidebarOpen';
+
+// Async thunk to fetch and restore user communities after login
+export const fetchAndRestoreUserCommunities = createAsyncThunk(
+  'communities/fetchAndRestore',
+  async (_, { rejectWithValue }) => {
+    try {
+      // Import communities API dynamically to avoid circular dependencies
+      const communitiesApi = await import('@/api/communities');
+      
+      // Fetch user's joined communities from the server
+      const userCommunities = await communitiesApi.getUserCommunities();
+      
+      if (Array.isArray(userCommunities)) {
+        // Extract community IDs for Redux state
+        const communityIds = userCommunities.map(community => community.id);
+        
+        // Get featured communities (first 5 or all if less than 5)
+        const featuredIds = communityIds.slice(0, 5);
+        
+        return {
+          joinedCommunities: communityIds,
+          featuredCommunities: featuredIds
+        };
+      }
+      
+      return { joinedCommunities: [], featuredCommunities: [] };
+    } catch (error) {
+      console.error('Error restoring user communities:', error);
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to restore communities');
+    }
+  }
+);
 
 // Load initial state from localStorage
 const loadInitialState = (): CommunityState => {
@@ -325,6 +357,34 @@ const communitySlice = createSlice({
           );
         }
       }
+    });
+    
+    // Handle fetchAndRestoreUserCommunities action
+    builder.addCase(fetchAndRestoreUserCommunities.fulfilled, (state, action) => {
+      // Update state with the fetched communities
+      state.joinedCommunities = action.payload.joinedCommunities;
+      state.featuredCommunities = action.payload.featuredCommunities;
+      
+      // Save to localStorage
+      if (isBrowser) {
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.setItem(
+            `user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`, 
+            JSON.stringify(action.payload.joinedCommunities)
+          );
+          
+          localStorage.setItem(
+            `user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`, 
+            JSON.stringify(action.payload.featuredCommunities)
+          );
+        }
+      }
+    });
+
+    builder.addCase(fetchAndRestoreUserCommunities.rejected, (state, action) => {
+      console.error('Failed to restore communities:', action.payload);
+      // Keep the state as is or set default values if needed
     });
   }
 });
