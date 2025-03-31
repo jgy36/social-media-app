@@ -13,10 +13,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     console.log(`Image proxy: Fetching ${url}`);
     
-    // Fetch the image from the backend with authorization
+    // Add an authorization header if we have a token
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    
+    // Add cache-busting headers
+    headers['Cache-Control'] = 'no-cache';
+    headers['Pragma'] = 'no-cache';
+    
+    // Fetch the image from the backend with proper headers
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      headers: headers
     });
 
     // Determine content type
@@ -25,15 +35,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Override based on extension if needed
     if (url.endsWith('.png')) contentType = 'image/png';
     if (url.endsWith('.jpg') || url.endsWith('.jpeg')) contentType = 'image/jpeg';
+    if (url.endsWith('.gif')) contentType = 'image/gif';
+    if (url.endsWith('.svg')) contentType = 'image/svg+xml';
     
-    // Set appropriate headers
+    // Set appropriate headers for the response
     res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=86400');
+    
+    // Set cache control headers to prevent browser caching
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     
     // Return the image data
-    res.status(200).send(response.data);
+    return res.status(200).send(response.data);
   } catch (error) {
     console.error('Error proxying image:', error);
-    res.status(404).json({ error: 'Failed to fetch image' });
+    
+    // Generic error handling without using axios.isAxiosError
+    const errorObj = error as any; // Type assertion to access properties generically
+    
+    // Try to extract status and message from the error object
+    const status = errorObj.response?.status || 500;
+    const message = errorObj.response?.statusText || errorObj.message || 'Unknown error';
+    
+    console.error(`Proxy error ${status}: ${message}`);
+    console.error('Request URL was:', url);
+    
+    // If we have response headers, log them for debugging
+    if (errorObj.response?.headers) {
+      console.error('Response headers:', errorObj.response.headers);
+    }
+    
+    // Return an appropriate error response
+    return res.status(status).json({ 
+      error: `Failed to fetch image: ${message}`,
+      status,
+      url
+    });
   }
 }

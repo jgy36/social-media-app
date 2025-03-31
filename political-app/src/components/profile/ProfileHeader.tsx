@@ -1,6 +1,5 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/profile/ProfileHeader.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useRouter } from "next/router";
@@ -9,12 +8,11 @@ import UserStats from "./UserStats";
 import { getFollowStatus } from "@/api/users";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "lucide-react";
-import { getProfileImageUrl } from "@/utils/imageUtils";
+import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
   const token = useSelector((state: RootState) => state.user.token);
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const router = useRouter();
 
   const [stats, setStats] = useState({
@@ -26,6 +24,9 @@ const ProfileHeader = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(Date.now());
+  
+  // State to store the image URL with cache-busting
+  const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id && token) {
@@ -54,24 +55,50 @@ const ProfileHeader = () => {
     }
   }, [user?.id, token]);
 
-  // Handle profile image updates
+  // Initialize profile image on component mount
   useEffect(() => {
-    const handleProfileUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      if (customEvent.detail) {
-        console.log("ProfileHeader - Refresh triggered by event:", customEvent.detail);
-        setRefreshKey(Date.now()); // Force re-render with new key
-      }
-    };
+    if (user.profileImageUrl) {
+      setProfileImageSrc(getProfileImageUrl(user.profileImageUrl, user.username));
+    }
+  }, [user.profileImageUrl, user.username]);
 
+  // Handle profile image updates
+  const handleProfileUpdate = useCallback((event: Event) => {
+    const customEvent = event as CustomEvent;
+    if (customEvent.detail) {
+      console.log("ProfileHeader - Profile update event received:", customEvent.detail);
+      
+      // Get the image URL
+      const imageUrl = String(customEvent.detail);
+      console.log("Setting profile image to:", imageUrl);
+      
+      // Process the URL and add cache busting
+      const processedUrl = getProfileImageUrl(imageUrl, user.username);
+      setProfileImageSrc(processedUrl);
+      
+      // Also update the refresh key to force re-render
+      setRefreshKey(Date.now());
+    }
+  }, [user.username]);
+
+  // Listen for profile updates
+  useEffect(() => {
     window.addEventListener('profileImageUpdated', handleProfileUpdate);
     
     return () => {
       window.removeEventListener('profileImageUpdated', handleProfileUpdate);
     };
-  }, []);
+  }, [handleProfileUpdate]);
 
-  // Handle stats changes (for example, when a user is followed/unfollowed in modals)
+  // Update image source when user profile changes in Redux
+  useEffect(() => {
+    if (user.profileImageUrl) {
+      const newSrc = getProfileImageUrl(user.profileImageUrl, user.username);
+      setProfileImageSrc(newSrc);
+    }
+  }, [user.profileImageUrl, user.username]);
+
+  // Handle stats changes
   const handleStatsChange = (
     newFollowersCount: number,
     newFollowingCount: number
@@ -83,34 +110,6 @@ const ProfileHeader = () => {
     }));
   };
 
-  // Add this inside your component before the return statement
-  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Function to handle profile image updates from any component
-    const handleProfileImageUpdate = (event: Event) => {
-      const customEvent = event as CustomEvent;
-      if (customEvent.detail) {
-        console.log(
-          "Profile image updated event received:",
-          customEvent.detail
-        );
-        setLocalImageUrl(String(customEvent.detail) + `?t=${Date.now()}`);
-      }
-    };
-
-    // Listen for profile image update events
-    window.addEventListener("profileImageUpdated", handleProfileImageUpdate);
-
-    // Clean up when component unmounts
-    return () => {
-      window.removeEventListener(
-        "profileImageUpdated",
-        handleProfileImageUpdate
-      );
-    };
-  }, []);
-
   return (
     <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
       {/* Avatar */}
@@ -118,17 +117,21 @@ const ProfileHeader = () => {
         <Avatar className="h-24 w-24 border-2 border-primary/20">
           <AvatarImage
             key={refreshKey} // Force re-render on refreshKey change
-            // Use local state if available, otherwise fall back to Redux state with utility function
-            src={
-              localImageUrl ||
-              getProfileImageUrl(user.profileImageUrl, user.username) + `?t=${refreshKey}`
-            }
+            src={profileImageSrc || getProfileImageUrl(user.profileImageUrl, user.username)}
             alt={user.username || "User"}
             onError={(e) => {
               console.error("Failed to load profile image:", e);
-              e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${
-                user.username || "default"
-              }`;
+              
+              // Try one more time with the image proxy directly
+              if (user.profileImageUrl && !e.currentTarget.src.includes('dicebear')) {
+                console.log("Retrying with direct proxy URL");
+                e.currentTarget.src = getFullImageUrl(user.profileImageUrl);
+              } else {
+                // Fall back to the default avatar
+                e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                  user.username || "default"
+                }`;
+              }
             }}
           />
           <AvatarFallback>
