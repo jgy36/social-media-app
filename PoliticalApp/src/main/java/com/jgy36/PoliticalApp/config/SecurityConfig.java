@@ -95,6 +95,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/users/search").permitAll() // Public user search
                         .requestMatchers(HttpMethod.GET, "/politicians/**").permitAll()  // Public GET Politicians
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow CORS Preflight
+                        .requestMatchers("/uploads/**").permitAll() // Make uploads directory public
 
                         // PROTECTED Endpoints (Require JWT Token)
                         .requestMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
