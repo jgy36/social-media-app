@@ -67,7 +67,7 @@ public class AuthController {
     }
 
     /**
-     * ✅ Login endpoint: Authenticates user and returns JWT token.
+     * ✅ Login endpoint: Authenticates user and returns JWT token with complete profile data.
      */
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
@@ -101,11 +101,14 @@ public class AuthController {
         // Also set the token as Authorization header for API clients
         response.setHeader("Authorization", "Bearer " + token);
 
-        // ✅ Return user info only (token is in cookie)
+        // ✅ Return complete user info
         Map<String, Object> userResponse = new HashMap<>();
         userResponse.put("id", user.getId());
         userResponse.put("username", user.getUsername());
         userResponse.put("email", user.getEmail());
+        userResponse.put("displayName", user.getDisplayName());
+        userResponse.put("bio", user.getBio());
+        userResponse.put("profileImageUrl", user.getProfileImageUrl());
 
         // ✅ Create response with token (for API clients) and user info
         Map<String, Object> fullResponse = new HashMap<>();
@@ -207,8 +210,7 @@ public class AuthController {
     }
 
     /**
-     * ✅ Refresh token endpoint
-     * Gets a new token using an existing valid token
+     * Improved refresh token endpoint that includes full user data
      */
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(HttpServletRequest request, HttpServletResponse response) {
@@ -272,10 +274,14 @@ public class AuthController {
             // Also set the new token as Authorization header for API clients
             response.setHeader("Authorization", "Bearer " + newToken);
 
-            // Return both token & user info
+            // Return both token & detailed user info
             Map<String, Object> userResponse = new HashMap<>();
             userResponse.put("id", user.getId());
             userResponse.put("username", user.getUsername());
+            userResponse.put("email", user.getEmail());
+            userResponse.put("displayName", user.getDisplayName());
+            userResponse.put("bio", user.getBio());
+            userResponse.put("profileImageUrl", user.getProfileImageUrl());
 
             Map<String, Object> fullResponse = new HashMap<>();
             fullResponse.put("token", newToken);

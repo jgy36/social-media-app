@@ -58,10 +58,20 @@ public class User {
     @OneToMany(fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<Post> savedPosts;
+    // Profile display name
+    @Column(nullable = true)
+    private String displayName;
+    // User bio/description
+    @Column(columnDefinition = "TEXT", nullable = true)
+    private String bio;
+    // Path to profile image
+    @Column(nullable = true)
+    private String profileImageUrl;
 
     public User() {
         this.verificationToken = UUID.randomUUID().toString();
     }
+    // Add these fields to your User.java entity class
 
     public User(String username, String email, String password, Role role) {
         this.username = username;
@@ -79,5 +89,30 @@ public class User {
 
     public void unfollow(User user) {
         following.remove(user);
+    }
+
+    // Getters and setters for new fields
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getBio() {
+        return bio;
+    }
+
+    public void setBio(String bio) {
+        this.bio = bio;
+    }
+
+    public String getProfileImageUrl() {
+        return profileImageUrl;
+    }
+
+    public void setProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
     }
 }
