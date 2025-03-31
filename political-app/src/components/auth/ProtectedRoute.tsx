@@ -1,17 +1,22 @@
-// Enhanced: political-app/src/components/auth/ProtectedRoute.tsx
+// src/components/auth/ProtectedRoute.tsx - Fixed to use isAuthenticated flag
 
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { RootState } from '@/redux/store';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState, AppDispatch } from '@/redux/store';
+import { restoreAuthState } from '@/redux/slices/userSlice';
+import { checkAuthStatus } from '@/api/auth';
+import { isAuthenticated as checkIsAuthenticated } from '@/utils/tokenUtils';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const token = useSelector((state: RootState) => state.user.token);
+  // Use the isAuthenticated flag instead of token
+  const isAuthenticated = useSelector((state: RootState) => state.user.isAuthenticated);
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [redirectInProgress, setRedirectInProgress] = useState(false);
@@ -22,16 +27,60 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       setIsLoading(false);
     }, 2000);
 
-    // Check if token exists (we're authenticated)
-    if (!token && !redirectInProgress) {
-      console.log('⚠️ ProtectedRoute: User not authenticated, redirecting to login');
-      setRedirectInProgress(true);
-      router.push('/login');
-    } else if (token) {
-      console.log('✅ ProtectedRoute: User authenticated, allowing access');
-      setIsLoading(false);
-    }
+    // Function to verify auth state
+    const verifyAuth = async () => {
+      try {
+        // First check if we already have auth in Redux
+        if (isAuthenticated) {
+          console.log('✅ ProtectedRoute: User authenticated via Redux state, allowing access');
+          setIsLoading(false);
+          return;
+        }
+        
+        // If not authenticated in Redux, check localStorage
+        if (checkIsAuthenticated()) {
+          console.log('✅ ProtectedRoute: User authenticated via localStorage, restoring state');
+          // Restore auth state in Redux
+          await dispatch(restoreAuthState()).unwrap();
+          setIsLoading(false);
+          return;
+        }
+        
+        // If not authenticated in Redux or localStorage, check with server
+        console.log('🔍 ProtectedRoute: Not authenticated in local state, checking with server...');
+        const authWithServer = await checkAuthStatus();
+        
+        if (authWithServer) {
+          console.log('✅ ProtectedRoute: User authenticated via server check, restoring state');
+          // Restore auth state in Redux
+          await dispatch(restoreAuthState()).unwrap();
+          setIsLoading(false);
+          return;
+        }
+        
+        // No auth in Redux, localStorage, or from server, redirect to login
+        if (!redirectInProgress) {
+          console.log('⚠️ ProtectedRoute: User not authenticated, redirecting to login');
+          setRedirectInProgress(true);
+          
+          // Store the current path to redirect back after login
+          const currentPath = router.asPath;
+          if (currentPath !== '/login') {
+            sessionStorage.setItem('redirectAfterLogin', currentPath);
+          }
+          
+          router.push('/login');
+        }
+      } catch (error) {
+        console.error('❌ ProtectedRoute: Error during authentication check:', error);
+        setHasError(true);
+        setIsLoading(false);
+      }
+    };
 
+    // Check auth status
+    verifyAuth();
+    
     // Add simple error boundary
     const handleError = () => {
       console.error('❌ ProtectedRoute: Error detected');
@@ -45,7 +94,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       window.removeEventListener('error', handleError);
       clearTimeout(timeoutId);
     };
-  }, [token, router, redirectInProgress]);
+  }, [isAuthenticated, router, dispatch, redirectInProgress]);
 
   // Show loading state while determining authentication
   if (isLoading) {
@@ -86,7 +135,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   // If authenticated, render children
-  return token ? <>{children}</> : null;
+  return isAuthenticated ? <>{children}</> : null;
 };
 
 export default ProtectedRoute;

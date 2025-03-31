@@ -1,4 +1,4 @@
-// src/utils/sessionUtils.ts
+// src/utils/sessionUtils.ts - Improved version with better user isolation
 
 /**
  * Check if code is running in browser environment
@@ -16,13 +16,12 @@ export function setSessionItem(key: string, value: string): void {
   try {
     // Get current user ID for isolation
     const currentUserId = localStorage.getItem("currentUserId");
-    if (currentUserId) {
-      // Store with user prefix for isolation
-      sessionStorage.setItem(`user_${currentUserId}_${key}`, value);
-    } else {
-      // Fallback to regular storage if no user context
-      sessionStorage.setItem(key, value);
-    }
+    
+    // Use a prefixed key for isolation if we have a user ID
+    const storageKey = currentUserId ? `user_${currentUserId}_${key}` : key;
+    
+    // Store in session storage
+    sessionStorage.setItem(storageKey, value);
   } catch (error) {
     console.error(`Error setting session item ${key}:`, error);
   }
@@ -39,12 +38,16 @@ export function getSessionItem(key: string, defaultValue: string | null = null):
   try {
     // Get current user ID for isolation
     const currentUserId = localStorage.getItem("currentUserId");
+    
+    // First try with user prefix if we have a user ID
     if (currentUserId) {
-      // Try to get with user prefix first
       const value = sessionStorage.getItem(`user_${currentUserId}_${key}`);
-      return value !== null ? value : defaultValue;
+      if (value !== null) {
+        return value;
+      }
     }
-    // Fallback to regular retrieval if no user context
+    
+    // Fall back to regular key
     const value = sessionStorage.getItem(key);
     return value !== null ? value : defaultValue;
   } catch (error) {
@@ -63,13 +66,14 @@ export function removeSessionItem(key: string): void {
   try {
     // Get current user ID for isolation
     const currentUserId = localStorage.getItem("currentUserId");
+    
+    // Remove prefixed key if we have a user ID
     if (currentUserId) {
-      // Remove with user prefix
       sessionStorage.removeItem(`user_${currentUserId}_${key}`);
-    } else {
-      // Fallback to regular removal
-      sessionStorage.removeItem(key);
     }
+    
+    // Also remove regular key
+    sessionStorage.removeItem(key);
   } catch (error) {
     console.error(`Error removing session item ${key}:`, error);
   }
@@ -126,7 +130,7 @@ export function clearCurrentUserData(): void {
     const currentUserId = localStorage.getItem("currentUserId");
     if (!currentUserId) return;
     
-    // Find all keys belonging to this user
+    // Clear all user data from localStorage
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && key.startsWith(`user_${currentUserId}_`)) {
@@ -134,7 +138,15 @@ export function clearCurrentUserData(): void {
       }
     }
     
-    // Clear current user
+    // Clear all user data from sessionStorage
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(`user_${currentUserId}_`)) {
+        sessionStorage.removeItem(key);
+      }
+    }
+    
+    // Remove current user ID
     localStorage.removeItem("currentUserId");
   } catch (error) {
     console.error("Error clearing user data:", error);

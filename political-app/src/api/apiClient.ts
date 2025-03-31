@@ -1,6 +1,6 @@
-// src/api/apiClient.ts
+// src/api/apiClient.ts - Fixed TypeScript errors
 import axios from "axios";
-import { getToken, setToken } from "@/utils/tokenUtils";
+import { getToken, isAuthenticated } from "@/utils/tokenUtils";
 import {
   getErrorMessage,
   ApiError,
@@ -43,17 +43,17 @@ interface ExtendedRequestConfig {
 // Token refresh state tracking
 let isRefreshing = false;
 let failedQueue: {
-  resolve: (token: string) => void;
+  resolve: (value: unknown) => void;
   reject: (error: Error) => void;
 }[] = [];
 
 // Process the queue of failed requests
-const processQueue = (error: Error | null, token: string | null = null) => {
+const processQueue = (error: Error | null, value: unknown = null) => {
   failedQueue.forEach((promise) => {
     if (error) {
       promise.reject(error);
-    } else if (token) {
-      promise.resolve(token);
+    } else {
+      promise.resolve(value);
     }
   });
 
@@ -86,7 +86,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
     }
   });
 
-  // Request interceptor - add auth token
+  // Request interceptor - add auth token if available
   instance.interceptors.request.use(
     (config) => {
       const token = getToken();
@@ -119,16 +119,16 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
           errorWithResponse &&
           error.response?.status === 401 &&
           originalRequest &&
-          !originalRequest._retry
+          !originalRequest._retry &&
+          isAuthenticated() // Only try refresh if we think we're authenticated
         ) {
           if (isRefreshing) {
             // If already refreshing, add to queue
-            return new Promise<string>((resolve, reject) => {
+            return new Promise((resolve, reject) => {
               failedQueue.push({ resolve, reject });
             })
-              .then((token) => {
-                originalRequest.headers = originalRequest.headers || {};
-                originalRequest.headers["Authorization"] = `Bearer ${token}`;
+              .then(() => {
+                // Just retry the original request without modifying headers
                 return instance(originalRequest);
               })
               .catch((err) => {
@@ -141,39 +141,23 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
           isRefreshing = true;
 
           try {
-            const token = getToken();
-
-            if (!token) {
-              processQueue(new Error("No token available"));
-              return Promise.reject(error);
-            }
-
-            const refreshResponse = await axios.post<TokenRefreshResponse>(
+            // Try to refresh the token (cookie-based)
+            await axios.post(
               `${API_BASE_URL}/auth/refresh`,
               {},
               { 
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { 
+                  'Cache-Control': 'no-cache',
+                  'Pragma': 'no-cache'
+                },
                 withCredentials: true
               }
             );
 
-            const newToken = refreshResponse.data.token;
+            // Process queued requests - no need to pass token as the cookie is set
+            processQueue(null);
 
-            if (!newToken) {
-              processQueue(new Error("Token refresh failed"));
-              return Promise.reject(error);
-            }
-
-            // Store the new token
-            setToken(newToken);
-
-            // Update header for the original request
-            originalRequest.headers = originalRequest.headers || {};
-            originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-
-            // Process queued requests with new token
-            processQueue(null, newToken);
-
+            // Retry the original request
             return instance(originalRequest);
           } catch (refreshError) {
             processQueue(

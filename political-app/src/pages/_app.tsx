@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// src/pages/_app.tsx
+// src/pages/_app.tsx - Updated with Redux persist
 import { Provider } from "react-redux";
+import { PersistGate } from "redux-persist/integration/react";
 import { SessionProvider } from "next-auth/react";
-import { store } from "@/redux/store";
+import { store, persistor } from "@/redux/store";
 import "@/styles/globals.css";
 import { AppProps } from "next/app";
 import { useEffect, useState } from "react";
@@ -83,7 +84,7 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
 
     // Check if the user is already authenticated
     if (token) {
-      console.log("User already authenticated, continuing");
+      console.log("User already authenticated via Redux state, continuing");
       setIsLoading(false);
       return;
     }
@@ -163,7 +164,9 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
 function ConnectedAuthPersistence({ children }: { children: React.ReactNode }) {
   return (
     <Provider store={store}>
-      <AuthPersistence>{children}</AuthPersistence>
+      <PersistGate loading={null} persistor={persistor}>
+        <AuthPersistence>{children}</AuthPersistence>
+      </PersistGate>
     </Provider>
   );
 }

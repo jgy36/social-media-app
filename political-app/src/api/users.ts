@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// src/api/users.ts - Updated with profile update functionality
+// src/api/users.ts - Updated with better error handling and localStorage syncing
 import { apiClient, getErrorMessage } from './apiClient';
 import { 
   UserProfile, 
@@ -17,7 +17,36 @@ import { PostType } from '@/types/post';
  */
 export const getCurrentUser = async (): Promise<UserProfile | null> => {
   try {
-    const response = await apiClient.get<UserProfile>('/users/me');
+    const response = await apiClient.get<UserProfile>('/users/me', { 
+      withCredentials: true 
+    });
+    
+    // Store user info in localStorage
+    if (response.data && response.data.id) {
+      const userId = String(response.data.id);
+      localStorage.setItem('currentUserId', userId);
+      
+      if (response.data.username) {
+        localStorage.setItem(`user_${userId}_username`, response.data.username);
+      }
+      
+      if (response.data.email) {
+        localStorage.setItem(`user_${userId}_email`, response.data.email);
+      }
+      
+      if (response.data.displayName) {
+        localStorage.setItem(`user_${userId}_displayName`, response.data.displayName);
+      }
+      
+      if (response.data.bio) {
+        localStorage.setItem(`user_${userId}_bio`, response.data.bio);
+      }
+      
+      if (response.data.profileImageUrl) {
+        localStorage.setItem(`user_${userId}_profileImageUrl`, response.data.profileImageUrl);
+      }
+    }
+    
     return response.data;
   } catch (error) {
     console.error('Error fetching current user:', error);
@@ -30,7 +59,9 @@ export const getCurrentUser = async (): Promise<UserProfile | null> => {
  */
 export const getUserProfile = async (username: string): Promise<UserProfile | null> => {
   try {
-    const response = await apiClient.get<UserProfile>(`/users/profile/${username}`);
+    const response = await apiClient.get<UserProfile>(`/users/profile/${username}`, {
+      withCredentials: true
+    });
     return response.data;
   } catch (error) {
     console.error(`Error fetching profile for ${username}:`, error);
@@ -53,11 +84,21 @@ export const updateUsername = async (newUsername: string): Promise<UpdateUsernam
     }
 
     const request: UpdateUsernameRequest = { username: newUsername };
-    const response = await apiClient.put<UpdateUsernameResponse>('/users/update-username', request);
+    const response = await apiClient.put<UpdateUsernameResponse>('/users/update-username', request, {
+      withCredentials: true
+    });
 
     // If successful, update localStorage for better UX
     if (response.data.success) {
-      localStorage.setItem('username', newUsername);
+      const userId = localStorage.getItem('currentUserId');
+      if (userId) {
+        localStorage.setItem(`user_${userId}_username`, newUsername);
+      }
+      
+      // Dispatch custom event to update UI
+      window.dispatchEvent(new CustomEvent('userProfileUpdated', { 
+        detail: { username: newUsername } 
+      }));
     }
 
     return response.data;
@@ -81,7 +122,7 @@ export const updateProfile = async (
     // Create FormData for file upload
     const formData = new FormData();
     
-    if (profile.displayName) {
+    if (profile.displayName !== undefined) {
       formData.append('displayName', profile.displayName);
     }
     
@@ -101,27 +142,38 @@ export const updateProfile = async (
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        withCredentials: true
       }
     );
     
     // Update localStorage for better UX
     if (response.data.success) {
-      if (profile.displayName) {
-        localStorage.setItem('displayName', profile.displayName);
-      }
+      const userId = localStorage.getItem('currentUserId');
       
-      if (profile.bio) {
-        localStorage.setItem('bio', profile.bio);
-      }
-      
-      if (response.data.profileImageUrl) {
-        localStorage.setItem('profileImageUrl', response.data.profileImageUrl);
+      if (userId) {
+        if (profile.displayName !== undefined) {
+          localStorage.setItem(`user_${userId}_displayName`, profile.displayName);
+        }
+        
+        if (profile.bio !== undefined) {
+          localStorage.setItem(`user_${userId}_bio`, profile.bio);
+        }
+        
+        if (response.data.profileImageUrl) {
+          localStorage.setItem(`user_${userId}_profileImageUrl`, response.data.profileImageUrl);
+        }
       }
       
       // Dispatch a custom event for components that need to update
       if (typeof window !== 'undefined') {
         window.dispatchEvent(
-          new CustomEvent('userProfileUpdated', { detail: response.data.user })
+          new CustomEvent('userProfileUpdated', { 
+            detail: response.data.user || {
+              displayName: profile.displayName,
+              bio: profile.bio,
+              profileImageUrl: response.data.profileImageUrl
+            }
+          })
         );
       }
     }
@@ -154,7 +206,9 @@ export const searchUsers = async (query: string): Promise<UserProfile[]> => {
  */
 export const followUser = async (userId: number): Promise<FollowResponse> => {
   try {
-    const response = await apiClient.post<FollowResponse>(`/follow/${userId}`);
+    const response = await apiClient.post<FollowResponse>(`/follow/${userId}`, {}, {
+      withCredentials: true
+    });
     return response.data;
   } catch (error) {
     console.error(`Error following user ${userId}:`, error);
@@ -167,7 +221,9 @@ export const followUser = async (userId: number): Promise<FollowResponse> => {
  */
 export const unfollowUser = async (userId: number): Promise<FollowResponse> => {
   try {
-    const response = await apiClient.delete<FollowResponse>(`/follow/${userId}`);
+    const response = await apiClient.delete<FollowResponse>(`/follow/${userId}`, {
+      withCredentials: true
+    });
     return response.data;
   } catch (error) {
     console.error(`Error unfollowing user ${userId}:`, error);
@@ -180,7 +236,9 @@ export const unfollowUser = async (userId: number): Promise<FollowResponse> => {
  */
 export const getFollowStatus = async (userId: number): Promise<FollowResponse> => {
   try {
-    const response = await apiClient.get<FollowResponse>(`/follow/status/${userId}`);
+    const response = await apiClient.get<FollowResponse>(`/follow/status/${userId}`, {
+      withCredentials: true
+    });
     return response.data;
   } catch (error) {
     console.error(`Error getting follow status for user ${userId}:`, error);
@@ -198,7 +256,9 @@ export const getFollowStatus = async (userId: number): Promise<FollowResponse> =
  */
 export const getUserFollowers = async (userId: number, page: number = 1): Promise<FollowUser[]> => {
   try {
-    const response = await apiClient.get<FollowUser[]>(`/follow/followers/${userId}?page=${page}`);
+    const response = await apiClient.get<FollowUser[]>(`/follow/followers/${userId}?page=${page}`, {
+      withCredentials: true
+    });
     return response.data;
   } catch (error) {
     console.error(`Error getting followers for user ${userId}:`, error);
@@ -211,7 +271,9 @@ export const getUserFollowers = async (userId: number, page: number = 1): Promis
  */
 export const getUserFollowing = async (userId: number, page: number = 1): Promise<FollowUser[]> => {
   try {
-    const response = await apiClient.get<FollowUser[]>(`/follow/following/${userId}?page=${page}`);
+    const response = await apiClient.get<FollowUser[]>(`/follow/following/${userId}?page=${page}`, {
+      withCredentials: true
+    });
     return response.data;
   } catch (error) {
     console.error(`Error getting following for user ${userId}:`, error);
@@ -225,24 +287,34 @@ export const getUserFollowing = async (userId: number, page: number = 1): Promis
  */
 export const refreshUserProfile = async (): Promise<boolean> => {
   try {
-    const response = await apiClient.get<UserProfile>('/users/me');
+    const response = await apiClient.get<UserProfile>('/users/me', {
+      withCredentials: true
+    });
     
     if (response.data) {
+      const userId = String(response.data.id);
+      
       // Update local storage with updated data
+      localStorage.setItem('currentUserId', userId);
+      
       if (response.data.username) {
-        localStorage.setItem('username', response.data.username);
+        localStorage.setItem(`user_${userId}_username`, response.data.username);
+      }
+      
+      if (response.data.email) {
+        localStorage.setItem(`user_${userId}_email`, response.data.email);
       }
       
       if (response.data.displayName) {
-        localStorage.setItem('displayName', response.data.displayName);
+        localStorage.setItem(`user_${userId}_displayName`, response.data.displayName);
       }
       
       if (response.data.bio) {
-        localStorage.setItem('bio', response.data.bio);
+        localStorage.setItem(`user_${userId}_bio`, response.data.bio);
       }
       
       if (response.data.profileImageUrl) {
-        localStorage.setItem('profileImageUrl', response.data.profileImageUrl);
+        localStorage.setItem(`user_${userId}_profileImageUrl`, response.data.profileImageUrl);
       }
       
       // Dispatch a custom event for components that need to update
@@ -267,7 +339,8 @@ export const getPostsByUsername = async (
 ): Promise<PostType[]> => {
   try {
     const response = await apiClient.get<PostType[]>(
-      `/users/profile/${username}/posts`
+      `/users/profile/${username}/posts`, 
+      { withCredentials: true }
     );
     return response.data;
   } catch (error) {

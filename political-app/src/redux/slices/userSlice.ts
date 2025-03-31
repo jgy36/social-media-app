@@ -1,8 +1,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// src/redux/slices/userSlice.ts - Updated for cookie-based auth
+// src/redux/slices/userSlice.ts - Fixed for TypeScript null/undefined issues
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "@/api"; // Import the default API object
 import { clearCommunities } from "./communitySlice";
+import { 
+  setUserData, 
+  getUserData, 
+  clearUserData, 
+  setAuthenticated 
+} from "@/utils/tokenUtils";
 
 // Define the RootState type (to fix the RootState error)
 interface RootState {
@@ -21,6 +27,7 @@ interface UserState {
   profileImageUrl: string | null; // New field for profile image
   loading: boolean;
   error: string | null;
+  isAuthenticated: boolean; // Add explicit authenticated flag
 }
 
 const initialState: UserState = {
@@ -33,6 +40,7 @@ const initialState: UserState = {
   profileImageUrl: null,
   loading: false,
   error: null,
+  isAuthenticated: false // Initialize as not authenticated
 };
 
 // Restore auth state from client-side storage
@@ -47,63 +55,21 @@ export const restoreAuthState = createAsyncThunk(
       const isAuthenticated = await auth.checkAndRestoreSession();
       
       if (isAuthenticated) {
-        // Get minimal user info from session storage
-        const userInfo = auth.getCurrentUserInfo();
+        // Get user info from localStorage
+        const userData = getUserData();
         
-        // Fetch the full profile if we have a user ID
-        if (userInfo.userId) {
-          try {
-            // If we have a username, fetch the full profile
-            if (userInfo.username) {
-              const userProfile = await api.users.getUserProfile(userInfo.username);
-              
-              return {
-                id: parseInt(userInfo.userId),
-                username: userInfo.username,
-                token: "authenticated-via-cookie", // Placeholder - real token is in HTTP-only cookie
-                email: userProfile?.email || null,
-                displayName: userProfile?.displayName || null,
-                bio: userProfile?.bio || null,
-                profileImageUrl: userProfile?.profileImageUrl || null
-              };
-            }
-            
-            // If we have user ID but no username, return basic info
-            return {
-              id: parseInt(userInfo.userId),
-              username: userInfo.username,
-              token: "authenticated-via-cookie",
-              email: userInfo.email,
-              displayName: userInfo.displayName,
-              bio: userInfo.bio,
-              profileImageUrl: userInfo.profileImageUrl
-            };
-          } catch (profileError) {
-            console.error("Error fetching full profile:", profileError);
-            
-            // Return basic info if we couldn't get the full profile
-            return {
-              id: parseInt(userInfo.userId),
-              username: userInfo.username,
-              token: "authenticated-via-cookie",
-              email: userInfo.email,
-              displayName: userInfo.displayName,
-              bio: userInfo.bio,
-              profileImageUrl: userInfo.profileImageUrl
-            };
-          }
+        if (userData.id) {
+          return {
+            id: userData.id ? parseInt(String(userData.id)) : null,
+            username: userData.username,
+            token: null, // Don't attempt to store token in Redux state
+            email: userData.email,
+            displayName: userData.displayName,
+            bio: userData.bio,
+            profileImageUrl: userData.profileImageUrl,
+            isAuthenticated: true
+          };
         }
-        
-        // If we're authenticated but don't have user info, return placeholder state
-        return {
-          id: null,
-          username: userInfo.username || null,
-          token: "authenticated-via-cookie",
-          email: null,
-          displayName: null,
-          bio: null,
-          profileImageUrl: null
-        };
       }
       
       // If not authenticated, return null values
@@ -114,7 +80,8 @@ export const restoreAuthState = createAsyncThunk(
         email: null,
         displayName: null,
         bio: null,
-        profileImageUrl: null
+        profileImageUrl: null,
+        isAuthenticated: false
       };
     } catch (error) {
       console.error("Error restoring auth state:", error);
@@ -133,6 +100,7 @@ export const loginUser = createAsyncThunk<
     displayName: string | null;
     bio: string | null;
     profileImageUrl: string | null;
+    isAuthenticated: boolean;
   },
   { email: string; password: string }
 >("user/login", async ({ email, password }, { rejectWithValue }) => {
@@ -145,14 +113,18 @@ export const loginUser = createAsyncThunk<
       throw new Error("Invalid response from server");
     }
 
+    // Mark as authenticated
+    setAuthenticated(true);
+
     return {
       id: response.user?.id || null,
       username: response.user?.username || null,
       email: response.user?.email || email || null,
-      token: response.token || "authenticated-via-cookie", // Token is now in HTTP-only cookie
+      token: response.token || null, // Use actual token if provided
       displayName: response.user?.displayName || null,
       bio: response.user?.bio || null,
       profileImageUrl: response.user?.profileImageUrl || null,
+      isAuthenticated: true
     };
   } catch (error) {
     console.error("Login error:", error);
@@ -199,6 +171,7 @@ export const updateUserProfile = createAsyncThunk<
     displayName: string | null;
     bio: string | null;
     profileImageUrl: string | null;
+    isAuthenticated: boolean;
   },
   {
     username?: string;
@@ -211,31 +184,31 @@ export const updateUserProfile = createAsyncThunk<
   try {
     const state = getState() as RootState;
     // Check if we're authenticated
-    if (!state.user.token) {
+    if (!state.user.isAuthenticated) {
       throw new Error("Not authenticated");
     }
 
     if (!profileData) {
       // If no data provided, just get the latest profile from the server
       try {
-        // Import dynamically to avoid circular dependencies
-        const authModule = await import('@/api/auth');
-        const isAuthenticated = await authModule.checkAuthStatus();
+        // Get the current user's profile from the API
+        const userData = await api.users.getCurrentUser();
         
-        if (!isAuthenticated) {
-          throw new Error("Not authenticated");
-        }
-        
-        const userInfo = authModule.getCurrentUserInfo();
-        
-        if (!userInfo.username) {
-          throw new Error("Username not found");
-        }
-        
-        const userData = await api.users.getUserProfile(userInfo.username);
-
         if (!userData) {
           throw new Error("Failed to refresh user profile");
+        }
+        
+        // Also update localStorage with the new data for cross-tab consistency
+        if (userData.id) {
+          setUserData({
+            id: userData.id,
+            username: userData.username || '',
+            email: userData.email || '',
+            // Fix type issues
+            displayName: userData.displayName || undefined,
+            bio: userData.bio || undefined,
+            profileImageUrl: userData.profileImageUrl || undefined
+          });
         }
 
         return {
@@ -245,36 +218,57 @@ export const updateUserProfile = createAsyncThunk<
           displayName: userData.displayName || null,
           bio: userData.bio || null,
           profileImageUrl: userData.profileImageUrl || null,
+          isAuthenticated: true
         };
       } catch (error) {
         console.error("Error fetching profile:", error);
         throw error;
       }
     } else {
-      // If profile data is provided, update with new values
-      // In a real implementation, you would send this to your backend API
-      
-      // For now, we'll just update our local state with the new values
-      // and assume the actual profile update was successful
-      const updatedUsername = profileData.username || state.user.username;
-      const updatedDisplayName = profileData.displayName || state.user.displayName;
-      const updatedBio = profileData.bio !== undefined ? profileData.bio : state.user.bio;
-      const updatedProfileImageUrl = profileData.profileImageUrl || state.user.profileImageUrl;
-      
-      // In a real implementation, you would make an API call here to update the profile
-
-      // Return updated user data
-      return {
-        id: state.user.id,
-        username: updatedUsername,
-        token: state.user.token,
-        displayName: updatedDisplayName,
-        bio: updatedBio,
-        profileImageUrl: updatedProfileImageUrl,
-      };
+      // If profile data is provided, update it on the server
+      try {
+        // Make an API call to update the profile
+        const response = await api.users.updateProfile({
+          displayName: profileData.displayName,
+          bio: profileData.bio,
+          profileImage: profileData.profileImageUrl ? new File([profileData.profileImageUrl], 'profile.jpg') : undefined,
+        });
+        
+        if (!response.success) {
+          throw new Error(response.message || "Failed to update profile");
+        }
+        
+        // Update localStorage with the new values
+        if (state.user.id) {
+          const userData = getUserData();
+          
+          setUserData({
+            id: state.user.id,
+            username: profileData.username || state.user.username || '',
+            email: userData.email || '',
+            // Fix type issues by passing undefined instead of null
+            displayName: profileData.displayName !== undefined ? profileData.displayName : undefined,
+            bio: profileData.bio !== undefined ? profileData.bio : undefined, 
+            profileImageUrl: profileData.profileImageUrl || undefined
+          });
+        }
+        
+        return {
+          id: state.user.id,
+          username: profileData.username || state.user.username,
+          token: state.user.token,
+          displayName: profileData.displayName !== undefined ? profileData.displayName : state.user.displayName,
+          bio: profileData.bio !== undefined ? profileData.bio : state.user.bio,
+          profileImageUrl: profileData.profileImageUrl || state.user.profileImageUrl,
+          isAuthenticated: true
+        };
+      } catch (error) {
+        console.error("Error updating profile:", error);
+        throw error;
+      }
     }
   } catch (error) {
-    console.error("Profile refresh error:", error);
+    console.error("Profile update error:", error);
     return rejectWithValue((error as Error).message);
   }
 });
@@ -289,7 +283,7 @@ export const checkInitialAuth = createAsyncThunk(
       const isAuthenticated = await auth.checkAuthStatus();
       
       if (isAuthenticated) {
-        // Get current user info from session storage
+        // Get current user info from localStorage
         const userInfo = auth.getCurrentUserInfo();
         
         // If we have user info, return it
@@ -298,8 +292,9 @@ export const checkInitialAuth = createAsyncThunk(
             isAuthenticated: true,
             id: parseInt(userInfo.userId),
             username: userInfo.username,
-            // Auth token is in an HTTP-only cookie
-            token: "authenticated-via-cookie"
+            displayName: userInfo.displayName,
+            bio: userInfo.bio,
+            profileImageUrl: userInfo.profileImageUrl
           };
         }
         
@@ -327,9 +322,17 @@ export const logoutUser = createAsyncThunk(
       // Clear communities
       dispatch(clearCommunities());
       
+      // Clear all stored user data
+      clearUserData();
+      
       return true;
     } catch (error) {
       console.error("Logout error:", error);
+      
+      // Still clear data even if API call fails
+      clearUserData();
+      dispatch(clearCommunities());
+      
       return false;
     }
   }
@@ -341,7 +344,6 @@ const userSlice = createSlice({
   initialState,
   reducers: {
     // We keep this empty because we're using thunks for all actions
-    // The logout logic is handled by the logoutUser thunk
   },
   extraReducers: (builder) => {
     // Login states
@@ -358,6 +360,7 @@ const userSlice = createSlice({
       state.displayName = action.payload.displayName;
       state.bio = action.payload.bio;
       state.profileImageUrl = action.payload.profileImageUrl;
+      state.isAuthenticated = action.payload.isAuthenticated;
       state.loading = false;
       state.error = null;
     });
@@ -365,6 +368,7 @@ const userSlice = createSlice({
     builder.addCase(loginUser.rejected, (state, action) => {
       state.loading = false;
       state.error = (action.payload as string) || "Login failed";
+      state.isAuthenticated = false;
     });
 
     // Restore auth state
@@ -374,24 +378,14 @@ const userSlice = createSlice({
     });
 
     builder.addCase(restoreAuthState.fulfilled, (state, action) => {
-      if (action.payload.token) {
-        state.id = action.payload.id;
-        state.token = action.payload.token;
-        state.username = action.payload.username;
-        state.email = action.payload.email;
-        state.displayName = action.payload.displayName;
-        state.bio = action.payload.bio;
-        state.profileImageUrl = action.payload.profileImageUrl;
-      } else {
-        // Clear state if no token
-        state.id = null;
-        state.token = null;
-        state.username = null;
-        state.email = null;
-        state.displayName = null;
-        state.bio = null;
-        state.profileImageUrl = null;
-      }
+      state.id = action.payload.id;
+      state.token = action.payload.token;
+      state.username = action.payload.username;
+      state.email = action.payload.email;
+      state.displayName = action.payload.displayName;
+      state.bio = action.payload.bio;
+      state.profileImageUrl = action.payload.profileImageUrl;
+      state.isAuthenticated = action.payload.isAuthenticated;
       state.loading = false;
       state.error = null;
     });
@@ -404,9 +398,9 @@ const userSlice = createSlice({
       state.displayName = null;
       state.bio = null;
       state.profileImageUrl = null;
+      state.isAuthenticated = false;
       state.loading = false;
-      state.error =
-        (action.payload as string) || "Failed to restore auth state";
+      state.error = (action.payload as string) || "Failed to restore auth state";
     });
 
     // Handle updateUserProfile
@@ -421,6 +415,7 @@ const userSlice = createSlice({
       state.displayName = action.payload.displayName;
       state.bio = action.payload.bio;
       state.profileImageUrl = action.payload.profileImageUrl;
+      state.isAuthenticated = action.payload.isAuthenticated;
       // Only update token if provided
       if (action.payload.token) {
         state.token = action.payload.token;
@@ -442,6 +437,7 @@ const userSlice = createSlice({
     
     builder.addCase(checkInitialAuth.fulfilled, (state, action) => {
       state.loading = false;
+      state.isAuthenticated = action.payload.isAuthenticated;
       
       if (action.payload.isAuthenticated) {
         // If we have more user data, use it
@@ -453,8 +449,17 @@ const userSlice = createSlice({
           state.username = action.payload.username;
         }
         
-        // Set token to a placeholder - actual token is in HTTP-only cookie
-        state.token = "authenticated-via-cookie";
+        if (action.payload.displayName) {
+          state.displayName = action.payload.displayName;
+        }
+        
+        if (action.payload.bio) {
+          state.bio = action.payload.bio;
+        }
+        
+        if (action.payload.profileImageUrl) {
+          state.profileImageUrl = action.payload.profileImageUrl;
+        }
       } else {
         // Reset state if not authenticated
         state.id = null;
@@ -469,6 +474,7 @@ const userSlice = createSlice({
     
     builder.addCase(checkInitialAuth.rejected, (state) => {
       state.loading = false;
+      state.isAuthenticated = false;
       state.id = null;
       state.token = null;
       state.username = null;
@@ -488,6 +494,7 @@ const userSlice = createSlice({
       state.displayName = null;
       state.bio = null;
       state.profileImageUrl = null;
+      state.isAuthenticated = false;
       state.loading = false;
       state.error = null;
     });
