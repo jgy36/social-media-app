@@ -6,12 +6,20 @@ import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.service.FollowService;
 import com.jgy36.PoliticalApp.service.PostService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +34,8 @@ public class UserController {
     private final UserRepository userRepository;
     private final FollowService followService;
     private final PostService postService;
+    @Value("${app.base-url:http://localhost:8080}")
+    private String baseUrl;
 
     public UserController(UserRepository userRepository, FollowService followService, PostService postService) {
         this.userRepository = userRepository;
@@ -42,12 +52,34 @@ public class UserController {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName(); // Extract email from token
 
-        Optional<User> user = userRepository.findByEmail(email);
-        if (user.isPresent()) {
-            return ResponseEntity.ok(user.get());
-        } else {
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
             return ResponseEntity.status(404).body("User not found");
         }
+
+        User user = userOpt.get();
+
+
+        // Create a detailed response with all profile fields
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", user.getId());
+        response.put("username", user.getUsername());
+        response.put("email", user.getEmail());
+        response.put("displayName", user.getDisplayName());
+        response.put("bio", user.getBio());
+        response.put("profileImageUrl", user.getProfileImageUrl());
+        response.put("createdAt", user.getCreatedAt().toString());
+
+        // Get followers/following counts
+        int followersCount = userRepository.countFollowers(user.getId());
+        int followingCount = userRepository.countFollowing(user.getId());
+        int postsCount = userRepository.countPosts(user.getId());
+
+        response.put("followersCount", followersCount);
+        response.put("followingCount", followingCount);
+        response.put("postsCount", postsCount);
+
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -294,6 +326,164 @@ public class UserController {
         response.put("message", "Username updated successfully");
         response.put("username", newUsername);
 
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Update the current user's profile information with enhanced logging
+     */
+    @PutMapping("/update-profile")
+    public ResponseEntity<?> updateProfile(
+            @RequestParam(required = false) String displayName,
+            @RequestParam(required = false) String bio,
+            @RequestParam(required = false) MultipartFile profileImage) {
+
+        // Get current authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        System.out.println("✅ Updating profile for user: " + email);
+
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            System.out.println("❌ User not found with email: " + email);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("success", false, "message", "User not found"));
+        }
+
+        User user = userOpt.get();
+        System.out.println("📋 Profile update request for user ID: " + user.getId());
+        boolean updated = false;
+
+        // Update display name if provided
+        if (displayName != null) {
+            String oldDisplayName = user.getDisplayName();
+            user.setDisplayName(displayName);
+            updated = true;
+            System.out.println("✏️ Updated display name: '" + oldDisplayName + "' -> '" + displayName + "'");
+        }
+
+        // Update bio if provided
+        if (bio != null) {
+            String oldBio = user.getBio();
+            user.setBio(bio);
+            updated = true;
+            System.out.println("✏️ Updated bio: '" + oldBio + "' -> '" + bio + "'");
+        }
+
+        // Handle profile image upload if provided
+        String profileImageUrl = null;
+        if (profileImage != null && !profileImage.isEmpty()) {
+            try {
+                // Use application's current working directory
+                String currentDir = System.getProperty("user.dir");
+                String uploadDir = currentDir + "/uploads/profile-images";
+
+                System.out.println("📂 Current working directory: " + currentDir);
+
+                File directory = new File(uploadDir);
+                if (!directory.exists()) {
+                    boolean created = directory.mkdirs();
+                    System.out.println("📁 Created directory: " + uploadDir + " - " + (created ? "Success" : "Failed"));
+
+                    if (!created) {
+                        System.out.println("⚠️ Directory creation failed. Checking parent directories...");
+                        File parent = new File(currentDir + "/uploads");
+                        if (!parent.exists()) {
+                            boolean parentCreated = parent.mkdir();
+                            System.out.println("📁 Created parent directory: " + parent.getAbsolutePath() + " - " + (parentCreated ? "Success" : "Failed"));
+                        }
+
+                        // Try again
+                        created = directory.mkdir();
+                        System.out.println("📁 Second attempt to create directory: " + uploadDir + " - " + (created ? "Success" : "Failed"));
+                    }
+                }
+
+                // Output directory info for debugging
+                System.out.println("📁 Directory exists: " + directory.exists());
+                System.out.println("📁 Directory is writable: " + directory.canWrite());
+                System.out.println("📁 Directory absolute path: " + directory.getAbsolutePath());
+
+                // Generate unique filename
+                String filename = user.getId() + "_" + System.currentTimeMillis() + "_" +
+                        StringUtils.cleanPath(profileImage.getOriginalFilename());
+                String filePath = uploadDir + "/" + filename;
+                System.out.println("📄 Saving profile image to: " + filePath);
+
+                // Save the file using direct transfer to a ByteArrayOutputStream first
+                byte[] bytes = profileImage.getBytes();
+                Path path = Paths.get(filePath);
+                Files.write(path, bytes);
+
+                // Verify file was written
+                File outputFile = new File(filePath);
+                System.out.println("💾 File saved successfully: " + outputFile.exists() + " - Size: " + outputFile.length() + " bytes");
+
+                // Update user profile image URL - use a URL path that will be accessible by the front-end
+                profileImageUrl = baseUrl + "/uploads/profile-images/" + filename;
+                String oldImageUrl = user.getProfileImageUrl();
+                user.setProfileImageUrl(profileImageUrl);
+                updated = true;
+                System.out.println("🖼️ Updated profile image URL: '" + oldImageUrl + "' -> '" + profileImageUrl + "'");
+            } catch (IOException e) {
+                System.err.println("❌ Failed to upload profile image: " + e.getMessage());
+                e.printStackTrace();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("success", false, "message", "Failed to upload profile image: " + e.getMessage()));
+            }
+        }
+
+        // Save user if anything was updated
+        if (updated) {
+            try {
+                User savedUser = userRepository.save(user);
+                System.out.println("✅ User saved successfully. Updated fields: " +
+                        "displayName=" + savedUser.getDisplayName() +
+                        ", bio=" + savedUser.getBio() +
+                        ", profileImageUrl=" + savedUser.getProfileImageUrl());
+
+                // Verify the data was actually saved by making a fresh query
+                Optional<User> verifyUser = userRepository.findById(user.getId());
+                if (verifyUser.isPresent()) {
+                    User freshUser = verifyUser.get();
+                    System.out.println("🔍 Verification query: " +
+                            "displayName=" + freshUser.getDisplayName() +
+                            ", bio=" + freshUser.getBio() +
+                            ", profileImageUrl=" + freshUser.getProfileImageUrl());
+                } else {
+                    System.out.println("⚠️ Verification query failed: User not found after save");
+                }
+            } catch (Exception e) {
+                System.err.println("❌ Failed to save user: " + e.getMessage());
+                e.printStackTrace();
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("success", false, "message", "Failed to save user: " + e.getMessage()));
+            }
+        } else {
+            System.out.println("ℹ️ No changes to save");
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Profile updated successfully");
+
+        // Include the user data in the response
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("id", user.getId());
+        userData.put("username", user.getUsername());
+        userData.put("email", user.getEmail());
+        userData.put("displayName", user.getDisplayName());
+        userData.put("bio", user.getBio());
+        userData.put("profileImageUrl", user.getProfileImageUrl());
+
+        response.put("user", userData);
+
+        // Include profile image URL if it was updated
+        if (profileImageUrl != null) {
+            response.put("profileImageUrl", profileImageUrl);
+        }
+
+        System.out.println("✅ Profile update response: " + response);
         return ResponseEntity.ok(response);
     }
 
