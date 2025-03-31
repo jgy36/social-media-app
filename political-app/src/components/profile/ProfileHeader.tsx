@@ -9,6 +9,7 @@ import UserStats from "./UserStats";
 import { getFollowStatus } from "@/api/users";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "lucide-react";
+import { getProfileImageUrl } from "@/utils/imageUtils";
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
@@ -70,11 +71,7 @@ const ProfileHeader = () => {
       <div className="flex-shrink-0">
         <Avatar className="h-24 w-24 border-2 border-primary/20">
           <AvatarImage
-            src={
-              user.profileImageUrl
-                ? user.profileImageUrl
-                : `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
-            }
+            src={getProfileImageUrl(user.profileImageUrl, user.username)}
             alt={user.username || "User"}
           />
           <AvatarFallback>

@@ -308,38 +308,46 @@ export const setUserData = (userData: {
 }) => {
   if (!isBrowser) return; // Skip if not in browser
   
-  const userId = String(userData.id);
-  
-  // Set current user ID
-  localStorage.setItem('currentUserId', userId);
-  
-  // Store each piece with a unique key
-  localStorage.setItem(`user_${userId}_username`, userData.username);
-  localStorage.setItem(`user_${userId}_userId`, userId);
-  localStorage.setItem(`user_${userId}_email`, userData.email);
-  
-  if (userData.displayName) {
-    localStorage.setItem(`user_${userId}_displayName`, userData.displayName);
+  try {
+    const userId = String(userData.id);
+    
+    // Set current user ID
+    localStorage.setItem('currentUserId', userId);
+    
+    // Store each piece with a unique key
+    localStorage.setItem(`user_${userId}_username`, userData.username);
+    localStorage.setItem(`user_${userId}_userId`, userId);
+    localStorage.setItem(`user_${userId}_email`, userData.email);
+    
+    // Handle profile data, converting null values to empty strings for consistent storage
+    localStorage.setItem(`user_${userId}_displayName`, userData.displayName || '');
+    localStorage.setItem(`user_${userId}_bio`, userData.bio || '');
+    if (userData.profileImageUrl) {
+      localStorage.setItem(`user_${userId}_profileImageUrl`, userData.profileImageUrl);
+    }
+    
+    // Also set in session storage
+    setSessionItem(USER_ID_KEY, userId);
+    setSessionItem(USERNAME_KEY, userData.username);
+    setSessionItem(EMAIL_KEY, userData.email);
+    setSessionItem(DISPLAY_NAME_KEY, userData.displayName || '');
+    setSessionItem(BIO_KEY, userData.bio || '');
+    if (userData.profileImageUrl) {
+      setSessionItem(PROFILE_IMAGE_KEY, userData.profileImageUrl);
+    }
+    
+    // Mark as authenticated
+    setAuthenticated(true);
+    
+    console.log('✅ User data saved successfully', { 
+      id: userId, 
+      username: userData.username,
+      displayName: userData.displayName,
+      bio: userData.bio
+    });
+  } catch (error) {
+    console.error('Error saving user data:', error);
   }
-  
-  if (userData.bio) {
-    localStorage.setItem(`user_${userId}_bio`, userData.bio);
-  }
-  
-  if (userData.profileImageUrl) {
-    localStorage.setItem(`user_${userId}_profileImageUrl`, userData.profileImageUrl);
-  }
-  
-  // Also set in session storage
-  setUserId(userId);
-  setUsername(userData.username);
-  setEmail(userData.email);
-  if (userData.displayName) setDisplayName(userData.displayName);
-  if (userData.bio) setBio(userData.bio);
-  if (userData.profileImageUrl) setProfileImageUrl(userData.profileImageUrl);
-  
-  // Mark as authenticated
-  setAuthenticated(true);
 };
 
 // Get all user data at once

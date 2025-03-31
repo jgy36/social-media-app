@@ -119,6 +119,8 @@ export const updateProfile = async (
   }
 ): Promise<UpdateProfileResponse> => {
   try {
+    console.log('Updating profile with data:', profile);
+    
     // Create FormData for file upload
     const formData = new FormData();
     
@@ -134,6 +136,8 @@ export const updateProfile = async (
       formData.append('profileImage', profile.profileImage);
     }
     
+    console.log('Sending profile update request...');
+    
     // Use FormData for multipart/form-data request (necessary for file upload)
     const response = await apiClient.put<UpdateProfileResponse>(
       '/users/update-profile',
@@ -145,6 +149,8 @@ export const updateProfile = async (
         withCredentials: true
       }
     );
+    
+    console.log('Profile update response:', response.data);
     
     // Update localStorage for better UX
     if (response.data.success) {
@@ -164,26 +170,50 @@ export const updateProfile = async (
         }
       }
       
-      // Dispatch a custom event for components that need to update
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(
-          new CustomEvent('userProfileUpdated', { 
-            detail: response.data.user || {
-              displayName: profile.displayName,
-              bio: profile.bio,
-              profileImageUrl: response.data.profileImageUrl
-            }
-          })
-        );
+      // Also update the Redux store if possible
+      try {
+        // Create a global event to update profile state across the app
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('userProfileUpdated', { 
+              detail: response.data.user || {
+                displayName: profile.displayName,
+                bio: profile.bio,
+                profileImageUrl: response.data.profileImageUrl
+              }
+            })
+          );
+        }
+      } catch (storeError) {
+        console.error('Error updating Redux store:', storeError);
       }
     }
     
     return response.data;
   } catch (error) {
     console.error('Error updating profile:', error);
+    
+    // Extract a meaningful error message without axios-specific code
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'object' && error !== null) {
+      // Try to get a message from any error object
+      const anyError = error as any;
+      if (anyError.message) {
+        errorMessage = anyError.message;
+      } else if (anyError.response?.data?.message) {
+        errorMessage = anyError.response.data.message;
+      } else if (anyError.response?.statusText) {
+        errorMessage = anyError.response.statusText;
+      } else if (anyError.statusText) {
+        errorMessage = anyError.statusText;
+      }
+    }
+    
     return { 
       success: false, 
-      message: getErrorMessage(error)
+      message: `Profile update failed: ${errorMessage}`
     };
   }
 };
@@ -287,12 +317,19 @@ export const getUserFollowing = async (userId: number, page: number = 1): Promis
  */
 export const refreshUserProfile = async (): Promise<boolean> => {
   try {
+    console.log('Refreshing user profile data...');
     const response = await apiClient.get<UserProfile>('/users/me', {
-      withCredentials: true
+      withCredentials: true,
+      headers: {
+        // Add cache-busting query parameter
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
     });
     
     if (response.data) {
       const userId = String(response.data.id);
+      console.log('Received fresh profile data:', response.data);
       
       // Update local storage with updated data
       localStorage.setItem('currentUserId', userId);
@@ -305,13 +342,9 @@ export const refreshUserProfile = async (): Promise<boolean> => {
         localStorage.setItem(`user_${userId}_email`, response.data.email);
       }
       
-      if (response.data.displayName) {
-        localStorage.setItem(`user_${userId}_displayName`, response.data.displayName);
-      }
-      
-      if (response.data.bio) {
-        localStorage.setItem(`user_${userId}_bio`, response.data.bio);
-      }
+      // Always update these fields, even with empty strings to ensure consistency
+      localStorage.setItem(`user_${userId}_displayName`, response.data.displayName || '');
+      localStorage.setItem(`user_${userId}_bio`, response.data.bio || '');
       
       if (response.data.profileImageUrl) {
         localStorage.setItem(`user_${userId}_profileImageUrl`, response.data.profileImageUrl);
@@ -324,12 +357,22 @@ export const refreshUserProfile = async (): Promise<boolean> => {
         );
       }
       
+      console.log('Profile data refreshed successfully');
       return true;
     }
     
+    console.log('Profile refresh failed - empty response data');
     return false;
   } catch (error) {
     console.error('Error refreshing user profile:', error);
+    
+    // Try to extract a meaningful error message
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+    console.error(`Profile refresh failed: ${errorMessage}`);
+    
     return false;
   }
 };
