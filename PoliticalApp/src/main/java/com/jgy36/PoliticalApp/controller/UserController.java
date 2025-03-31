@@ -487,4 +487,31 @@ public class UserController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/api/users/profile-image-status")
+    public ResponseEntity<?> checkProfileImageStatus(@RequestParam String url) {
+        try {
+            // Extract the file path from the URL
+            String filePath = url.replace(baseUrl, "");
+            File file = new File(filePath);
+
+            if (file.exists() && file.canRead()) {
+                return ResponseEntity.ok(Map.of(
+                        "status", "ok",
+                        "exists", true,
+                        "size", file.length()
+                ));
+            } else {
+                return ResponseEntity.ok(Map.of(
+                        "status", "not_found",
+                        "exists", false
+                ));
+            }
+        } catch (Exception e) {
+            return ResponseEntity.ok(Map.of(
+                    "status", "error",
+                    "message", e.getMessage()
+            ));
+        }
+    }
+
 }
