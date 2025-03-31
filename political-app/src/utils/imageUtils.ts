@@ -51,16 +51,21 @@ export const getProfileImageUrl = (
   profileImageUrl: string | null | undefined, 
   username: string | null | undefined
 ): string => {
-  // Log for debugging
   console.log(`getProfileImageUrl called with:`, { profileImageUrl, username });
   
   if (profileImageUrl) {
-    const result = getFullImageUrl(profileImageUrl);
-    console.log(`Processed URL: ${result}`);
-    return result;
+    // Ensure we add a cache-busting parameter
+    const timestamp = Date.now();
+    const finalUrl = profileImageUrl.includes('?') 
+      ? `${profileImageUrl}&t=${timestamp}` 
+      : `${profileImageUrl}?t=${timestamp}`;
+    
+    console.log(`Profile image URL with timestamp: ${finalUrl}`);
+    return finalUrl;
   }
   
-  const defaultUrl = getDefaultAvatarUrl(username);
+  // Default avatar as fallback
+  const defaultUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${username || 'default'}`;
   console.log(`Using default URL: ${defaultUrl}`);
   return defaultUrl;
 };

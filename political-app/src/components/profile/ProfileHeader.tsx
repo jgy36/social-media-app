@@ -65,14 +65,52 @@ const ProfileHeader = () => {
     }));
   };
 
+  // Add this inside your component before the return statement
+  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Function to handle profile image updates from any component
+    const handleProfileImageUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        console.log(
+          "Profile image updated event received:",
+          customEvent.detail
+        );
+        setLocalImageUrl(String(customEvent.detail) + `?t=${Date.now()}`);
+      }
+    };
+
+    // Listen for profile image update events
+    window.addEventListener("profileImageUpdated", handleProfileImageUpdate);
+
+    // Clean up when component unmounts
+    return () => {
+      window.removeEventListener(
+        "profileImageUpdated",
+        handleProfileImageUpdate
+      );
+    };
+  }, []);
+
   return (
     <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
       {/* Avatar */}
       <div className="flex-shrink-0">
         <Avatar className="h-24 w-24 border-2 border-primary/20">
           <AvatarImage
-            src={getProfileImageUrl(user.profileImageUrl, user.username)}
+            // Use local state if available, otherwise fall back to Redux state with utility function
+            src={
+              localImageUrl ||
+              getProfileImageUrl(user.profileImageUrl, user.username)
+            }
             alt={user.username || "User"}
+            onError={(e) => {
+              console.error("Failed to load profile image:", e);
+              e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                user.username || "default"
+              }`;
+            }}
           />
           <AvatarFallback>
             {user.username ? user.username.charAt(0).toUpperCase() : "U"}
@@ -85,9 +123,7 @@ const ProfileHeader = () => {
         <h2 className="text-2xl font-bold">{user.displayName || "Guest"}</h2>
         <p className="text-muted-foreground">@{user.username || "unknown"}</p>
 
-        { user.bio && (
-          <p className="mt-2">{user.bio}</p>
-        )}
+        {user.bio && <p className="mt-2">{user.bio}</p>}
 
         {/* User Stats - Now with clickable followers/following */}
         {user.id && (

@@ -169,86 +169,111 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
   };
 
   // Handle form submission
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+  // Handle form submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // ... your existing validation code ...
 
-  // Reset states
-  setSuccess(false);
-  setGeneralError(null);
+    setIsSubmitting(true);
 
-  // Validate all fields
-  const isUsernameValid = validateUsername(username);
-  const isDisplayNameValid = validateDisplayName(displayName);
-  const isBioValid = validateBio(bio);
+    try {
+      // ... existing code ...
 
-  if (!isUsernameValid || !isDisplayNameValid || !isBioValid) {
-    return;
-  }
+      // Import the updateProfile function from API
+      const { updateProfile } = await import("@/api/users");
 
-  setIsSubmitting(true);
+      // Call the API to update profile
+      const profileResult = await updateProfile({
+        displayName,
+        bio,
+        profileImage: profileImageFile || undefined,
+      });
 
-  try {
-    // First update username if it changed
-    if (username !== user.username) {
-      const result = await updateUsername(username);
-      if (!result.success) {
-        setUsernameError(result.message || "Failed to update username");
+      if (!profileResult.success) {
+        setGeneralError(profileResult.message || "Failed to update profile");
         setIsSubmitting(false);
         return;
       }
-    }
 
-    // Create FormData for profile update
-    const formData = new FormData();
-    
-    // Add display name and bio to FormData
-    formData.append("displayName", displayName);
-    formData.append("bio", bio);
-    
-    // Add profile image if selected
-    if (profileImageFile) {
-      formData.append("profileImage", profileImageFile);
-    }
-    
-    // Import the updateProfile function from API
-    const { updateProfile } = await import('@/api/users');
-    
-    // Call the API to update profile
-    const profileResult = await updateProfile({
-      displayName,
-      bio,
-      profileImage: profileImageFile || undefined
-    });
-    
-    if (!profileResult.success) {
-      setGeneralError(profileResult.message || "Failed to update profile");
+      // Important: Make sure to update image URL with the complete URL from the response
+      // Force image refresh by appending a timestamp
+      const newImageUrl = profileResult.profileImageUrl
+        ? `${profileResult.profileImageUrl}?t=${Date.now()}`
+        : null;
+
+      // Update Redux with response data
+      // Update Redux with response data
+      dispatch(
+        updateUserProfile({
+          username,
+          displayName,
+          bio,
+          profileImageUrl: profileResult.profileImageUrl || undefined, // Pass the raw URL from backend
+        })
+      );
+
+      // Update image preview immediately with full URL including timestamp
+      if (profileResult.profileImageUrl) {
+        // Force a new timestamp to bypass cache
+        const imageUrlWithTimestamp = `${
+          profileResult.profileImageUrl
+        }?t=${Date.now()}`;
+        setImagePreview(imageUrlWithTimestamp);
+
+        // Also update profileImageUrl state for future reference
+        setProfileImageUrl(profileResult.profileImageUrl);
+      }
+
+      // Update image preview to show the updated image
+      if (newImageUrl) {
+        setImagePreview(newImageUrl);
+      }
+
+      setSuccess(true);
+
+      // Force a refresh of the profile data to ensure it's updated everywhere
+      const { refreshUserProfile } = await import("@/api/users");
+      refreshUserProfile();
+
+      // Call the onSuccess callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      setGeneralError("An unexpected error occurred. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-    
-    // Update Redux with response data
-    dispatch(
-      updateUserProfile({
-        username,
-        displayName,
-        bio,
-        profileImageUrl: profileResult.profileImageUrl,
-      })
-    );
+  };
 
-    setSuccess(true);
+  // Add this inside your component before the return statement
+  const [localImageUrl, setLocalImageUrl] = useState<string | null>(null);
 
-    // Call the onSuccess callback if provided
-    if (onSuccess) {
-      onSuccess();
-    }
-  } catch (error) {
-    console.error("Error updating profile:", error);
-    setGeneralError("An unexpected error occurred. Please try again.");
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+  useEffect(() => {
+    // Function to handle profile image updates from any component
+    const handleProfileImageUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        console.log(
+          "Profile image updated event received:",
+          customEvent.detail
+        );
+        setLocalImageUrl(String(customEvent.detail) + `?t=${Date.now()}`);
+      }
+    };
+
+    // Listen for profile image update events
+    window.addEventListener("profileImageUpdated", handleProfileImageUpdate);
+
+    // Clean up when component unmounts
+    return () => {
+      window.removeEventListener(
+        "profileImageUpdated",
+        handleProfileImageUpdate
+      );
+    };
+  }, []);
 
   return (
     <Card className="shadow-md">
@@ -286,7 +311,20 @@ const handleSubmit = async (e: React.FormEvent) => {
             <div className="relative">
               <Avatar className="h-24 w-24 border-2 border-primary/20">
                 {imagePreview ? (
-                  <AvatarImage src={imagePreview} alt="Profile" />
+                  <AvatarImage
+                    // Use local state if available, otherwise fall back to Redux state with utility function
+                    src={
+                      localImageUrl ||
+                      getProfileImageUrl(user.profileImageUrl, user.username)
+                    }
+                    alt={user.username || "User"}
+                    onError={(e) => {
+                      console.error("Failed to load profile image:", e);
+                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                        user.username || "default"
+                      }`;
+                    }}
+                  />
                 ) : (
                   <AvatarFallback>
                     {username ? username.charAt(0).toUpperCase() : "U"}
