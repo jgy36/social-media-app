@@ -48,6 +48,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formKey, setFormKey] = useState(Date.now());
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +65,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
       setImagePreview(getProfileImageUrl(user.profileImageUrl, user.username));
     }
   }, [user]);
+  
   // Handle username validation
   const validateUsername = (value: string): boolean => {
     // Reset previous errors
@@ -169,16 +171,27 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
   };
 
   // Handle form submission
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // ... your existing validation code ...
+    // Reset validation errors
+    setUsernameError(null);
+    setDisplayNameError(null);
+    setBioError(null);
+    setImageError(null);
+    setGeneralError(null);
+    
+    // Validate form fields
+    const isUsernameValid = validateUsername(username);
+    const isDisplayNameValid = validateDisplayName(displayName);
+    const isBioValid = validateBio(bio);
+    
+    if (!isUsernameValid || !isDisplayNameValid || !isBioValid) {
+      return; // Don't submit if validation fails
+    }
 
     setIsSubmitting(true);
 
     try {
-      // ... existing code ...
-
       // Import the updateProfile function from API
       const { updateProfile } = await import("@/api/users");
 
@@ -188,6 +201,9 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
         bio,
         profileImage: profileImageFile || undefined,
       });
+
+      // Log the complete response for debugging
+      console.log("Profile update response:", profileResult);
 
       if (!profileResult.success) {
         setGeneralError(profileResult.message || "Failed to update profile");
@@ -201,39 +217,34 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
         ? `${profileResult.profileImageUrl}?t=${Date.now()}`
         : null;
 
-      // Update Redux with response data
+      // Dispatch event to update profile image across components
+      if (profileResult.profileImageUrl) {
+        // Update local preview first
+        const imageUrlWithTimestamp = `${profileResult.profileImageUrl}?t=${Date.now()}`;
+        setImagePreview(imageUrlWithTimestamp);
+        
+        console.log("Dispatching profileImageUpdated event with:", profileResult.profileImageUrl);
+        window.dispatchEvent(new CustomEvent('profileImageUpdated', {
+          detail: profileResult.profileImageUrl // Send the clean URL without timestamp
+        }));
+      }
+
       // Update Redux with response data
       dispatch(
         updateUserProfile({
           username,
           displayName,
           bio,
-          profileImageUrl: profileResult.profileImageUrl || undefined, // Pass the raw URL from backend
+          profileImageUrl: newImageUrl || undefined, // Use the URL with timestamp
         })
       );
 
-      // Update image preview immediately with full URL including timestamp
-      if (profileResult.profileImageUrl) {
-        // Force a new timestamp to bypass cache
-        const imageUrlWithTimestamp = `${
-          profileResult.profileImageUrl
-        }?t=${Date.now()}`;
-        setImagePreview(imageUrlWithTimestamp);
-
-        // Also update profileImageUrl state for future reference
-        setProfileImageUrl(profileResult.profileImageUrl);
-      }
-
-      // Update image preview to show the updated image
-      if (newImageUrl) {
-        setImagePreview(newImageUrl);
-      }
-
       setSuccess(true);
+      setFormKey(Date.now()); // Reset form state to force re-render
 
       // Force a refresh of the profile data to ensure it's updated everywhere
       const { refreshUserProfile } = await import("@/api/users");
-      refreshUserProfile();
+      await refreshUserProfile();
 
       // Call the onSuccess callback if provided
       if (onSuccess) {
@@ -276,7 +287,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
   }, []);
 
   return (
-    <Card className="shadow-md">
+    <Card className="shadow-md" key={formKey}>
       <form onSubmit={handleSubmit}>
         <CardHeader>
           <CardTitle>Edit Profile</CardTitle>
@@ -312,10 +323,11 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
               <Avatar className="h-24 w-24 border-2 border-primary/20">
                 {imagePreview ? (
                   <AvatarImage
-                    // Use local state if available, otherwise fall back to Redux state with utility function
+                    // Use primarily imagePreview, then local state if available, then fall back to Redux state
                     src={
+                      imagePreview || 
                       localImageUrl ||
-                      getProfileImageUrl(user.profileImageUrl, user.username)
+                      getProfileImageUrl(user.profileImageUrl, user.username) + `?t=${Date.now()}`
                     }
                     alt={user.username || "User"}
                     onError={(e) => {

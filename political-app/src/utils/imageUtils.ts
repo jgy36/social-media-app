@@ -54,11 +54,15 @@ export const getProfileImageUrl = (
   console.log(`getProfileImageUrl called with:`, { profileImageUrl, username });
   
   if (profileImageUrl) {
-    // Ensure we add a cache-busting parameter
+    // Remove any existing timestamp parameters
+    let cleanUrl = profileImageUrl;
+    if (cleanUrl.includes('?t=')) {
+      cleanUrl = cleanUrl.split('?t=')[0];
+    }
+    
+    // Add a fresh timestamp
     const timestamp = Date.now();
-    const finalUrl = profileImageUrl.includes('?') 
-      ? `${profileImageUrl}&t=${timestamp}` 
-      : `${profileImageUrl}?t=${timestamp}`;
+    const finalUrl = `${cleanUrl}?t=${timestamp}`;
     
     console.log(`Profile image URL with timestamp: ${finalUrl}`);
     return finalUrl;

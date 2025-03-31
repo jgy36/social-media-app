@@ -25,6 +25,7 @@ const ProfileHeader = () => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(Date.now());
 
   useEffect(() => {
     if (user?.id && token) {
@@ -52,6 +53,23 @@ const ProfileHeader = () => {
       fetchStats();
     }
   }, [user?.id, token]);
+
+  // Handle profile image updates
+  useEffect(() => {
+    const handleProfileUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        console.log("ProfileHeader - Refresh triggered by event:", customEvent.detail);
+        setRefreshKey(Date.now()); // Force re-render with new key
+      }
+    };
+
+    window.addEventListener('profileImageUpdated', handleProfileUpdate);
+    
+    return () => {
+      window.removeEventListener('profileImageUpdated', handleProfileUpdate);
+    };
+  }, []);
 
   // Handle stats changes (for example, when a user is followed/unfollowed in modals)
   const handleStatsChange = (
@@ -99,10 +117,11 @@ const ProfileHeader = () => {
       <div className="flex-shrink-0">
         <Avatar className="h-24 w-24 border-2 border-primary/20">
           <AvatarImage
+            key={refreshKey} // Force re-render on refreshKey change
             // Use local state if available, otherwise fall back to Redux state with utility function
             src={
               localImageUrl ||
-              getProfileImageUrl(user.profileImageUrl, user.username)
+              getProfileImageUrl(user.profileImageUrl, user.username) + `?t=${refreshKey}`
             }
             alt={user.username || "User"}
             onError={(e) => {
