@@ -199,15 +199,25 @@ export const updateProfile = async (
       errorMessage = error.message;
     } else if (typeof error === 'object' && error !== null) {
       // Try to get a message from any error object
-      const anyError = error as any;
-      if (anyError.message) {
-        errorMessage = anyError.message;
-      } else if (anyError.response?.data?.message) {
-        errorMessage = anyError.response.data.message;
-      } else if (anyError.response?.statusText) {
-        errorMessage = anyError.response.statusText;
-      } else if (anyError.statusText) {
-        errorMessage = anyError.statusText;
+      const errorObj = error as {
+        message?: string;
+        response?: {
+          data?: {
+            message?: string;
+          };
+          statusText?: string;
+        };
+        statusText?: string;
+      };
+      
+      if (errorObj.message) {
+        errorMessage = errorObj.message;
+      } else if (errorObj.response?.data?.message) {
+        errorMessage = errorObj.response.data.message;
+      } else if (errorObj.response?.statusText) {
+        errorMessage = errorObj.response.statusText;
+      } else if (errorObj.statusText) {
+        errorMessage = errorObj.statusText;
       }
     }
     
