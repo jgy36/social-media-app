@@ -1,4 +1,4 @@
-// src/api/auth.ts - Fixed version with consistent CORS handling
+// src/api/auth.ts - Fixed for TypeScript null/undefined issues
 import { apiClient, safeApiCall } from "./apiClient";
 import {
   LoginRequest,
@@ -6,7 +6,14 @@ import {
   AuthResponse,
   ApiResponse,
 } from "./types";
-import { setToken, removeToken } from "@/utils/tokenUtils";
+import { 
+  setToken, 
+  setUserData, 
+  clearUserData, 
+  getUserData,
+  setAuthenticated,
+  removeToken
+} from "@/utils/tokenUtils";
 
 /**
  * Login a user
@@ -27,34 +34,25 @@ export const login = async (
       }
     );
 
-    // Store the token
+    // If we get a token from the server, store it
     if (response.data.token) {
       setToken(response.data.token);
+    }
+    
+    // Mark as authenticated regardless (since we're using HTTP-only cookies)
+    setAuthenticated(true);
 
-      // Store user info in localStorage
-      // This is safe because we're only doing it after a successful login
-      if (response.data.user?.username) {
-        const userInfo = {
-          username: response.data.user.username,
-          userId: String(response.data.user.id),
-          email: response.data.user.email,
-          displayName: response.data.user.displayName || null,
-          bio: response.data.user.bio || null,
-          profileImageUrl: response.data.user.profileImageUrl || null
-        };
-        
-        // Store each piece with a unique key including the user ID for isolation
-        const userId = String(response.data.user.id);
-        localStorage.setItem(`user_${userId}_username`, userInfo.username);
-        localStorage.setItem(`user_${userId}_userId`, String(userInfo.userId));
-        localStorage.setItem(`user_${userId}_email`, userInfo.email);
-        if (userInfo.displayName) localStorage.setItem(`user_${userId}_displayName`, userInfo.displayName);
-        if (userInfo.bio) localStorage.setItem(`user_${userId}_bio`, userInfo.bio);
-        if (userInfo.profileImageUrl) localStorage.setItem(`user_${userId}_profileImageUrl`, userInfo.profileImageUrl);
-        
-        // Also store the current active user ID
-        localStorage.setItem("currentUserId", userId);
-      }
+    // Store user info in localStorage
+    if (response.data.user?.id) {
+      setUserData({
+        id: response.data.user.id,
+        username: response.data.user.username || '',
+        email: response.data.user.email || '',
+        // Convert null to undefined to avoid type issues
+        displayName: response.data.user.displayName || undefined,
+        bio: response.data.user.bio || undefined,
+        profileImageUrl: response.data.user.profileImageUrl || undefined
+      });
     }
 
     return response.data;
@@ -78,6 +76,27 @@ export const register = async (
 };
 
 /**
+ * Helper function to clear all data for a specific user ID
+ */
+function clearUserDataById(userId: string) {
+  // Clean up localStorage
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(`user_${userId}_`)) {
+      localStorage.removeItem(key);
+    }
+  }
+  
+  // Clean up sessionStorage
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key && key.startsWith(`user_${userId}_`)) {
+      sessionStorage.removeItem(key);
+    }
+  }
+}
+
+/**
  * Logout the current user
  */
 export const logout = async (): Promise<void> => {
@@ -88,58 +107,40 @@ export const logout = async (): Promise<void> => {
     // Call logout endpoint with credentials
     await apiClient.post("/auth/logout", {}, { withCredentials: true });
     
-    // Clear token
-    removeToken();
-    
-    // Clear only the current user's data
+    // Clean up all storage
     if (currentUserId) {
-      // Clear user-specific data
-      localStorage.removeItem(`user_${currentUserId}_username`);
-      localStorage.removeItem(`user_${currentUserId}_userId`);
-      localStorage.removeItem(`user_${currentUserId}_email`);
-      localStorage.removeItem(`user_${currentUserId}_displayName`);
-      localStorage.removeItem(`user_${currentUserId}_bio`);
-      localStorage.removeItem(`user_${currentUserId}_profileImageUrl`);
-      
-      // Clear current user tracking
-      localStorage.removeItem("currentUserId");
+      clearUserDataById(currentUserId);
     }
+    
+    // Use the utility function for full cleanup
+    clearUserData();
   } catch (err) {
     console.error("Logout error:", err);
     // Continue with local logout even if API call fails
-    removeToken();
-    
-    // Clear all possible auth data
-    const currentUserId = localStorage.getItem("currentUserId");
-    if (currentUserId) {
-      localStorage.removeItem(`user_${currentUserId}_username`);
-      localStorage.removeItem(`user_${currentUserId}_userId`);
-      localStorage.removeItem(`user_${currentUserId}_email`);
-      localStorage.removeItem(`user_${currentUserId}_displayName`);
-      localStorage.removeItem(`user_${currentUserId}_bio`);
-      localStorage.removeItem(`user_${currentUserId}_profileImageUrl`);
-      localStorage.removeItem("currentUserId");
-    }
+    clearUserData();
   }
 };
 
 /**
  * Refresh the authentication token
  */
-export const refreshToken = async (): Promise<string> => {
+export const refreshToken = async (): Promise<boolean> => {
   return safeApiCall(async () => {
-    const response = await apiClient.post<{ token: string }>(
+    const response = await apiClient.post<{ token?: string }>(
       "/auth/refresh",
       {},
       { withCredentials: true }
     );
 
-    if (response.data.token) {
+    // If we receive a token from the server, store it
+    if (response.data && response.data.token) {
       setToken(response.data.token);
-      return response.data.token;
     }
-
-    throw new Error("No token received");
+    
+    // Mark as authenticated since the cookie was refreshed
+    setAuthenticated(true);
+    
+    return true;
   }, "Token refresh error");
 };
 
@@ -159,31 +160,27 @@ export const checkAuthStatus = async (): Promise<boolean> => {
     
     // If successful, update current user info
     if (response.data && response.data.id) {
-      const userId = String(response.data.id);
-      localStorage.setItem("currentUserId", userId);
+      // Mark as authenticated
+      setAuthenticated(true);
       
-      // Update user info
-      if (response.data.username) {
-        localStorage.setItem(`user_${userId}_username`, response.data.username);
-      }
-      localStorage.setItem(`user_${userId}_userId`, userId);
-      if (response.data.email) {
-        localStorage.setItem(`user_${userId}_email`, response.data.email);
-      }
-      if (response.data.displayName) {
-        localStorage.setItem(`user_${userId}_displayName`, response.data.displayName);
-      }
-      if (response.data.bio) {
-        localStorage.setItem(`user_${userId}_bio`, response.data.bio);
-      }
-      if (response.data.profileImageUrl) {
-        localStorage.setItem(`user_${userId}_profileImageUrl`, response.data.profileImageUrl);
-      }
+      // Store user data
+      setUserData({
+        id: response.data.id,
+        username: response.data.username || '',
+        email: response.data.email || '',
+        // Fix type issues by converting null to undefined
+        displayName: response.data.displayName || undefined,
+        bio: response.data.bio || undefined,
+        profileImageUrl: response.data.profileImageUrl || undefined
+      });
+      
+      return true;
     }
     
-    return true;
+    return false;
   } catch (err) {
     console.error("Auth status check failed:", err);
+    setAuthenticated(false);
     return false;
   }
 };
@@ -200,26 +197,15 @@ export const getCurrentUserInfo = (): {
   bio: string | null;
   profileImageUrl: string | null;
 } => {
-  const userId = localStorage.getItem("currentUserId");
-  
-  if (!userId) {
-    return {
-      userId: null,
-      username: null,
-      email: null,
-      displayName: null,
-      bio: null,
-      profileImageUrl: null
-    };
-  }
+  const userData = getUserData();
   
   return {
-    userId,
-    username: localStorage.getItem(`user_${userId}_username`),
-    email: localStorage.getItem(`user_${userId}_email`),
-    displayName: localStorage.getItem(`user_${userId}_displayName`),
-    bio: localStorage.getItem(`user_${userId}_bio`),
-    profileImageUrl: localStorage.getItem(`user_${userId}_profileImageUrl`)
+    userId: userData.id,
+    username: userData.username,
+    email: userData.email,
+    displayName: userData.displayName,
+    bio: userData.bio,
+    profileImageUrl: userData.profileImageUrl
   };
 };
 

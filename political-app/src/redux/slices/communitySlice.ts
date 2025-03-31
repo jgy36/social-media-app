@@ -1,11 +1,12 @@
-// src/redux/slices/communitySlice.ts
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+// src/redux/slices/communitySlice.ts - Updated for better persistence
+import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { 
   setSessionItem, 
   getSessionItem, 
   removeSessionItem 
 } from '@/utils/sessionUtils';
 import { getUserId } from '@/utils/tokenUtils';
+import api from '@/api';
 
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
@@ -21,7 +22,7 @@ const JOINED_COMMUNITIES_KEY = 'joinedCommunities';
 const FEATURED_COMMUNITIES_KEY = 'featuredCommunities';
 const SIDEBAR_STATE_KEY = 'communitySidebarOpen';
 
-// Load initial state from session storage
+// Load initial state from localStorage
 const loadInitialState = (): CommunityState => {
   // Default initial state for server-side rendering or in case of errors
   const defaultState: CommunityState = {
@@ -44,8 +45,8 @@ const loadInitialState = (): CommunityState => {
     }
     
     // Try to get joined communities
-    const joinedCommunitiesJson = getSessionItem(JOINED_COMMUNITIES_KEY);
-    const isSidebarOpen = getSessionItem(SIDEBAR_STATE_KEY) !== 'false'; // Default to true
+    const joinedCommunitiesJson = localStorage.getItem(`user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`);
+    const isSidebarOpen = localStorage.getItem(`user_${currentUserId}_${SIDEBAR_STATE_KEY}`) !== 'false'; // Default to true
 
     if (joinedCommunitiesJson) {
       try {
@@ -54,7 +55,7 @@ const loadInitialState = (): CommunityState => {
         // Ensure it's an array
         if (Array.isArray(joinedCommunities)) {
           // Try to get featured communities
-          const featuredCommunitiesJson = getSessionItem(FEATURED_COMMUNITIES_KEY);
+          const featuredCommunitiesJson = localStorage.getItem(`user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`);
           let featuredCommunities = joinedCommunities.slice(0, 5); // Default to first 5
           
           if (featuredCommunitiesJson) {
@@ -88,6 +89,42 @@ const loadInitialState = (): CommunityState => {
 
 const initialState: CommunityState = loadInitialState();
 
+// Async thunk for joining a community
+export const joinCommunity = createAsyncThunk(
+  'communities/join',
+  async (communityId: string, { rejectWithValue }) => {
+    try {
+      const response = await api.communities.joinCommunity(communityId);
+      
+      if (!response.success) {
+        return rejectWithValue(response.message || 'Failed to join community');
+      }
+      
+      return communityId;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to join community');
+    }
+  }
+);
+
+// Async thunk for leaving a community
+export const leaveCommunity = createAsyncThunk(
+  'communities/leave',
+  async (communityId: string, { rejectWithValue }) => {
+    try {
+      const response = await api.communities.leaveCommunity(communityId);
+      
+      if (!response.success) {
+        return rejectWithValue(response.message || 'Failed to leave community');
+      }
+      
+      return communityId;
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to leave community');
+    }
+  }
+);
+
 const communitySlice = createSlice({
   name: "communities",
   initialState,
@@ -99,14 +136,25 @@ const communitySlice = createSlice({
       // Update featured communities (top 5)
       state.featuredCommunities = action.payload.slice(0, 5);
       
-      // Save to session storage (only in browser)
+      // Save to localStorage (only in browser)
       if (isBrowser) {
-        setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(action.payload));
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.setItem(
+            `user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`, 
+            JSON.stringify(action.payload)
+          );
+          
+          localStorage.setItem(
+            `user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`, 
+            JSON.stringify(action.payload.slice(0, 5))
+          );
+        }
       }
     },
     
     // Add a single community to joined list
-    joinCommunity: (state, action: PayloadAction<string>) => {
+    joinCommunityAction: (state, action: PayloadAction<string>) => {
       const communityId = action.payload;
       if (!state.joinedCommunities.includes(communityId)) {
         state.joinedCommunities.push(communityId);
@@ -116,34 +164,44 @@ const communitySlice = createSlice({
           state.featuredCommunities.push(communityId);
         }
         
-        // Save to session storage (only in browser)
+        // Save to localStorage (only in browser)
         if (isBrowser) {
-          setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(state.joinedCommunities));
-          setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+          const currentUserId = getUserId();
+          if (currentUserId) {
+            localStorage.setItem(
+              `user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`, 
+              JSON.stringify(state.joinedCommunities)
+            );
+            
+            localStorage.setItem(
+              `user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`, 
+              JSON.stringify(state.featuredCommunities)
+            );
+          }
         }
       }
     },
     
     // Remove a community from joined list
-    leaveCommunity: (state, action: PayloadAction<string>) => {
+    leaveCommunityAction: (state, action: PayloadAction<string>) => {
       const communityId = action.payload;
       state.joinedCommunities = state.joinedCommunities.filter(id => id !== communityId);
       state.featuredCommunities = state.featuredCommunities.filter(id => id !== communityId);
       
-      // Update featured if needed
-      if (state.featuredCommunities.length < 5 && state.joinedCommunities.length > 0) {
-        // Find up to 5 communities not already in featured
-        const additionalFeatures = state.joinedCommunities
-          .filter(id => !state.featuredCommunities.includes(id))
-          .slice(0, 5 - state.featuredCommunities.length);
-        
-        state.featuredCommunities = [...state.featuredCommunities, ...additionalFeatures];
-      }
-      
-      // Save to session storage (only in browser)
+      // Save to localStorage (only in browser)
       if (isBrowser) {
-        setSessionItem(JOINED_COMMUNITIES_KEY, JSON.stringify(state.joinedCommunities));
-        setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.setItem(
+            `user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`, 
+            JSON.stringify(state.joinedCommunities)
+          );
+          
+          localStorage.setItem(
+            `user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`, 
+            JSON.stringify(state.featuredCommunities)
+          );
+        }
       }
     },
     
@@ -153,7 +211,13 @@ const communitySlice = createSlice({
       
       // Save preference (only in browser)
       if (isBrowser) {
-        setSessionItem(SIDEBAR_STATE_KEY, String(state.isSidebarOpen));
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.setItem(
+            `user_${currentUserId}_${SIDEBAR_STATE_KEY}`, 
+            String(state.isSidebarOpen)
+          );
+        }
       }
     },
     
@@ -163,7 +227,13 @@ const communitySlice = createSlice({
       
       // Save preference (only in browser)
       if (isBrowser) {
-        setSessionItem(SIDEBAR_STATE_KEY, String(action.payload));
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.setItem(
+            `user_${currentUserId}_${SIDEBAR_STATE_KEY}`, 
+            String(action.payload)
+          );
+        }
       }
     },
     
@@ -177,9 +247,15 @@ const communitySlice = createSlice({
       // Limit to 5
       state.featuredCommunities = validFeatured.slice(0, 5);
       
-      // Save to session storage (only in browser)
+      // Save to localStorage (only in browser)
       if (isBrowser) {
-        setSessionItem(FEATURED_COMMUNITIES_KEY, JSON.stringify(state.featuredCommunities));
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.setItem(
+            `user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`, 
+            JSON.stringify(state.featuredCommunities)
+          );
+        }
       }
     },
     
@@ -188,19 +264,75 @@ const communitySlice = createSlice({
       state.joinedCommunities = [];
       state.featuredCommunities = [];
       
-      // Remove from session storage (only in browser)
+      // Remove from localStorage (only in browser)
       if (isBrowser) {
-        removeSessionItem(JOINED_COMMUNITIES_KEY);
-        removeSessionItem(FEATURED_COMMUNITIES_KEY);
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.removeItem(`user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`);
+          localStorage.removeItem(`user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`);
+        }
       }
     }
   },
+  extraReducers: (builder) => {
+    // Handle async join community
+    builder.addCase(joinCommunity.fulfilled, (state, action) => {
+      const communityId = action.payload as string;
+      if (!state.joinedCommunities.includes(communityId)) {
+        state.joinedCommunities.push(communityId);
+        
+        // Update featured if needed
+        if (state.featuredCommunities.length < 5) {
+          state.featuredCommunities.push(communityId);
+        }
+        
+        // Save to localStorage
+        if (isBrowser) {
+          const currentUserId = getUserId();
+          if (currentUserId) {
+            localStorage.setItem(
+              `user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`, 
+              JSON.stringify(state.joinedCommunities)
+            );
+            
+            localStorage.setItem(
+              `user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`, 
+              JSON.stringify(state.featuredCommunities)
+            );
+          }
+        }
+      }
+    });
+    
+    // Handle async leave community
+    builder.addCase(leaveCommunity.fulfilled, (state, action) => {
+      const communityId = action.payload as string;
+      state.joinedCommunities = state.joinedCommunities.filter(id => id !== communityId);
+      state.featuredCommunities = state.featuredCommunities.filter(id => id !== communityId);
+      
+      // Save to localStorage
+      if (isBrowser) {
+        const currentUserId = getUserId();
+        if (currentUserId) {
+          localStorage.setItem(
+            `user_${currentUserId}_${JOINED_COMMUNITIES_KEY}`, 
+            JSON.stringify(state.joinedCommunities)
+          );
+          
+          localStorage.setItem(
+            `user_${currentUserId}_${FEATURED_COMMUNITIES_KEY}`, 
+            JSON.stringify(state.featuredCommunities)
+          );
+        }
+      }
+    });
+  }
 });
 
 export const { 
   updateUserCommunities, 
-  joinCommunity, 
-  leaveCommunity, 
+  joinCommunityAction, 
+  leaveCommunityAction, 
   toggleSidebar, 
   setSidebarOpen,
   updateFeaturedCommunities,
