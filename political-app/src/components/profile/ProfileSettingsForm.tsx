@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/profile/ProfileSettingsForm.tsx
-import { useState, useEffect, useRef } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { RootState, AppDispatch } from '@/redux/store';
+import { useState, useEffect, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "@/redux/store";
 import {
   Card,
   CardContent,
@@ -10,33 +10,36 @@ import {
   CardTitle,
   CardDescription,
   CardFooter,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Check, AlertCircle, Upload, Save, X, Camera } from 'lucide-react';
-import { updateUserProfile } from '@/redux/slices/userSlice';
-import { updateUsername } from '@/api/users';
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Check, AlertCircle, Upload, Save, X, Camera } from "lucide-react";
+import { updateUserProfile } from "@/redux/slices/userSlice";
+import { updateUsername } from "@/api/users";
+import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
 
 interface ProfileSettingsFormProps {
   onSuccess?: () => void;
 }
 
-const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) => {
+const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({
+  onSuccess,
+}) => {
   const dispatch = useDispatch<AppDispatch>();
   const user = useSelector((state: RootState) => state.user);
-  
+
   // Form states
-  const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [bio, setBio] = useState('');
-  const [profileImageUrl, setProfileImageUrl] = useState('');
+  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [bio, setBio] = useState("");
+  const [profileImageUrl, setProfileImageUrl] = useState("");
   const [profileImageFile, setProfileImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  
+
   // UI states
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [displayNameError, setDisplayNameError] = useState<string | null>(null);
@@ -45,28 +48,22 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize form with current user data
   useEffect(() => {
     if (user) {
-      setUsername(user.username || '');
-      setDisplayName(user.displayName || '');
-      setBio(user.bio || '');
-      setProfileImageUrl(user.profileImageUrl || '');
-      
-      // Set default image preview
-      if (user.profileImageUrl) {
-        setImagePreview(user.profileImageUrl);
-      } else if (user.username) {
-        // Use default avatar service as fallback
-        setImagePreview(`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`);
-      }
+      setUsername(user.username || "");
+      setDisplayName(user.displayName || "");
+      setBio(user.bio || "");
+      setProfileImageUrl(user.profileImageUrl || "");
+
+      // Set default image preview with our utility function
+      setImagePreview(getProfileImageUrl(user.profileImageUrl, user.username));
     }
   }, [user]);
-
   // Handle username validation
   const validateUsername = (value: string): boolean => {
     // Reset previous errors
@@ -94,33 +91,33 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
 
     return true;
   };
-  
+
   // Handle display name validation
   const validateDisplayName = (value: string): boolean => {
     setDisplayNameError(null);
-    
+
     if (!value.trim()) {
       setDisplayNameError("Name is required");
       return false;
     }
-    
+
     if (value.length > 50) {
       setDisplayNameError("Name must be less than 50 characters");
       return false;
     }
-    
+
     return true;
   };
-  
+
   // Handle bio validation
   const validateBio = (value: string): boolean => {
     setBioError(null);
-    
+
     if (value.length > 250) {
       setBioError("Bio must be less than 250 characters");
       return false;
     }
-    
+
     return true;
   };
 
@@ -128,24 +125,24 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageError(null);
     const file = e.target.files?.[0];
-    
+
     if (!file) return;
-    
+
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setImageError("Image size must be less than 5MB");
       return;
     }
-    
+
     // Check file type
-    if (!file.type.startsWith('image/')) {
+    if (!file.type.startsWith("image/")) {
       setImageError("File must be an image");
       return;
     }
-    
+
     // Set file and preview
     setProfileImageFile(file);
-    
+
     // Create preview URL
     const reader = new FileReader();
     reader.onloadend = () => {
@@ -153,86 +150,105 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
     };
     reader.readAsDataURL(file);
   };
-  
+
   // Trigger file input click
   const handleImageButtonClick = () => {
     fileInputRef.current?.click();
   };
-  
+
   // Clear selected image
   const handleClearImage = () => {
     setProfileImageFile(null);
-    setImagePreview(user.profileImageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`);
+    setImagePreview(
+      user.profileImageUrl ||
+        `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.username}`
+    );
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
     }
   };
 
   // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  // Reset states
+  setSuccess(false);
+  setGeneralError(null);
+
+  // Validate all fields
+  const isUsernameValid = validateUsername(username);
+  const isDisplayNameValid = validateDisplayName(displayName);
+  const isBioValid = validateBio(bio);
+
+  if (!isUsernameValid || !isDisplayNameValid || !isBioValid) {
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  try {
+    // First update username if it changed
+    if (username !== user.username) {
+      const result = await updateUsername(username);
+      if (!result.success) {
+        setUsernameError(result.message || "Failed to update username");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // Create FormData for profile update
+    const formData = new FormData();
     
-    // Reset states
-    setSuccess(false);
-    setGeneralError(null);
+    // Add display name and bio to FormData
+    formData.append("displayName", displayName);
+    formData.append("bio", bio);
     
-    // Validate all fields
-    const isUsernameValid = validateUsername(username);
-    const isDisplayNameValid = validateDisplayName(displayName);
-    const isBioValid = validateBio(bio);
+    // Add profile image if selected
+    if (profileImageFile) {
+      formData.append("profileImage", profileImageFile);
+    }
     
-    if (!isUsernameValid || !isDisplayNameValid || !isBioValid) {
+    // Import the updateProfile function from API
+    const { updateProfile } = await import('@/api/users');
+    
+    // Call the API to update profile
+    const profileResult = await updateProfile({
+      displayName,
+      bio,
+      profileImage: profileImageFile || undefined
+    });
+    
+    if (!profileResult.success) {
+      setGeneralError(profileResult.message || "Failed to update profile");
+      setIsSubmitting(false);
       return;
     }
     
-    setIsSubmitting(true);
-    
-    try {
-      // First update username if it changed
-      if (username !== user.username) {
-        const result = await updateUsername(username);
-        if (!result.success) {
-          setUsernameError(result.message || "Failed to update username");
-          setIsSubmitting(false);
-          return;
-        }
-      }
-      
-      // Then update profile information
-      // Note: In a real implementation, we would upload the image file to the server
-      // Here we're just simulating a successful update
-      
-      // Mock upload of profile image
-      let updatedImageUrl = user.profileImageUrl;
-      if (profileImageFile) {
-        // Simulate image upload
-        // In a real app, you would use FormData to upload the image
-        updatedImageUrl = URL.createObjectURL(profileImageFile);
-        // Note: In production, you would make an API call with FormData
-      }
-      
-      // For this simulation, we'll just update Redux state
-      // In a real app, you'd make an API call and then update Redux
-      dispatch(updateUserProfile({
+    // Update Redux with response data
+    dispatch(
+      updateUserProfile({
         username,
         displayName,
         bio,
-        profileImageUrl: updatedImageUrl || undefined
-      }));
-      
-      setSuccess(true);
-      
-      // Call the onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
-      }
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      setGeneralError("An unexpected error occurred. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+        profileImageUrl: profileResult.profileImageUrl,
+      })
+    );
+
+    setSuccess(true);
+
+    // Call the onSuccess callback if provided
+    if (onSuccess) {
+      onSuccess();
     }
-  };
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    setGeneralError("An unexpected error occurred. Please try again.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   return (
     <Card className="shadow-md">
@@ -243,7 +259,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
             Update your profile information and appearance.
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
           {success && (
             <Alert className="mb-4 bg-green-50 dark:bg-green-900/20 border-green-500 text-green-700 dark:text-green-300">
@@ -262,24 +278,24 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
               <AlertDescription>{generalError}</AlertDescription>
             </Alert>
           )}
-          
+
           {/* Profile Image Section */}
           <div className="flex flex-col items-center space-y-4">
             <Label htmlFor="profile-image">Profile Photo</Label>
-            
+
             <div className="relative">
               <Avatar className="h-24 w-24 border-2 border-primary/20">
                 {imagePreview ? (
                   <AvatarImage src={imagePreview} alt="Profile" />
                 ) : (
                   <AvatarFallback>
-                    {username ? username.charAt(0).toUpperCase() : 'U'}
+                    {username ? username.charAt(0).toUpperCase() : "U"}
                   </AvatarFallback>
                 )}
               </Avatar>
-              
+
               <div className="absolute -bottom-2 -right-2 flex space-x-1">
-                <Button 
+                <Button
                   type="button"
                   size="icon"
                   variant="default"
@@ -289,9 +305,9 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
                 >
                   <Camera className="h-4 w-4" />
                 </Button>
-                
+
                 {profileImageFile && (
-                  <Button 
+                  <Button
                     type="button"
                     size="icon"
                     variant="destructive"
@@ -304,7 +320,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
                 )}
               </div>
             </div>
-            
+
             <input
               ref={fileInputRef}
               id="profile-image"
@@ -314,16 +330,16 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
               className="hidden"
               disabled={isSubmitting}
             />
-            
+
             {imageError && (
               <p className="text-sm text-destructive">{imageError}</p>
             )}
-            
+
             <p className="text-sm text-muted-foreground text-center max-w-md">
               Upload a profile picture. JPG, PNG or GIF. Max 5MB.
             </p>
           </div>
-          
+
           {/* Name Section */}
           <div className="space-y-2">
             <Label htmlFor="display-name">Full Name</Label>
@@ -339,10 +355,11 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
               <p className="text-sm text-destructive">{displayNameError}</p>
             )}
             <p className="text-sm text-muted-foreground">
-              This is your public display name. It can be your real name or any name you&apos;d like to be called.
+              This is your public display name. It can be your real name or any
+              name you&apos;d like to be called.
             </p>
           </div>
-          
+
           {/* Username Section */}
           <div className="space-y-2">
             <Label htmlFor="username">Username</Label>
@@ -365,7 +382,7 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
               letters, numbers, underscores, and hyphens. No spaces allowed.
             </p>
           </div>
-          
+
           {/* Bio Section */}
           <div className="space-y-2">
             <Label htmlFor="bio">Bio</Label>
@@ -378,29 +395,26 @@ const ProfileSettingsForm: React.FC<ProfileSettingsFormProps> = ({ onSuccess }) 
               disabled={isSubmitting}
               rows={4}
             />
-            {bioError && (
-              <p className="text-sm text-destructive">{bioError}</p>
-            )}
+            {bioError && <p className="text-sm text-destructive">{bioError}</p>}
             <div className="flex justify-between">
               <p className="text-sm text-muted-foreground">
                 Brief description for your profile. Maximum 250 characters.
               </p>
-              <p className="text-sm text-muted-foreground">
-                {bio.length}/250
-              </p>
+              <p className="text-sm text-muted-foreground">{bio.length}/250</p>
             </div>
           </div>
         </CardContent>
-        
+
         <CardFooter className="flex justify-end">
           <Button
             type="submit"
-            disabled={isSubmitting || (
-              username === user.username && 
-              displayName === user.displayName &&
-              bio === user.bio &&
-              !profileImageFile
-            )}
+            disabled={
+              isSubmitting ||
+              (username === user.username &&
+                displayName === user.displayName &&
+                bio === user.bio &&
+                !profileImageFile)
+            }
             className="flex items-center gap-2"
           >
             {isSubmitting ? (
