@@ -19,7 +19,8 @@ import MessageIcon from './MessageIcon';
 
 const Navbar = () => {
   const { handleSectionClick, currentSection } = useSectionNavigation();
-  const isAuthenticated = useSelector((state: RootState) => !!state.user.token);
+  // KEY FIX: Check isAuthenticated flag instead of token
+  const isAuthenticated = useSelector((state: RootState) => state.user.isAuthenticated);
   
   // Function to determine if a section is active
   const isActive = (section: string) => {

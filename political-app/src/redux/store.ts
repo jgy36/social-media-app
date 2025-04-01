@@ -9,7 +9,7 @@ import storage from '../utils/createPersistedStorage'; // Custom storage for SSR
 const userPersistConfig = {
   key: 'user',
   storage,
-  whitelist: ['id', 'username', 'email', 'displayName', 'bio', 'profileImageUrl']
+  whitelist: ['id', 'username', 'email', 'displayName', 'bio', 'profileImageUrl', 'isAuthenticated']
 };
 
 const communitiesPersistConfig = {

@@ -36,7 +36,10 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [redirectInProgress, setRedirectInProgress] = useState(false);
+  
+  // Move selectors outside useEffect
   const token = useSelector((state: RootState) => state.user.token);
+  const isUserAuthenticated = useSelector((state: RootState) => state.user.isAuthenticated);
   
   useEffect(() => {
     // Add an event listener for profile updates from the API
@@ -82,8 +85,8 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Check if the user is already authenticated
-    if (token) {
+    // Use the selector value from outside the effect
+    if (isUserAuthenticated) {
       console.log("User already authenticated via Redux state, continuing");
       setIsLoading(false);
       return;
@@ -104,8 +107,9 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
           return;
         }
         
-        // If authenticated with server but not with Redux, restore state
-        if (isAuthenticated && !token) {
+        // If authenticated with server but not in Redux, restore state
+        if (isAuthenticated) {
+          console.log("Authenticated with server, restoring Redux state");
           await dispatch(restoreAuthState()).unwrap();
         }
         
@@ -126,7 +130,7 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
     checkAuth();
 
     return () => clearTimeout(timeoutId);
-  }, [router, router.pathname, dispatch, token]);
+  }, [router, router.pathname, dispatch, isUserAuthenticated]);
 
   // Show loading state with a cancel button
   if (isLoading) {
