@@ -10,14 +10,16 @@ import lombok.Setter;
 public class UserProfileDTO {
     private Long id;
     private String username;
-    private String joinDate;
+    private String displayName;  // Added this field
     private String bio;
+    private String profileImageUrl;  // Added this field
+    private String joinDate;
     private int followersCount;
     private int followingCount;
     private int postsCount;
     private boolean isFollowing;
 
     public void setIsFollowing(boolean isFollowing) {
-        
+        this.isFollowing = isFollowing;
     }
 }
