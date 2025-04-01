@@ -6,13 +6,13 @@ import {
   AuthResponse,
   ApiResponse,
 } from "./types";
-import { 
-  setToken, 
-  setUserData, 
-  clearUserData, 
+import {
+  setToken,
+  setUserData,
+  clearUserData,
   getUserData,
   setAuthenticated,
-  removeToken
+  removeToken,
 } from "@/utils/tokenUtils";
 
 /**
@@ -25,12 +25,12 @@ export const login = async (
     const response = await apiClient.post<AuthResponse>(
       "/auth/login",
       credentials,
-      { 
+      {
         withCredentials: true, // Ensure cookies are sent/received
         headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        }
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
       }
     );
 
@@ -38,7 +38,7 @@ export const login = async (
     if (response.data.token) {
       setToken(response.data.token);
     }
-    
+
     // Mark as authenticated regardless (since we're using HTTP-only cookies)
     setAuthenticated(true);
 
@@ -46,12 +46,12 @@ export const login = async (
     if (response.data.user?.id) {
       setUserData({
         id: response.data.user.id,
-        username: response.data.user.username || '',
-        email: response.data.user.email || '',
+        username: response.data.user.username || "",
+        email: response.data.user.email || "",
         // Convert null to undefined to avoid type issues
         displayName: response.data.user.displayName || undefined,
         bio: response.data.user.bio || undefined,
-        profileImageUrl: response.data.user.profileImageUrl || undefined
+        profileImageUrl: response.data.user.profileImageUrl || undefined,
       });
     }
 
@@ -86,7 +86,7 @@ function clearUserDataById(userId: string) {
       localStorage.removeItem(key);
     }
   }
-  
+
   // Clean up sessionStorage
   for (let i = 0; i < sessionStorage.length; i++) {
     const key = sessionStorage.key(i);
@@ -102,16 +102,18 @@ function clearUserDataById(userId: string) {
 export const logout = async (): Promise<void> => {
   try {
     // Get the current user ID before logout
-    const currentUserId = localStorage.getItem("currentUserId");
-    
+    const currentUserId =
+      sessionStorage.getItem("currentUserId") ||
+      localStorage.getItem("currentUserId");
+
     // Call logout endpoint with credentials
     await apiClient.post("/auth/logout", {}, { withCredentials: true });
-    
+
     // Clean up all storage
     if (currentUserId) {
       clearUserDataById(currentUserId);
     }
-    
+
     // Use the utility function for full cleanup
     clearUserData();
   } catch (err) {
@@ -136,10 +138,10 @@ export const refreshToken = async (): Promise<boolean> => {
     if (response.data && response.data.token) {
       setToken(response.data.token);
     }
-    
+
     // Mark as authenticated since the cookie was refreshed
     setAuthenticated(true);
-    
+
     return true;
   }, "Token refresh error");
 };
@@ -157,26 +159,26 @@ export const checkAuthStatus = async (): Promise<boolean> => {
       bio?: string;
       profileImageUrl?: string;
     }>("/users/me", { withCredentials: true });
-    
+
     // If successful, update current user info
     if (response.data && response.data.id) {
       // Mark as authenticated
       setAuthenticated(true);
-      
+
       // Store user data
       setUserData({
         id: response.data.id,
-        username: response.data.username || '',
-        email: response.data.email || '',
+        username: response.data.username || "",
+        email: response.data.email || "",
         // Fix type issues by converting null to undefined
         displayName: response.data.displayName || undefined,
         bio: response.data.bio || undefined,
-        profileImageUrl: response.data.profileImageUrl || undefined
+        profileImageUrl: response.data.profileImageUrl || undefined,
       });
-      
+
       return true;
     }
-    
+
     return false;
   } catch (err) {
     console.error("Auth status check failed:", err);
@@ -198,14 +200,14 @@ export const getCurrentUserInfo = (): {
   profileImageUrl: string | null;
 } => {
   const userData = getUserData();
-  
+
   return {
     userId: userData.id,
     username: userData.username,
     email: userData.email,
     displayName: userData.displayName,
     bio: userData.bio,
-    profileImageUrl: userData.profileImageUrl
+    profileImageUrl: userData.profileImageUrl,
   };
 };
 
@@ -217,11 +219,11 @@ export const checkAndRestoreSession = async (): Promise<boolean> => {
   try {
     // First check if we're actually authenticated with the server
     const isAuthenticated = await checkAuthStatus();
-    
+
     if (!isAuthenticated) {
       return false;
     }
-    
+
     return true;
   } catch (err) {
     console.error("Error restoring session:", err);
@@ -235,27 +237,32 @@ export const loginWithCommunities = async (
   try {
     // First perform the normal login
     const loginResponse = await login(credentials);
-    
+
     // If login successful, now restore communities
     if (loginResponse && loginResponse.token) {
       try {
         // Import redux store and thunks
-        const { store } = await import('@/redux/store');
-        const { fetchAndRestoreUserCommunities } = await import('@/redux/slices/communitySlice');
-        
+        const { store } = await import("@/redux/store");
+        const { fetchAndRestoreUserCommunities } = await import(
+          "@/redux/slices/communitySlice"
+        );
+
         // Dispatch the thunk to restore communities
         store.dispatch(fetchAndRestoreUserCommunities());
-        
-        console.log('Communities restoration initiated');
+
+        console.log("Communities restoration initiated");
       } catch (communitiesError) {
-        console.error('Error restoring communities after login:', communitiesError);
+        console.error(
+          "Error restoring communities after login:",
+          communitiesError
+        );
         // We still want to continue even if community restoration fails
       }
     }
-    
+
     return loginResponse;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error("Login error:", error);
     throw error;
   }
 };
