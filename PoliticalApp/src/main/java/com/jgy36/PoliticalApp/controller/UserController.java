@@ -118,6 +118,9 @@ public class UserController {
         UserProfileDTO profileDTO = new UserProfileDTO();
         profileDTO.setId(user.getId());
         profileDTO.setUsername(user.getUsername());
+        profileDTO.setDisplayName(user.getDisplayName());  // Add this
+        profileDTO.setBio(user.getBio());
+        profileDTO.setProfileImageUrl(user.getProfileImageUrl());  // Add this
         profileDTO.setJoinDate(user.getCreatedAt().toString());
         profileDTO.setFollowersCount(followersCount);
         profileDTO.setFollowingCount(followingCount);
