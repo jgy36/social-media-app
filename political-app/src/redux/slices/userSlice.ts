@@ -1,13 +1,14 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // src/redux/slices/userSlice.ts - Fixed for TypeScript null/undefined issues
-import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import api from "@/api"; // Import the default API object
 import { clearCommunities } from "./communitySlice";
-import { 
-  setUserData, 
-  getUserData, 
-  clearUserData, 
-  setAuthenticated 
+import {
+  setUserData,
+  getUserData,
+  clearUserData,
+  setAuthenticated,
 } from "@/utils/tokenUtils";
 
 // Define the RootState type (to fix the RootState error)
@@ -40,7 +41,7 @@ const initialState: UserState = {
   profileImageUrl: null,
   loading: false,
   error: null,
-  isAuthenticated: false // Initialize as not authenticated
+  isAuthenticated: false, // Initialize as not authenticated
 };
 
 // Restore auth state from client-side storage
@@ -50,14 +51,14 @@ export const restoreAuthState = createAsyncThunk(
     try {
       // Import auth module dynamically to avoid circular dependencies
       const auth = await import("@/api/auth");
-      
+
       // Check with the server if we have a valid session
       const isAuthenticated = await auth.checkAndRestoreSession();
-      
+
       if (isAuthenticated) {
         // Get user info from localStorage
         const userData = getUserData();
-        
+
         if (userData.id) {
           return {
             id: userData.id ? parseInt(String(userData.id)) : null,
@@ -67,11 +68,11 @@ export const restoreAuthState = createAsyncThunk(
             displayName: userData.displayName,
             bio: userData.bio,
             profileImageUrl: userData.profileImageUrl,
-            isAuthenticated: true
+            isAuthenticated: true,
           };
         }
       }
-      
+
       // If not authenticated, return null values
       return {
         id: null,
@@ -81,7 +82,7 @@ export const restoreAuthState = createAsyncThunk(
         displayName: null,
         bio: null,
         profileImageUrl: null,
-        isAuthenticated: false
+        isAuthenticated: false,
       };
     } catch (error) {
       console.error("Error restoring auth state:", error);
@@ -119,12 +120,17 @@ export const loginUser = createAsyncThunk<
     // After successful login, restore user's communities
     try {
       // Import the community thunk dynamically
-      const { fetchAndRestoreUserCommunities } = await import('./communitySlice');
-      
+      const { fetchAndRestoreUserCommunities } = await import(
+        "./communitySlice"
+      );
+
       // Dispatch the thunk to restore communities
       dispatch(fetchAndRestoreUserCommunities());
     } catch (communitiesError) {
-      console.error('Failed to restore communities after login:', communitiesError);
+      console.error(
+        "Failed to restore communities after login:",
+        communitiesError
+      );
       // Continue with login even if community restoration fails
     }
 
@@ -136,7 +142,7 @@ export const loginUser = createAsyncThunk<
       displayName: response.user?.displayName || null,
       bio: response.user?.bio || null,
       profileImageUrl: response.user?.profileImageUrl || null,
-      isAuthenticated: true
+      isAuthenticated: true,
     };
   } catch (error) {
     console.error("Login error:", error);
@@ -205,28 +211,28 @@ export const updateUserProfile = createAsyncThunk<
       try {
         // Get the current user's profile from the API
         const userData = await api.users.getCurrentUser();
-        
+
         if (!userData) {
           throw new Error("Failed to refresh user profile");
         }
-        
+
         // Update localStorage with the new data for cross-tab consistency
         if (userData.id) {
           setUserData({
             id: userData.id,
-            username: userData.username || '',
-            email: userData.email || '',
+            username: userData.username || "",
+            email: userData.email || "",
             // Fix type issues
             displayName: userData.displayName || undefined,
             bio: userData.bio || undefined,
-            profileImageUrl: userData.profileImageUrl || undefined
+            profileImageUrl: userData.profileImageUrl || undefined,
           });
-          
+
           // Explicitly notify components of profile image update
           if (userData.profileImageUrl) {
             window.dispatchEvent(
-              new CustomEvent('profileImageUpdated', {
-                detail: userData.profileImageUrl
+              new CustomEvent("profileImageUpdated", {
+                detail: userData.profileImageUrl,
               })
             );
           }
@@ -239,7 +245,7 @@ export const updateUserProfile = createAsyncThunk<
           displayName: userData.displayName || null,
           bio: userData.bio || null,
           profileImageUrl: userData.profileImageUrl || null,
-          isAuthenticated: true
+          isAuthenticated: true,
         };
       } catch (error) {
         console.error("Error fetching profile:", error);
@@ -248,45 +254,53 @@ export const updateUserProfile = createAsyncThunk<
     } else {
       // If profile data is provided, create updated state
       console.log("Updating user profile with:", profileData);
-      
+
       // Update localStorage with the new values
       if (state.user.id) {
         const userId = state.user.id.toString();
         const userData = getUserData();
-        
+
         // Store profile image without timestamp to keep it consistent
-        const profileImageUrl = profileData.profileImageUrl || userData.profileImageUrl;
-        
+        const profileImageUrl =
+          profileData.profileImageUrl || userData.profileImageUrl;
+
         // Store data in both localStorage (for persistence) and sessionStorage (for current session)
         setUserData({
           id: state.user.id,
-          username: profileData.username || state.user.username || '',
-          email: userData.email || '',
+          username: profileData.username || state.user.username || "",
+          email: userData.email || "",
           // Fix type issues by passing undefined instead of null
-          displayName: profileData.displayName !== undefined ? profileData.displayName : undefined,
-          bio: profileData.bio !== undefined ? profileData.bio : undefined, 
-          profileImageUrl: profileImageUrl || undefined
+          displayName:
+            profileData.displayName !== undefined
+              ? profileData.displayName
+              : undefined,
+          bio: profileData.bio !== undefined ? profileData.bio : undefined,
+          profileImageUrl: profileImageUrl || undefined,
         });
-        
+
         // If profile image was updated, we should explicitly notify components
         if (profileData.profileImageUrl) {
           console.log("Dispatching profileImageUpdated event from Redux");
           window.dispatchEvent(
-            new CustomEvent('profileImageUpdated', {
-              detail: profileData.profileImageUrl
+            new CustomEvent("profileImageUpdated", {
+              detail: profileData.profileImageUrl,
             })
           );
         }
       }
-      
+
       return {
         id: state.user.id,
         username: profileData.username || state.user.username,
         token: state.user.token,
-        displayName: profileData.displayName !== undefined ? profileData.displayName : state.user.displayName,
+        displayName:
+          profileData.displayName !== undefined
+            ? profileData.displayName
+            : state.user.displayName,
         bio: profileData.bio !== undefined ? profileData.bio : state.user.bio,
-        profileImageUrl: profileData.profileImageUrl || state.user.profileImageUrl,
-        isAuthenticated: true
+        profileImageUrl:
+          profileData.profileImageUrl || state.user.profileImageUrl,
+        isAuthenticated: true,
       };
     }
   } catch (error) {
@@ -301,13 +315,13 @@ export const checkInitialAuth = createAsyncThunk(
   async () => {
     try {
       // Import dynamically to avoid circular dependencies
-      const auth = await import('@/api/auth');
+      const auth = await import("@/api/auth");
       const isAuthenticated = await auth.checkAuthStatus();
-      
+
       if (isAuthenticated) {
         // Get current user info from localStorage
         const userInfo = auth.getCurrentUserInfo();
-        
+
         // If we have user info, return it
         if (userInfo.username && userInfo.userId) {
           return {
@@ -316,14 +330,14 @@ export const checkInitialAuth = createAsyncThunk(
             username: userInfo.username,
             displayName: userInfo.displayName,
             bio: userInfo.bio,
-            profileImageUrl: userInfo.profileImageUrl
+            profileImageUrl: userInfo.profileImageUrl,
           };
         }
-        
+
         // Otherwise just return authenticated status
         return { isAuthenticated: true };
       }
-      
+
       return { isAuthenticated: false };
     } catch (error) {
       console.error("Auth check error:", error);
@@ -338,23 +352,23 @@ export const logoutUser = createAsyncThunk(
   async (_, { dispatch }) => {
     try {
       // Import auth dynamically to avoid circular dependencies
-      const auth = await import('@/api/auth');
+      const auth = await import("@/api/auth");
       await auth.logout();
-      
+
       // Clear communities
       dispatch(clearCommunities());
-      
+
       // Clear all stored user data
       clearUserData();
-      
+
       return true;
     } catch (error) {
       console.error("Logout error:", error);
-      
+
       // Still clear data even if API call fails
       clearUserData();
       dispatch(clearCommunities());
-      
+
       return false;
     }
   }
@@ -365,7 +379,9 @@ const userSlice = createSlice({
   name: "user",
   initialState,
   reducers: {
-    // We keep this empty because we're using thunks for all actions
+    forceAuthenticated: (state, action: PayloadAction<boolean>) => {
+      state.isAuthenticated = action.payload;
+    },
   },
   extraReducers: (builder) => {
     // Login states
@@ -422,7 +438,8 @@ const userSlice = createSlice({
       state.profileImageUrl = null;
       state.isAuthenticated = false;
       state.loading = false;
-      state.error = (action.payload as string) || "Failed to restore auth state";
+      state.error =
+        (action.payload as string) || "Failed to restore auth state";
     });
 
     // Handle updateUserProfile
@@ -450,35 +467,35 @@ const userSlice = createSlice({
       state.loading = false;
       state.error = (action.payload as string) || "Failed to update profile";
     });
-    
+
     // Handle checkInitialAuth
     builder.addCase(checkInitialAuth.pending, (state) => {
       state.loading = true;
       state.error = null;
     });
-    
+
     builder.addCase(checkInitialAuth.fulfilled, (state, action) => {
       state.loading = false;
       state.isAuthenticated = action.payload.isAuthenticated;
-      
+
       if (action.payload.isAuthenticated) {
         // If we have more user data, use it
         if (action.payload.id) {
           state.id = action.payload.id;
         }
-        
+
         if (action.payload.username) {
           state.username = action.payload.username;
         }
-        
+
         if (action.payload.displayName) {
           state.displayName = action.payload.displayName;
         }
-        
+
         if (action.payload.bio) {
           state.bio = action.payload.bio;
         }
-        
+
         if (action.payload.profileImageUrl) {
           state.profileImageUrl = action.payload.profileImageUrl;
         }
@@ -493,7 +510,7 @@ const userSlice = createSlice({
         state.profileImageUrl = null;
       }
     });
-    
+
     builder.addCase(checkInitialAuth.rejected, (state) => {
       state.loading = false;
       state.isAuthenticated = false;
@@ -505,7 +522,7 @@ const userSlice = createSlice({
       state.bio = null;
       state.profileImageUrl = null;
     });
-    
+
     // Handle logoutUser
     builder.addCase(logoutUser.fulfilled, (state) => {
       // Reset state to initial values
@@ -522,5 +539,7 @@ const userSlice = createSlice({
     });
   },
 });
+
+export const { forceAuthenticated } = userSlice.actions;
 
 export default userSlice.reducer;
