@@ -11,7 +11,7 @@ const createNoopStorage = () => {
 
 // Use actual localStorage if in the browser, or use the noop implementation for SSR
 const storage = typeof window !== 'undefined' 
-  ? createWebStorage('local') 
+  ? createWebStorage('session') 
   : createNoopStorage();
 
 export default storage;

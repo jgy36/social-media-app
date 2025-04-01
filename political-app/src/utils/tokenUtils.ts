@@ -98,14 +98,14 @@ export const getUserId = (): string | null => {
   if (!isBrowser) return null; // Return null if not in browser
   
   try {
-    // First try from localStorage (more persistent)
-    const userIdFromLocalStorage = localStorage.getItem('currentUserId');
-    if (userIdFromLocalStorage) {
-      return userIdFromLocalStorage;
+    // First try from sessionStorage (tab-specific)
+    const userIdFromSession = sessionStorage.getItem('currentUserId');
+    if (userIdFromSession) {
+      return userIdFromSession;
     }
     
-    // Fall back to session storage
-    return getSessionItem(USER_ID_KEY);
+    // Fall back to localStorage (for backward compatibility)
+    return localStorage.getItem('currentUserId');
   } catch (error) {
     console.error('Error retrieving user ID:', error);
     return null;
@@ -312,18 +312,18 @@ export const setUserData = (userData: {
     const userId = String(userData.id);
     
     // Set current user ID
-    localStorage.setItem('currentUserId', userId);
+    sessionStorage.setItem('currentUserId', userId);
     
     // Store each piece with a unique key
-    localStorage.setItem(`user_${userId}_username`, userData.username);
-    localStorage.setItem(`user_${userId}_userId`, userId);
-    localStorage.setItem(`user_${userId}_email`, userData.email);
+    sessionStorage.setItem(`user_${userId}_username`, userData.username);
+    sessionStorage.setItem(`user_${userId}_userId`, userId);
+    sessionStorage.setItem(`user_${userId}_email`, userData.email);
     
     // Handle profile data, converting null values to empty strings for consistent storage
-    localStorage.setItem(`user_${userId}_displayName`, userData.displayName || '');
-    localStorage.setItem(`user_${userId}_bio`, userData.bio || '');
+    sessionStorage.setItem(`user_${userId}_displayName`, userData.displayName || '');
+    sessionStorage.setItem(`user_${userId}_bio`, userData.bio || '');
     if (userData.profileImageUrl) {
-      localStorage.setItem(`user_${userId}_profileImageUrl`, userData.profileImageUrl);
+      sessionStorage.setItem(`user_${userId}_profileImageUrl`, userData.profileImageUrl);
     }
     
     // Also set in session storage
@@ -379,11 +379,11 @@ export const getUserData = () => {
   
   return {
     id: userId,
-    username: localStorage.getItem(`user_${userId}_username`),
-    email: localStorage.getItem(`user_${userId}_email`),
-    displayName: localStorage.getItem(`user_${userId}_displayName`),
-    bio: localStorage.getItem(`user_${userId}_bio`),
-    profileImageUrl: localStorage.getItem(`user_${userId}_profileImageUrl`)
+    username: sessionStorage.getItem(`user_${userId}_username`),
+    email: sessionStorage.getItem(`user_${userId}_email`),
+    displayName: sessionStorage.getItem(`user_${userId}_displayName`),
+    bio: sessionStorage.getItem(`user_${userId}_bio`),
+    profileImageUrl: sessionStorage.getItem(`user_${userId}_profileImageUrl`)
   };
 };
 
@@ -416,5 +416,5 @@ export const clearUserData = () => {
   setAuthenticated(false);
   
   // Clear current user ID
-  localStorage.removeItem('currentUserId');
+  sessionStorage.removeItem('currentUserId');
 };
