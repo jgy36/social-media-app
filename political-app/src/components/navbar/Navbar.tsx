@@ -15,7 +15,7 @@ import {
   MapPin
 } from 'lucide-react';
 import NotificationIcon from './NotificationIcon';
-import MessageIcon from './MessageIcon';
+import MessageNotificationIndicator from "@/components/messages/MessageNotificationIndicator";
 
 const Navbar = () => {
   const { handleSectionClick, currentSection } = useSectionNavigation();
@@ -88,12 +88,10 @@ const Navbar = () => {
           </div>
           
           <div className="flex items-center space-x-4">
-            {isAuthenticated && (
-              <>
-                <NotificationIcon />
-                <MessageIcon />
-              </>
-            )}
+            <NotificationIcon />
+            <Link href="/messages" className="relative">
+              <MessageNotificationIndicator />
+            </Link>
 
             {/* Profile or Login */}
             {isAuthenticated ? (
