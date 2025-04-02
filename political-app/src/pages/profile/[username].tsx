@@ -12,17 +12,23 @@ import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
 import { Calendar } from "lucide-react";
 import axios from "axios";
-import { getPreviousSection, storePreviousSection } from "@/utils/navigationStateManager";
+import {
+  getPreviousSection,
+  storePreviousSection,
+} from "@/utils/navigationStateManager";
 import BackButton from "@/components/navigation/BackButton";
 import UserStats from "@/components/profile/UserStats";
 import FollowButton from "@/components/profile/FollowButton";
 import { getFollowStatus, getPostsByUsername } from "@/api/users"; // Update import
+import MessageButton from "@/components/profile/MessageButton";
 
 // Interface for the user profile response
 interface UserProfile {
   id: number;
   username: string;
+  displayName?: string;
   bio?: string;
+  profileImageUrl?: string;
   joinDate: string;
   followersCount: number;
   followingCount: number;
@@ -30,7 +36,8 @@ interface UserProfile {
   isFollowing?: boolean;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
 const UserProfilePage = () => {
   const router = useRouter();
@@ -41,11 +48,11 @@ const UserProfilePage = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("posts");
   const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  
+
   // Get current user from Redux store
   const currentUser = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!currentUser.token;
-  
+
   // Check if this is the current user's profile
   const isCurrentUserProfile = profile?.username === currentUser.username;
 
@@ -55,35 +62,37 @@ const UserProfilePage = () => {
   useEffect(() => {
     // Get and store the source section when component mounts
     const prevSection = getPreviousSection();
-    setSourceSection(prevSection || 'community'); // Default to community
+    setSourceSection(prevSection || "community"); // Default to community
   }, []);
 
   useEffect(() => {
     const fetchProfileData = async () => {
       if (!username || typeof username !== "string" || !router.isReady) return;
-      
+
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Fetch user profile - always get fresh data, no caching
         const profileResponse = await axios.get<UserProfile>(
           `${API_BASE_URL}/users/profile/${username}`,
           {
-            headers: { 
+            headers: {
               // Add cache-busting query parameter
-              'Cache-Control': 'no-cache',
-              'Pragma': 'no-cache'
-            }
+              "Cache-Control": "no-cache",
+              Pragma: "no-cache",
+            },
           }
         );
-        
+
         let userProfile = profileResponse.data;
-        
+
         // If profile found, also get follow status
         if (userProfile && userProfile.id) {
           try {
-            const followStatusResponse = await getFollowStatus(userProfile.id) as {
+            const followStatusResponse = (await getFollowStatus(
+              userProfile.id
+            )) as {
               isFollowing: boolean;
               followersCount: number;
               followingCount: number;
@@ -93,16 +102,16 @@ const UserProfilePage = () => {
               ...userProfile,
               isFollowing: followStatusResponse.isFollowing,
               followersCount: followStatusResponse.followersCount,
-              followingCount: followStatusResponse.followingCount
+              followingCount: followStatusResponse.followingCount,
             };
           } catch (followErr) {
             console.warn("Could not fetch follow status:", followErr);
           }
         }
-        
+
         setProfile(userProfile);
         setLastFetchTime(Date.now());
-        
+
         // Fetch user posts
         try {
           const userPosts = await getPostsByUsername(username);
@@ -111,7 +120,6 @@ const UserProfilePage = () => {
           console.warn("Could not fetch posts, using empty array:", postsError);
           setPosts([]);
         }
-        
       } catch (err) {
         console.error("Error fetching profile:", err);
         setError("Failed to load user profile");
@@ -124,24 +132,31 @@ const UserProfilePage = () => {
   }, [username, router.isReady, currentUser.token]);
 
   // Handle follow/unfollow profile update
-  const handleFollowChange = (isFollowing: boolean, followerCount: number, followingCount: number) => {
+  const handleFollowChange = (
+    isFollowing: boolean,
+    followerCount: number,
+    followingCount: number
+  ) => {
     if (profile) {
       setProfile({
         ...profile,
         isFollowing,
         followersCount: followerCount,
-        followingCount: followingCount
+        followingCount: followingCount,
       });
     }
   };
-  
+
   // Handle stats update
-  const handleStatsChange = (newFollowersCount: number, newFollowingCount: number) => {
+  const handleStatsChange = (
+    newFollowersCount: number,
+    newFollowingCount: number
+  ) => {
     if (profile) {
       setProfile({
         ...profile,
         followersCount: newFollowersCount,
-        followingCount: newFollowingCount
+        followingCount: newFollowingCount,
       });
     }
   };
@@ -154,31 +169,31 @@ const UserProfilePage = () => {
     }
     router.push(`/profile/${username}`);
   };
-  
+
   // Force refresh profile data if viewed for more than 30 seconds
   useEffect(() => {
     const now = Date.now();
     const thirtySecondsMs = 30 * 1000;
-    
+
     // If it's been more than 30 seconds since last fetch, refresh
     if (!isLoading && profile && now - lastFetchTime > thirtySecondsMs) {
       const refreshProfile = async () => {
         try {
           // Only refresh if this isn't the current user's profile
-          if (!isCurrentUserProfile && typeof username === 'string') {
+          if (!isCurrentUserProfile && typeof username === "string") {
             // Create a new fetch timestamp
             console.log("Refreshing profile data after 30 seconds");
-            
+
             const profileResponse = await axios.get<UserProfile>(
               `${API_BASE_URL}/users/profile/${username}?t=${Date.now()}`, // Add timestamp to prevent caching
               {
-                headers: { 
-                  'Cache-Control': 'no-cache',
-                  'Pragma': 'no-cache'
-                }
+                headers: {
+                  "Cache-Control": "no-cache",
+                  Pragma: "no-cache",
+                },
               }
             );
-            
+
             setProfile(profileResponse.data);
             setLastFetchTime(Date.now());
           }
@@ -186,7 +201,7 @@ const UserProfilePage = () => {
           console.error("Error refreshing profile:", error);
         }
       };
-      
+
       refreshProfile();
     }
   }, [isLoading, profile, lastFetchTime, isCurrentUserProfile, username]);
@@ -211,12 +226,12 @@ const UserProfilePage = () => {
         <Navbar />
         <div className="max-w-4xl mx-auto p-6">
           <BackButton fallbackUrl="/community" className="mb-4" />
-          
+
           <Card className="shadow-md">
             <CardContent className="p-6">
               <p className="text-destructive">{error || "User not found"}</p>
-              <button 
-                onClick={() => router.push("/feed")} 
+              <button
+                onClick={() => router.push("/feed")}
                 className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
               >
                 Return to Feed
@@ -231,10 +246,10 @@ const UserProfilePage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navbar />
-      
+
       <div className="max-w-4xl mx-auto p-4 md:p-6">
         <BackButton fallbackUrl="/community" className="mb-4" />
-        
+
         {/* Profile Header */}
         <Card className="mb-6 shadow-md">
           <CardContent className="p-6">
@@ -242,21 +257,32 @@ const UserProfilePage = () => {
               {/* Avatar */}
               <div className="flex-shrink-0">
                 <Avatar className="h-24 w-24 border-2 border-primary/20">
-                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`} alt={profile.username} />
+                  <AvatarImage
+                    src={
+                      profile.profileImageUrl ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`
+                    }
+                    alt={profile.username}
+                    onError={(e) => {
+                      // Fallback to default avatar if image fails to load
+                      e.currentTarget.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`;
+                    }}
+                  />
                   <AvatarFallback>
                     {profile.username.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               </div>
-              
+
               {/* User Info */}
               <div className="flex-1 text-center md:text-left">
-                <h2 className="text-2xl font-bold">{profile.username}</h2>
-                
-                {profile.bio && (
-                  <p className="mt-2 text-muted-foreground">{profile.bio}</p>
-                )}
-                
+                <h2 className="text-2xl font-bold">
+                  {profile.displayName || profile.username}
+                </h2>
+                <p className="text-muted-foreground">@{profile.username}</p>
+
+                {profile.bio && <p className="mt-2">{profile.bio}</p>}
+
                 {/* User Stats (Clickable for Following/Followers) */}
                 <UserStats
                   userId={profile.id}
@@ -266,26 +292,34 @@ const UserProfilePage = () => {
                   className="mt-3 justify-center md:justify-start"
                   onFollowChange={handleStatsChange}
                 />
-                
+
                 {profile.joinDate && (
                   <div className="flex items-center mt-2 justify-center md:justify-start">
                     <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                    <span>Joined {new Date(profile.joinDate).toLocaleDateString()}</span>
+                    <span>
+                      Joined {new Date(profile.joinDate).toLocaleDateString()}
+                    </span>
                   </div>
                 )}
               </div>
-              
+
               {/* Action Buttons */}
               <div className="mt-4 md:mt-0">
                 {!isAuthenticated && (
-                  <button 
-                    onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                  <button
+                    onClick={() =>
+                      router.push(
+                        `/login?redirect=${encodeURIComponent(
+                          `/profile/${username}`
+                        )}`
+                      )
+                    }
                     className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                   >
                     Log in to interact
                   </button>
                 )}
-                
+
                 {isAuthenticated && !isCurrentUserProfile && (
                   <div className="flex gap-2">
                     <FollowButton
@@ -293,17 +327,17 @@ const UserProfilePage = () => {
                       initialIsFollowing={profile.isFollowing}
                       onFollowChange={handleFollowChange}
                     />
-                    
-                    <button 
-                      className="px-4 py-2 border border-border rounded hover:bg-accent"
-                    >
-                      Message
-                    </button>
+
+                    <MessageButton
+                      username={profile.username}
+                      userId={profile.id}
+                      variant="outline"
+                    />
                   </div>
                 )}
-                
+
                 {isAuthenticated && isCurrentUserProfile && (
-                  <button 
+                  <button
                     onClick={() => router.push("/settings")}
                     className="px-4 py-2 bg-secondary text-secondary-foreground rounded hover:bg-secondary/90"
                   >
@@ -314,7 +348,7 @@ const UserProfilePage = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Profile Content Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
@@ -323,7 +357,7 @@ const UserProfilePage = () => {
             <TabsTrigger value="followers">Followers</TabsTrigger>
             <TabsTrigger value="following">Following</TabsTrigger>
           </TabsList>
-          
+
           {/* Posts Tab */}
           <TabsContent value="posts">
             {!isAuthenticated && (
@@ -332,39 +366,49 @@ const UserProfilePage = () => {
                 <p className="text-muted-foreground mb-4">
                   You need to be logged in to view this user&apos;s posts.
                 </p>
-                <button 
-                  onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/login?redirect=${encodeURIComponent(
+                        `/profile/${username}`
+                      )}`
+                    )
+                  }
                   className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                 >
                   Log In
                 </button>
               </Card>
             )}
-            
+
             {isAuthenticated && posts.length > 0 ? (
               <div className="space-y-4">
                 {posts.map((post) => (
                   <Post key={post.id} post={post} />
                 ))}
               </div>
-            ) : isAuthenticated && (
-              <Card className="p-8 text-center">
-                <h3 className="text-lg font-medium mb-2">No posts yet</h3>
-                <p className="text-muted-foreground">
-                  This user hasn&apos;t posted anything.
-                </p>
-              </Card>
+            ) : (
+              isAuthenticated && (
+                <Card className="p-8 text-center">
+                  <h3 className="text-lg font-medium mb-2">No posts yet</h3>
+                  <p className="text-muted-foreground">
+                    This user hasn&apos;t posted anything.
+                  </p>
+                </Card>
+              )
             )}
           </TabsContent>
-          
+
           {/* Other tabs use the modals directly */}
           <TabsContent value="comments">
             <Card className="p-8 text-center">
               <h3 className="text-lg font-medium mb-2">Comments Coming Soon</h3>
-              <p className="text-muted-foreground">This feature is being developed.</p>
+              <p className="text-muted-foreground">
+                This feature is being developed.
+              </p>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="followers">
             {!isAuthenticated ? (
               <Card className="p-8 text-center">
@@ -372,8 +416,14 @@ const UserProfilePage = () => {
                 <p className="text-muted-foreground mb-4">
                   You need to be logged in to view this user&apos;s followers.
                 </p>
-                <button 
-                  onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/login?redirect=${encodeURIComponent(
+                        `/profile/${username}`
+                      )}`
+                    )
+                  }
                   className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                 >
                   Log In
@@ -385,13 +435,14 @@ const UserProfilePage = () => {
                 {/* We'll use the modal directly from the UserStats component */}
                 <Card className="p-8 text-center">
                   <p className="text-muted-foreground">
-                    Click on the &quot;Followers&quot; count to see the complete list.
+                    Click on the &quot;Followers&quot; count to see the complete
+                    list.
                   </p>
                 </Card>
               </div>
             )}
           </TabsContent>
-          
+
           <TabsContent value="following">
             {!isAuthenticated ? (
               <Card className="p-8 text-center">
@@ -399,8 +450,14 @@ const UserProfilePage = () => {
                 <p className="text-muted-foreground mb-4">
                   You need to be logged in to view who this user follows.
                 </p>
-                <button 
-                  onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${username}`)}`)}
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/login?redirect=${encodeURIComponent(
+                        `/profile/${username}`
+                      )}`
+                    )
+                  }
                   className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
                 >
                   Log In
@@ -412,7 +469,8 @@ const UserProfilePage = () => {
                 {/* We'll use the modal directly from the UserStats component */}
                 <Card className="p-8 text-center">
                   <p className="text-muted-foreground">
-                    Click on the &quot;Following&quot; count to see the complete list.
+                    Click on the &quot;Following&quot; count to see the complete
+                    list.
                   </p>
                 </Card>
               </div>
