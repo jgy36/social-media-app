@@ -1,35 +1,81 @@
 // src/components/navbar/MessageIcon.tsx
-import React, { useState, useRef } from 'react';
-import { MessageSquare, CircleDot } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { MessageSquare } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
+import { useRouter } from 'next/router';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
-import { useRouter } from 'next/router';
-
-interface Message {
-  id: number;
-  sender: string;
-  content: string;
-  timestamp: string;
-  isRead: boolean;
-}
+import { getUnreadMessagesCount, getUserConversations } from '@/api/messages';
+import { Conversation } from '@/api/messages';
+import { formatDistanceToNow } from 'date-fns';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getProfileImageUrl } from '@/utils/imageUtils';
 
 const MessageIcon = () => {
-  // In a real app, you would fetch these from an API
-  const [messages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Conversation[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const user = useSelector((state: RootState) => state.user);
+  const isAuthenticated = useSelector((state: RootState) => state.user.isAuthenticated);
+  
+  // Fetch unread message count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      const count = await getUnreadMessagesCount();
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+    }
+  }, [isAuthenticated]);
+  
+  // Fetch recent conversations
+  const fetchRecentConversations = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setLoading(true);
+    try {
+      const conversations = await getUserConversations();
+      console.log("Fetched conversations:", conversations); // Debug log
+      setMessages(conversations.slice(0, 5)); // Show only 5 most recent
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated]);
+  
+  // Fetch on mount and set poll interval
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    fetchUnreadCount();
+    
+    // Poll every minute for new messages
+    const intervalId = setInterval(() => {
+      fetchUnreadCount();
+      fetchRecentConversations(); // Also refresh conversations to get updated data
+    }, 30000); // Every 30 seconds instead of 60
+    
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated, fetchUnreadCount, fetchRecentConversations]);
   
   // Navigate to messages page
   const goToMessages = () => {
     router.push('/messages');
+    closePopover();
+  };
+  
+  // Navigate to specific conversation
+  const goToConversation = (conversationId: number) => {
+    router.push(`/messages/conversation/${conversationId}`);
     closePopover();
   };
   
@@ -42,13 +88,22 @@ const MessageIcon = () => {
     }
   };
 
+  // Load conversations when popover opens
+  const handlePopoverOpenChange = (open: boolean) => {
+    if (open) {
+      fetchRecentConversations();
+    }
+  };
+
   return (
-    <Popover>
+    <Popover onOpenChange={handlePopoverOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="View messages">
-          <MessageSquare className="h-5 w-5 relative" />
+        <Button variant="ghost" size="icon" aria-label="View messages" className="relative">
+          <MessageSquare className="h-5 w-5" />
           {unreadCount > 0 && (
-            <CircleDot className="absolute top-1 right-1 h-2 w-2 text-destructive" />
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center p-[2px]">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </div>
           )}
         </Button>
       </PopoverTrigger>
@@ -60,28 +115,72 @@ const MessageIcon = () => {
           </Button>
         </div>
         
-        {messages.length === 0 ? (
+        {loading ? (
+          <div className="py-6 text-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+            <p className="text-sm text-muted-foreground mt-2">Loading messages...</p>
+          </div>
+        ) : messages.length === 0 ? (
           <div className="py-6 text-center">
             <p className="text-muted-foreground">No messages yet.</p>
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {messages.map(message => (
-              <div 
-                key={message.id}
-                className="py-2 px-1 cursor-pointer hover:bg-secondary/50 rounded-md transition-colors relative"
-                onClick={() => router.push(`/messages/${message.id}`)}
-              >
-                <div className="flex justify-between">
-                  <p className="font-medium text-sm">{message.sender}</p>
-                  <p className="text-xs text-muted-foreground">{message.timestamp}</p>
+            {messages.map(conversation => {
+              // Debug log to see what data we're working with
+              console.log("Rendering conversation:", conversation);
+              
+              // Make sure otherUser exists
+              if (!conversation.otherUser) {
+                console.error("Missing otherUser in conversation:", conversation);
+                return null;
+              }
+              
+              return (
+                <div 
+                  key={conversation.id}
+                  className="py-2 px-1 cursor-pointer hover:bg-secondary/50 rounded-md transition-colors relative"
+                  onClick={() => goToConversation(conversation.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8 flex-shrink-0">
+                      <AvatarImage 
+                        src={getProfileImageUrl(
+                          conversation.otherUser.profileImageUrl || null,
+                          conversation.otherUser.username
+                        )}
+                        alt={conversation.otherUser.username || 'User'}
+                      />
+                      <AvatarFallback>
+                        {(conversation.otherUser.username || 'U')[0].toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-baseline">
+                        <p className="font-medium text-sm truncate">
+                          {conversation.otherUser.displayName || conversation.otherUser.username}
+                        </p>
+                        <p className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                          {conversation.lastMessageTime 
+                            ? formatDistanceToNow(new Date(conversation.lastMessageTime), { addSuffix: true })
+                            : ''}
+                        </p>
+                      </div>
+                      <p className="text-xs truncate text-muted-foreground">
+                        {conversation.lastMessage || 'No messages yet'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {(conversation.unreadCount || 0) > 0 && (
+                    <div className="absolute top-1/2 right-2 -translate-y-1/2 bg-primary text-primary-foreground rounded-full px-1.5 py-0.5 text-xs font-medium">
+                      {conversation.unreadCount}
+                    </div>
+                  )}
                 </div>
-                <p className="text-sm truncate">{message.content}</p>
-                {!message.isRead && (
-                  <CircleDot className="absolute top-2 right-2 h-2 w-2 text-blue-500" />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </PopoverContent>

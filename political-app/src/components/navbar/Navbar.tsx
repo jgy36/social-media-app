@@ -1,4 +1,4 @@
-// src/components/navbar/Navbar.tsx
+// src/components/navbar/Navbar.tsx - Fixed MessageIcon integration
 import { useSectionNavigation } from '@/hooks/useSectionNavigation';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
@@ -15,7 +15,7 @@ import {
   MapPin
 } from 'lucide-react';
 import NotificationIcon from './NotificationIcon';
-import MessageNotificationIndicator from "@/components/messages/MessageNotificationIndicator";
+import MessageIcon from './MessageIcon'; // Import the MessageIcon component
 
 const Navbar = () => {
   const { handleSectionClick, currentSection } = useSectionNavigation();
@@ -89,9 +89,9 @@ const Navbar = () => {
           
           <div className="flex items-center space-x-4">
             <NotificationIcon />
-            <Link href="/messages" className="relative">
-              <MessageNotificationIndicator />
-            </Link>
+            
+            {/* Use the MessageIcon component directly */}
+            {isAuthenticated && <MessageIcon />}
 
             {/* Profile or Login */}
             {isAuthenticated ? (

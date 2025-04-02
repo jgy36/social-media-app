@@ -7,11 +7,11 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeft, Send } from 'lucide-react';
+import { ArrowLeft, Send, Loader2 } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { useMessages } from '@/hooks/useMessages';
-import { formatRelative } from 'date-fns';
+import { formatRelative, format } from 'date-fns';
 import { getProfileImageUrl } from '@/utils/imageUtils';
 
 const ConversationPage = () => {
@@ -84,6 +84,16 @@ const ConversationPage = () => {
     return groups;
   }, {} as Record<string, typeof messages>);
   
+  // Format timestamp for messages
+  const formatMessageTime = (timestamp: string): string => {
+    try {
+      return format(new Date(timestamp), 'h:mm a');
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return "Unknown time";
+    }
+  };
+  
   return (
     <ProtectedRoute>
       <MainLayout section="messages">
@@ -100,24 +110,28 @@ const ConversationPage = () => {
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
                 
-                {currentConversation && (
+                {currentConversation?.otherUser ? (
                   <div className="flex items-center">
                     <Avatar className="h-9 w-9 mr-2">
                       <AvatarImage 
                         src={getProfileImageUrl(
-                          currentConversation.otherUser.profileImageUrl, 
+                          currentConversation.otherUser.profileImageUrl || null, 
                           currentConversation.otherUser.username
                         )} 
-                        alt={currentConversation.otherUser.username}
+                        alt={currentConversation.otherUser.username || 'User'}
                       />
                       <AvatarFallback>
-                        {currentConversation.otherUser.username?.[0]?.toUpperCase() || 'U'}
+                        {((currentConversation.otherUser.username || 'U')[0] || 'U').toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <CardTitle className="text-lg">
-                      {currentConversation.otherUser.displayName || currentConversation.otherUser.username}
+                      {currentConversation.otherUser.displayName || 
+                       currentConversation.otherUser.username || 
+                       'User'}
                     </CardTitle>
                   </div>
+                ) : (
+                  <CardTitle className="text-lg">Conversation</CardTitle>
                 )}
               </div>
             </CardHeader>
@@ -125,7 +139,7 @@ const ConversationPage = () => {
             <CardContent className="flex-grow overflow-y-auto py-4 px-3">
               {loading ? (
                 <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               ) : error ? (
                 <div className="text-center text-destructive py-8">
@@ -158,23 +172,32 @@ const ConversationPage = () => {
                       </div>
                       
                       {dayMessages.map((message) => {
-                        const isSender = isCurrentUserSender(message);
+                        // First determine if current user is sender with proper error handling
+                        let isSender = false;
+                        try {
+                          isSender = isCurrentUserSender(message);
+                        } catch (error) {
+                          console.error("Error determining sender:", error);
+                          // Fallback if the function fails
+                          isSender = message.sender?.id === user.id;
+                        }
+                        
                         return (
                           <div 
                             key={message.id} 
                             className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}
                           >
-                            {!isSender && (
+                            {!isSender && message.sender && (
                               <Avatar className="h-8 w-8 mr-2 flex-shrink-0 mt-1">
                                 <AvatarImage 
                                   src={getProfileImageUrl(
-                                    message.sender.profileImageUrl, 
-                                    message.sender.username
+                                    message.sender.profileImageUrl || null, 
+                                    message.sender.username || ''
                                   )} 
-                                  alt={message.sender.username}
+                                  alt={message.sender.username || 'User'}
                                 />
                                 <AvatarFallback>
-                                  {message.sender.username?.[0]?.toUpperCase() || 'U'}
+                                  {((message.sender.username || '')[0] || 'U').toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
                             )}
@@ -190,10 +213,7 @@ const ConversationPage = () => {
                               <div className={`text-xs mt-1 ${
                                 isSender ? 'text-primary-foreground/80' : 'text-muted-foreground'
                               }`}>
-                                {new Date(message.createdAt).toLocaleTimeString([], {
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
+                                {formatMessageTime(message.createdAt)}
                               </div>
                             </div>
                           </div>
@@ -214,6 +234,7 @@ const ConversationPage = () => {
                 onKeyDown={handleKeyDown}
                 disabled={loading || !conversationId}
                 className="flex-grow"
+                autoFocus
               />
               <Button 
                 onClick={handleSendMessage} 
