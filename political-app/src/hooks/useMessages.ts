@@ -1,9 +1,10 @@
-// src/hooks/useMessages.ts
+// src/hooks/useMessages.ts - Improved notification handling
 import { useState, useEffect, useCallback } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import * as messagesApi from '@/api/messages';
 import { Conversation, Message } from '@/api/messages';
+import { useToast } from '@/hooks/use-toast'; // Import toast for notifications
 
 export const useMessages = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -12,9 +13,11 @@ export const useMessages = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [lastUnreadCount, setLastUnreadCount] = useState<number>(0);
 
   const user = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!user.token;
+  const { toast } = useToast(); // Access toast for notifications
 
   // Fetch all conversations
   const fetchConversations = useCallback(async () => {
@@ -28,14 +31,38 @@ export const useMessages = () => {
       
       // Calculate total unread messages
       const totalUnread = data.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
+      
+      // Check if unread count has increased since last check
+      if (totalUnread > lastUnreadCount) {
+        // Find the conversations with new messages
+        const convsWithNewMessages = data.filter(conv => 
+          conv.unreadCount && conv.unreadCount > 0 && conv.lastMessage
+        );
+        
+        // Show notification for each conversation with new messages
+        // Limited to most recent to avoid notification spam
+        if (convsWithNewMessages.length > 0) {
+          const recentConv = convsWithNewMessages[0]; // Just show one notification
+          toast({
+            title: `New message from ${recentConv.otherUser?.displayName || recentConv.otherUser?.username || 'User'}`,
+            description: recentConv.lastMessage?.length > 30 
+              ? `${recentConv.lastMessage.substring(0, 30)}...` 
+              : recentConv.lastMessage,
+            duration: 5000
+          });
+        }
+      }
+      
+      // Update unread count and remember last count
       setUnreadCount(totalUnread);
+      setLastUnreadCount(totalUnread);
     } catch (err) {
       console.error('Error fetching conversations:', err);
       setError('Failed to load conversations');
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, lastUnreadCount, toast]);
 
   // Fetch unread message count
   const fetchUnreadCount = useCallback(async () => {
@@ -43,11 +70,19 @@ export const useMessages = () => {
 
     try {
       const count = await messagesApi.getUnreadMessagesCount();
-      setUnreadCount(count);
+      
+      // If the count increased, fetch conversations to show notifications
+      if (count > lastUnreadCount) {
+        fetchConversations();
+      } else {
+        // Just update the count if no new messages
+        setUnreadCount(count);
+        setLastUnreadCount(count);
+      }
     } catch (err) {
       console.error('Error fetching unread count:', err);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, lastUnreadCount, fetchConversations]);
 
   // Fetch messages for a conversation
   const fetchMessages = useCallback(async (conversationId: number) => {
@@ -134,8 +169,8 @@ export const useMessages = () => {
       await fetchMessages(conversationId);
       
       return { conversationId, message };
-    } catch (err) {
-      console.error('Error starting conversation:', err);
+    } catch (error: any) {
+      console.error('Error starting conversation:', error);
       setError('Failed to start conversation');
       return null;
     } finally {
@@ -168,8 +203,14 @@ export const useMessages = () => {
 
   // Check if currently logged-in user is the sender of a message
   const isCurrentUserSender = useCallback((message: Message): boolean => {
+    // Handle the case where user is null
+    if (!user || user.id === null || !message.sender) {
+      return false; // Default to false if we don't have user data
+    }
+    
+    // Compare user IDs to determine if the current user is the sender
     return message.sender.id === user.id;
-  }, [user.id]);
+  }, [user]);
 
   // Initial load
   useEffect(() => {
@@ -179,13 +220,13 @@ export const useMessages = () => {
     }
   }, [isAuthenticated, fetchConversations, fetchUnreadCount]);
 
-  // Create polling effect for unread message count
+  // Create polling effect for unread message count - more frequent polling
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const intervalId = setInterval(() => {
       fetchUnreadCount();
-    }, 60000); // Poll every minute
+    }, 15000); // Poll every 15 seconds instead of 60 for more responsive notifications
 
     return () => clearInterval(intervalId);
   }, [isAuthenticated, fetchUnreadCount]);

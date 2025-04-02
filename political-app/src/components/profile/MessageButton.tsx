@@ -5,6 +5,7 @@ import { MessageSquare } from 'lucide-react';
 import { Button, ButtonProps } from "@/components/ui/button";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
+import { getOrCreateConversation } from '@/api/messages';
 
 interface MessageButtonProps extends ButtonProps {
   username: string;
@@ -35,12 +36,32 @@ const MessageButton = ({
     
     setLoading(true);
     
-    // If we have userId, use that route
-    if (userId) {
+    try {
+      // Make sure we have the userId before proceeding
+      if (!userId) {
+        // If somehow we don't have the userId, fall back to username-based route
+        router.push(`/messages/${username}`);
+        return;
+      }
+      
+      // Try to get or create a conversation first
+      try {
+        const { conversationId } = await getOrCreateConversation(userId);
+        
+        // If successful, redirect directly to the conversation
+        router.push(`/messages/conversation/${conversationId}`);
+        return;
+      } catch (convError) {
+        console.error("Error getting/creating conversation:", convError);
+        // If that fails, just go to the direct message page
+        router.push(`/messages/${userId}`);
+      }
+    } catch (error) {
+      console.error("Error in message button:", error);
+      // Fall back to user ID based route if any other error occurs
       router.push(`/messages/${userId}`);
-    } else {
-      // Otherwise use username
-      router.push(`/messages/${username}`);
+    } finally {
+      setLoading(false);
     }
   };
 

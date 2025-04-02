@@ -78,7 +78,6 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
   // Create the axios instance
   const instance = axios.create({
     baseURL: config.baseURL,
-    timeout: config.timeout || 30000,
     withCredentials: true, // Always enable credentials
     headers: {
       'Content-Type': 'application/json',
