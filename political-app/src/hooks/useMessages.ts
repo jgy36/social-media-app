@@ -45,7 +45,7 @@ export const useMessages = () => {
           const recentConv = convsWithNewMessages[0]; // Just show one notification
           toast({
             title: `New message from ${recentConv.otherUser?.displayName || recentConv.otherUser?.username || 'User'}`,
-            description: recentConv.lastMessage?.length > 30 
+            description: recentConv.lastMessage && recentConv.lastMessage.length > 30 
               ? `${recentConv.lastMessage.substring(0, 30)}...` 
               : recentConv.lastMessage,
             duration: 5000
@@ -203,14 +203,20 @@ export const useMessages = () => {
 
   // Check if currently logged-in user is the sender of a message
   const isCurrentUserSender = useCallback((message: Message): boolean => {
-    // Handle the case where user is null
-    if (!user || user.id === null || !message.sender) {
-      return false; // Default to false if we don't have user data
-    }
-    
-    // Compare user IDs to determine if the current user is the sender
-    return message.sender.id === user.id;
-  }, [user]);
+  // Handle the case where user data is incomplete
+  if (!user || !user.id || !message.sender || !message.sender.id) {
+    return false;
+  }
+  
+  // Debug log to see what values we're comparing
+  console.log("Comparing IDs:", message.sender.id, user.id, message.sender.id === user.id);
+  
+  // Convert both to numbers to ensure reliable comparison
+  const senderId = Number(message.sender.id);
+  const userId = Number(user.id);
+  
+  return senderId === userId;
+}, [user]);
 
   // Initial load
   useEffect(() => {
