@@ -103,6 +103,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/posts/**").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/communities/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/communities/**").authenticated()
+                        .requestMatchers("/api/messages/**").authenticated()
 
                         // Admin Only
                         .requestMatchers("/api/admin/init-communities").permitAll()  // Temporarily public

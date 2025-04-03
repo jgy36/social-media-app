@@ -76,6 +76,17 @@ public class MessageService {
                             ))
                             .collect(Collectors.toList()));
 
+                    // Extract other user for direct conversations
+                    if (otherParticipants.size() == 1) {
+                        User otherUser = otherParticipants.get(0);
+                        conversationData.put("otherUser", Map.of(
+                                "id", otherUser.getId(),
+                                "username", otherUser.getUsername(),
+                                "displayName", otherUser.getDisplayName(),
+                                "profileImageUrl", otherUser.getProfileImageUrl()
+                        ));
+                    }
+
                     if (latestMessage != null) {
                         conversationData.put("latestMessage", Map.of(
                                 "id", latestMessage.getId(),
@@ -92,61 +103,13 @@ public class MessageService {
 
                     return conversationData;
                 })
-                .sorted(Comparator.comparing(c -> (LocalDateTime) ((Map) c.get("latestMessage")).get("sentAt"), Comparator.reverseOrder()))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * Get a conversation by ID
-     */
-    public Map<String, Object> getConversation(Long conversationId) {
-        User currentUser = getCurrentUser();
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new NoSuchElementException("Conversation not found"));
-
-        // Check if the current user is a participant
-        if (!conversation.getParticipants().contains(currentUser)) {
-            throw new IllegalStateException("You are not a participant in this conversation");
-        }
-
-        // Get other participant(s)
-        List<User> otherParticipants = conversation.getParticipants().stream()
-                .filter(user -> !user.equals(currentUser))
-                .collect(Collectors.toList());
-
-        // Get messages
-        List<Message> messages = messageRepository.findByConversationOrderBySentAtAsc(conversation);
-
-        // Mark unread messages as read
-        markConversationAsRead(conversation, currentUser);
-
-        Map<String, Object> conversationData = new HashMap<>();
-        conversationData.put("id", conversation.getId());
-        conversationData.put("participants", otherParticipants.stream()
-                .map(user -> Map.of(
-                        "id", user.getId(),
-                        "username", user.getUsername(),
-                        "displayName", user.getDisplayName(),
-                        "profileImageUrl", user.getProfileImageUrl()
+                .sorted(Comparator.comparing(
+                        c -> c.containsKey("latestMessage")
+                                ? ((LocalDateTime) ((Map) c.get("latestMessage")).get("sentAt"))
+                                : LocalDateTime.MIN,
+                        Comparator.reverseOrder()
                 ))
-                .collect(Collectors.toList()));
-
-        conversationData.put("messages", messages.stream()
-                .map(message -> Map.of(
-                        "id", message.getId(),
-                        "content", message.getContent(),
-                        "senderId", message.getSender().getId(),
-                        "senderUsername", message.getSender().getUsername(),
-                        "sentAt", message.getSentAt(),
-                        "read", message.isRead(),
-                        "imageUrl", message.getImageUrl() != null ? message.getImageUrl() : ""
-                ))
-                .collect(Collectors.toList()));
-
-        conversationData.put("createdAt", conversation.getCreatedAt());
-        conversationData.put("updatedAt", conversation.getUpdatedAt());
-
-        return conversationData;
+                .collect(Collectors.toList());
     }
 
     /**
@@ -168,17 +131,56 @@ public class MessageService {
             conversationRepository.save(conversation);
         }
 
-        return getConversation(conversation.getId());
+        return Map.of(
+                "id", conversation.getId(),
+                "otherUser", Map.of(
+                        "id", otherUser.getId(),
+                        "username", otherUser.getUsername(),
+                        "displayName", otherUser.getDisplayName(),
+                        "profileImageUrl", otherUser.getProfileImageUrl()
+                )
+        );
+    }
+
+    /**
+     * Get a conversation by ID
+     */
+    public Conversation getConversationById(Long conversationId) {
+        User currentUser = getCurrentUser();
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new NoSuchElementException("Conversation not found"));
+
+        // Check if the current user is a participant
+        if (!conversation.getParticipants().contains(currentUser)) {
+            throw new IllegalStateException("You are not a participant in this conversation");
+        }
+
+        return conversation;
+    }
+
+    /**
+     * Get messages for a conversation
+     */
+    public List<Message> getMessagesForConversation(Conversation conversation) {
+        return messageRepository.findByConversationOrderBySentAtAsc(conversation);
+    }
+
+    /**
+     * Create a new conversation
+     */
+    @Transactional
+    public Conversation createConversation(User user1, User user2) {
+        Conversation conversation = new Conversation(user1, user2);
+        return conversationRepository.save(conversation);
     }
 
     /**
      * Send a message in a conversation
      */
     @Transactional
-    public Map<String, Object> sendMessage(Long conversationId, String content, String imageUrl) {
+    public Message sendMessage(Long conversationId, String content, String imageUrl) {
         User currentUser = getCurrentUser();
-        Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new NoSuchElementException("Conversation not found"));
+        Conversation conversation = getConversationById(conversationId);
 
         // Check if the current user is a participant
         if (!conversation.getParticipants().contains(currentUser)) {
@@ -206,15 +208,7 @@ public class MessageService {
                     notificationService.createNotification(recipient, notificationMessage);
                 });
 
-        return Map.of(
-                "id", message.getId(),
-                "content", message.getContent(),
-                "senderId", message.getSender().getId(),
-                "senderUsername", message.getSender().getUsername(),
-                "sentAt", message.getSentAt(),
-                "read", message.isRead(),
-                "imageUrl", message.getImageUrl() != null ? message.getImageUrl() : ""
-        );
+        return message;
     }
 
     /**
@@ -231,38 +225,9 @@ public class MessageService {
     }
 
     /**
-     * Get the total count of unread messages for the current user
+     * Count unread messages for a user
      */
-    public int getUnreadMessageCount() {
-        User currentUser = getCurrentUser();
-        return messageRepository.countUnreadMessagesForUser(currentUser);
-    }
-
-    /**
-     * Search for users to message
-     */
-    public List<Map<String, Object>> searchUsers(String query) {
-        User currentUser = getCurrentUser();
-        List<User> users = userRepository.findByUsernameContainingIgnoreCase(query);
-
-        return users.stream()
-                .filter(user -> !user.equals(currentUser))
-                .map(user -> {
-                    Optional<Conversation> existingConversation =
-                            conversationRepository.findDirectConversation(currentUser, user);
-
-                    Map<String, Object> userData = new HashMap<>();
-                    userData.put("id", user.getId());
-                    userData.put("username", user.getUsername());
-                    userData.put("displayName", user.getDisplayName());
-                    userData.put("profileImageUrl", user.getProfileImageUrl());
-
-                    if (existingConversation.isPresent()) {
-                        userData.put("conversationId", existingConversation.get().getId());
-                    }
-
-                    return userData;
-                })
-                .collect(Collectors.toList());
+    public long countUnreadMessagesForUser(User user) {
+        return messageRepository.countUnreadMessagesForUser(user);
     }
 }
