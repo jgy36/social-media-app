@@ -33,7 +33,10 @@ const MessageIcon = () => {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  
+  // Get current user from Redux store
   const isAuthenticated = useSelector((state: RootState) => state.user.isAuthenticated);
+  const currentUserId = useSelector((state: RootState) => state.user.id);
   
   // Fetch unread message count
   const fetchUnreadCount = useCallback(async () => {
@@ -136,13 +139,26 @@ const MessageIcon = () => {
     }
   };
 
-  // Get all messages across all conversations, sorted by time (newest first)
+  // Get messages from other users only, across all conversations, sorted by time (newest first)
   const allMessages = conversationsWithMessages
     .flatMap(cwm => 
-      cwm.messages.map(msg => ({
-        ...msg,
-        conversation: cwm.conversation
-      }))
+      cwm.messages
+        // Only include messages from other users (not sent by current user)
+        .filter(msg => {
+          // First check if sender exists
+          if (!msg.sender) return false;
+          
+          // Convert IDs to strings for safer comparison
+          const senderId = String(msg.sender.id);
+          const myId = String(currentUserId);
+          
+          // Only include messages where sender is NOT current user
+          return senderId !== myId;
+        })
+        .map(msg => ({
+          ...msg,
+          conversation: cwm.conversation
+        }))
     )
     .sort((a, b) => 
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -182,7 +198,7 @@ const MessageIcon = () => {
             </div>
           ) : allMessages.length === 0 ? (
             <div className="py-6 text-center">
-              <p className="text-muted-foreground">No messages yet.</p>
+              <p className="text-muted-foreground">No messages from others yet.</p>
               {isAuthenticated && (
                 <Button 
                   variant="outline" 
