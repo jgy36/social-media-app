@@ -3,6 +3,7 @@ package com.jgy36.PoliticalApp.controller;
 import com.jgy36.PoliticalApp.dto.ConversationDTO;
 import com.jgy36.PoliticalApp.dto.MessageRequest;
 import com.jgy36.PoliticalApp.dto.MessageResponse;
+import com.jgy36.PoliticalApp.dto.UserSummaryDTO;
 import com.jgy36.PoliticalApp.entity.Conversation;
 import com.jgy36.PoliticalApp.entity.Message;
 import com.jgy36.PoliticalApp.entity.User;
@@ -14,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,26 +46,38 @@ public class MessageController {
         return ResponseEntity.ok(conversationDTOs);
     }
 
-    // Helper method to convert Map to ConversationDTO
+    // Updated convertToConversationDTO method for MessageController.java
     private ConversationDTO convertToConversationDTO(Map<String, Object> map) {
         ConversationDTO dto = new ConversationDTO();
         dto.setId((Long) map.get("id"));
 
-        // Convert nested maps to appropriate objects
+        // Properly convert otherUser data
         if (map.containsKey("otherUser")) {
             Map<String, Object> otherUserMap = (Map<String, Object>) map.get("otherUser");
-            // Set otherUser fields accordingly
-            // This depends on your DTO structure
+            if (otherUserMap != null) {
+                UserSummaryDTO otherUser = new UserSummaryDTO();
+                otherUser.setId((Long) otherUserMap.get("id"));
+                otherUser.setUsername((String) otherUserMap.get("username"));
+                otherUser.setDisplayName((String) otherUserMap.get("displayName"));
+                otherUser.setProfileImageUrl((String) otherUserMap.get("profileImageUrl"));
+                dto.setOtherUser(otherUser);
+            }
         }
 
+        // Set latest message data
         if (map.containsKey("latestMessage")) {
             Map<String, Object> messageMap = (Map<String, Object>) map.get("latestMessage");
             dto.setLastMessage((String) messageMap.get("content"));
-            // Set other fields from the latest message
+            if (messageMap.containsKey("sentAt")) {
+                dto.setLastMessageTime((LocalDateTime) messageMap.get("sentAt"));
+            }
         }
 
+        // Set unread count and updated timestamp
         dto.setUnreadCount((Integer) map.getOrDefault("unreadCount", 0));
-        // Set other fields from the map
+
+        // Default isOnline to false if not present
+        dto.setOnline(false);
 
         return dto;
     }
