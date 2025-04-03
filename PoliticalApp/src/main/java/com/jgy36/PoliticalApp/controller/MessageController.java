@@ -67,9 +67,11 @@ public class MessageController {
         // Set latest message data
         if (map.containsKey("latestMessage")) {
             Map<String, Object> messageMap = (Map<String, Object>) map.get("latestMessage");
-            dto.setLastMessage((String) messageMap.get("content"));
-            if (messageMap.containsKey("sentAt")) {
-                dto.setLastMessageTime((LocalDateTime) messageMap.get("sentAt"));
+            if (messageMap != null) {
+                dto.setLastMessage((String) messageMap.get("content"));
+                if (messageMap.containsKey("sentAt")) {
+                    dto.setLastMessageTime((LocalDateTime) messageMap.get("sentAt"));
+                }
             }
         }
 
