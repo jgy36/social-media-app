@@ -142,15 +142,19 @@ public class MessageService {
             conversationRepository.save(conversation);
         }
 
-        return Map.of(
-                "id", conversation.getId(),
-                "otherUser", Map.of(
-                        "id", otherUser.getId(),
-                        "username", otherUser.getUsername(),
-                        "displayName", otherUser.getDisplayName(),
-                        "profileImageUrl", otherUser.getProfileImageUrl()
-                )
-        );
+        // Create a map that can handle null values for the other user
+        Map<String, Object> otherUserMap = new HashMap<>();
+        otherUserMap.put("id", otherUser.getId());
+        otherUserMap.put("username", otherUser.getUsername());
+        otherUserMap.put("displayName", otherUser.getDisplayName());  // This can be null
+        otherUserMap.put("profileImageUrl", otherUser.getProfileImageUrl());  // This can be null
+
+        // Create the result map
+        Map<String, Object> resultMap = new HashMap<>();
+        resultMap.put("id", conversation.getId());
+        resultMap.put("otherUser", otherUserMap);
+
+        return resultMap;
     }
 
     /**
