@@ -34,6 +34,14 @@ const ConversationPage = () => {
     sendMessage,
     isCurrentUserSender,
   } = useMessages();
+
+  // Debug user and message data
+  useEffect(() => {
+    console.log("Current user from Redux:", user);
+    if (messages.length > 0) {
+      console.log("Sample message:", messages[0]);
+    }
+  }, [user, messages]);
   
   // Find current conversation details
   const currentConversation = conversationId 
@@ -172,22 +180,20 @@ const ConversationPage = () => {
                       </div>
                       
                       {dayMessages.map((message) => {
-                        // First determine if current user is sender with proper error handling
-                        let isSender = false;
-                        try {
-                          isSender = isCurrentUserSender(message);
-                        } catch (error) {
-                          console.error("Error determining sender:", error);
-                          // Fallback if the function fails
-                          isSender = message.sender?.id === user.id;
-                        }
+                        // Direct ID comparison - convert both to strings for reliable comparison
+                        const myUserId = String(user.id);
+                        const senderId = String(message.sender?.id || '');
+                        
+                        // Determine if message is from current user
+                        const isMyMessage = myUserId === senderId;
                         
                         return (
                           <div 
                             key={message.id} 
-                            className={`flex ${isSender ? 'justify-end' : 'justify-start'}`}
+                            className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
                           >
-                            {!isSender && message.sender && (
+                            {/* Only show avatar for other user's messages */}
+                            {!isMyMessage && message.sender && (
                               <Avatar className="h-8 w-8 mr-2 flex-shrink-0 mt-1">
                                 <AvatarImage 
                                   src={getProfileImageUrl(
@@ -204,14 +210,14 @@ const ConversationPage = () => {
                             
                             <div 
                               className={`max-w-[75%] rounded-lg px-4 py-2 ${
-                                isSender 
-                                  ? 'bg-primary text-primary-foreground' 
-                                  : 'bg-accent'
+                                isMyMessage 
+                                  ? 'bg-purple-600 text-white' 
+                                  : 'bg-gray-200 text-gray-800'
                               }`}
                             >
                               <p className="whitespace-pre-wrap break-words">{message.content}</p>
                               <div className={`text-xs mt-1 ${
-                                isSender ? 'text-primary-foreground/80' : 'text-muted-foreground'
+                                isMyMessage ? 'text-white/80' : 'text-gray-500'
                               }`}>
                                 {formatMessageTime(message.createdAt)}
                               </div>

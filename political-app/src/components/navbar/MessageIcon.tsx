@@ -126,17 +126,9 @@ const MessageIcon = () => {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {messages.map(conversation => {
-              // Debug log to see what data we're working with
-              console.log("Rendering conversation:", conversation);
-              
-              // Make sure otherUser exists
-              if (!conversation.otherUser) {
-                console.error("Missing otherUser in conversation:", conversation);
-                return null;
-              }
-              
-              return (
+            {messages
+              .filter(conversation => conversation.otherUser != null)
+              .map(conversation => (
                 <div 
                   key={conversation.id}
                   className="py-2 px-1 cursor-pointer hover:bg-secondary/50 rounded-md transition-colors relative"
@@ -179,8 +171,7 @@ const MessageIcon = () => {
                     </div>
                   )}
                 </div>
-              );
-            })}
+              ))}
           </div>
         )}
       </PopoverContent>
