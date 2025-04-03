@@ -48,6 +48,7 @@ public class MessageService {
     /**
      * Get all conversations for the current user
      */
+    // Updated getUserConversations method in MessageService.java
     public List<Map<String, Object>> getUserConversations() {
         User currentUser = getCurrentUser();
         List<Conversation> conversations = conversationRepository.findConversationsByParticipant(currentUser);
@@ -67,22 +68,32 @@ public class MessageService {
 
                     Map<String, Object> conversationData = new HashMap<>();
                     conversationData.put("id", conversation.getId());
-                    conversationData.put("participants", otherParticipants.stream()
-                            .map(user -> Map.of(
-                                    "id", user.getId(),
-                                    "username", user.getUsername(),
-                                    "displayName", user.getDisplayName(),
-                                    "profileImageUrl", user.getProfileImageUrl()
-                            ))
-                            .collect(Collectors.toList()));
 
-                    // Extract other user for direct conversations
+                    // Extract other user for direct conversations - handle the case where there may not be exactly one other participant
                     if (otherParticipants.size() == 1) {
                         User otherUser = otherParticipants.get(0);
                         conversationData.put("otherUser", Map.of(
                                 "id", otherUser.getId(),
                                 "username", otherUser.getUsername(),
-                                "displayName", otherUser.getDisplayName(),
+                                "displayName", otherUser.getDisplayName() != null ? otherUser.getDisplayName() : otherUser.getUsername(),
+                                "profileImageUrl", otherUser.getProfileImageUrl()
+                        ));
+                    } else if (otherParticipants.isEmpty()) {
+                        // Handle edge case: If somehow this is a self-conversation or broken conversation
+                        // We'll create a placeholder user to prevent null otherUser
+                        conversationData.put("otherUser", Map.of(
+                                "id", currentUser.getId(),
+                                "username", "Deleted User",
+                                "displayName", "Deleted User",
+                                "profileImageUrl", ""
+                        ));
+                    } else {
+                        // Group conversation case - for now, just use the first other participant
+                        User otherUser = otherParticipants.get(0);
+                        conversationData.put("otherUser", Map.of(
+                                "id", otherUser.getId(),
+                                "username", otherUser.getUsername(),
+                                "displayName", otherUser.getDisplayName() != null ? otherUser.getDisplayName() : otherUser.getUsername(),
                                 "profileImageUrl", otherUser.getProfileImageUrl()
                         ));
                     }
