@@ -126,7 +126,19 @@ public class MessageController {
         response.setContent(message.getContent());
         response.setCreatedAt(message.getSentAt());
         response.setRead(message.isRead());
-        // Set other fields from the message object
+
+        // Add sender information
+        if (message.getSender() != null) {
+            UserSummaryDTO sender = new UserSummaryDTO();
+            sender.setId(message.getSender().getId());
+            sender.setUsername(message.getSender().getUsername());
+            sender.setDisplayName(message.getSender().getDisplayName());
+            sender.setProfileImageUrl(message.getSender().getProfileImageUrl());
+            response.setSender(sender);
+        }
+
+        // Add conversation ID
+        response.setConversationId(message.getConversation().getId());
 
         return response;
     }
