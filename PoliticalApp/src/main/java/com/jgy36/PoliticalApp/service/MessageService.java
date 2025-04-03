@@ -49,6 +49,7 @@ public class MessageService {
      * Get all conversations for the current user
      */
     // Updated getUserConversations method in MessageService.java
+    // Modify the getUserConversations method in MessageService.java
     public List<Map<String, Object>> getUserConversations() {
         User currentUser = getCurrentUser();
         List<Conversation> conversations = conversationRepository.findConversationsByParticipant(currentUser);
@@ -72,41 +73,48 @@ public class MessageService {
                     // Extract other user for direct conversations - handle the case where there may not be exactly one other participant
                     if (otherParticipants.size() == 1) {
                         User otherUser = otherParticipants.get(0);
-                        conversationData.put("otherUser", Map.of(
-                                "id", otherUser.getId(),
-                                "username", otherUser.getUsername(),
-                                "displayName", otherUser.getDisplayName() != null ? otherUser.getDisplayName() : otherUser.getUsername(),
-                                "profileImageUrl", otherUser.getProfileImageUrl()
-                        ));
+                        // Create a map that can handle null values
+                        Map<String, Object> otherUserMap = new HashMap<>();
+                        otherUserMap.put("id", otherUser.getId());
+                        otherUserMap.put("username", otherUser.getUsername());
+                        otherUserMap.put("displayName", otherUser.getDisplayName() != null ? otherUser.getDisplayName() : otherUser.getUsername());
+                        otherUserMap.put("profileImageUrl", otherUser.getProfileImageUrl());  // This can be null
+
+                        conversationData.put("otherUser", otherUserMap);
                     } else if (otherParticipants.isEmpty()) {
                         // Handle edge case: If somehow this is a self-conversation or broken conversation
-                        // We'll create a placeholder user to prevent null otherUser
-                        conversationData.put("otherUser", Map.of(
-                                "id", currentUser.getId(),
-                                "username", "Deleted User",
-                                "displayName", "Deleted User",
-                                "profileImageUrl", ""
-                        ));
+                        // Create a map that can handle null values
+                        Map<String, Object> otherUserMap = new HashMap<>();
+                        otherUserMap.put("id", currentUser.getId());
+                        otherUserMap.put("username", "Deleted User");
+                        otherUserMap.put("displayName", "Deleted User");
+                        otherUserMap.put("profileImageUrl", "");
+
+                        conversationData.put("otherUser", otherUserMap);
                     } else {
                         // Group conversation case - for now, just use the first other participant
                         User otherUser = otherParticipants.get(0);
-                        conversationData.put("otherUser", Map.of(
-                                "id", otherUser.getId(),
-                                "username", otherUser.getUsername(),
-                                "displayName", otherUser.getDisplayName() != null ? otherUser.getDisplayName() : otherUser.getUsername(),
-                                "profileImageUrl", otherUser.getProfileImageUrl()
-                        ));
+                        // Create a map that can handle null values
+                        Map<String, Object> otherUserMap = new HashMap<>();
+                        otherUserMap.put("id", otherUser.getId());
+                        otherUserMap.put("username", otherUser.getUsername());
+                        otherUserMap.put("displayName", otherUser.getDisplayName() != null ? otherUser.getDisplayName() : otherUser.getUsername());
+                        otherUserMap.put("profileImageUrl", otherUser.getProfileImageUrl());  // This can be null
+
+                        conversationData.put("otherUser", otherUserMap);
                     }
 
                     if (latestMessage != null) {
-                        conversationData.put("latestMessage", Map.of(
-                                "id", latestMessage.getId(),
-                                "content", latestMessage.getContent(),
-                                "senderId", latestMessage.getSender().getId(),
-                                "senderUsername", latestMessage.getSender().getUsername(),
-                                "sentAt", latestMessage.getSentAt(),
-                                "read", latestMessage.isRead()
-                        ));
+                        // Create a map that can handle null values
+                        Map<String, Object> messageMap = new HashMap<>();
+                        messageMap.put("id", latestMessage.getId());
+                        messageMap.put("content", latestMessage.getContent());
+                        messageMap.put("senderId", latestMessage.getSender() != null ? latestMessage.getSender().getId() : null);
+                        messageMap.put("senderUsername", latestMessage.getSender() != null ? latestMessage.getSender().getUsername() : "Unknown");
+                        messageMap.put("sentAt", latestMessage.getSentAt());
+                        messageMap.put("read", latestMessage.isRead());
+
+                        conversationData.put("latestMessage", messageMap);
                     }
 
                     conversationData.put("unreadCount", unreadCount);
@@ -116,7 +124,7 @@ public class MessageService {
                 })
                 .sorted(Comparator.comparing(
                         c -> c.containsKey("latestMessage")
-                                ? ((LocalDateTime) ((Map) c.get("latestMessage")).get("sentAt"))
+                                ? ((LocalDateTime) ((Map<String, Object>) c.get("latestMessage")).get("sentAt"))
                                 : LocalDateTime.MIN,
                         Comparator.reverseOrder()
                 ))
