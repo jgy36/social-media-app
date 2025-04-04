@@ -51,14 +51,13 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
     setIsReposting(true);
     
     try {
-      // Format content to include original post reference
-      const repostContent = `${repostComment ? `${repostComment}\n\n` : ""}Reposted from @${author}:\n"${content}"`;
-      
-      // Add reference to original post (for database tracking)
+      // Only use the comment as content - don't include original post text
+      // The original post will be displayed separately in the UI
       const postData = {
-        content: repostContent,
+        content: repostComment, // Just store the user's comment
         originalPostId: postId,
-        isRepost: true
+        isRepost: true,
+        originalAuthor: author // Store original author for reference
       };
       
       // Create the repost

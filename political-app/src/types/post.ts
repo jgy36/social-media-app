@@ -11,4 +11,10 @@ export interface PostType {
   hashtags?: string[]; // ✅ Array of hashtags in the post
   communityId?: string; // ✅ ID/slug of the community the post belongs to
   communityName?: string; // ✅ Name of the community the post belongs to
+  
+  // Add the repost-related fields
+  isRepost?: boolean; // ✅ Flag indicating if this is a repost
+  originalPostId?: number; // ✅ ID of the original post that was reposted
+  repostsCount?: number; // ✅ Renamed from backend's repostCount
+  originalAuthor?: string; // ✅ Optional field to store original author name
 }
