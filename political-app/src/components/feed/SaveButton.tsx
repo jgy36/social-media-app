@@ -86,12 +86,13 @@ const SaveButton = ({ postId, isSaved: initialIsSaved }: SaveButtonProps) => {
   return (
     <Button
       variant="ghost"
+      size="sm"
       onClick={handleSave}
       disabled={isLoading}
-      className={`flex items-center gap-1 ${saved ? "text-yellow-500" : ""}`}
+      className={`flex items-center gap-1 rounded-full ${saved ? "text-yellow-500 dark:text-yellow-400" : ""}`}
     >
       <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} />
-      {isLoading ? "Saving..." : saved ? "Saved" : "Save"}
+      <span className="ml-1">{isLoading ? "Saving..." : saved ? "Saved" : "Save"}</span>
     </Button>
   );
 };

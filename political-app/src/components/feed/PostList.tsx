@@ -79,18 +79,18 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
   if (!token && activeTab === "following") return null; // ✅ Prevent rendering before redirecting
   
   if (loading) {
-  return <LoadingState message="Loading posts..." />;
-}
-
-if (error) {
-  return <ErrorState message={error} onRetry={handleRetry} />;
-}
+    return (
+      <div className="my-6">
+        <LoadingState message="Loading posts..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Show warning but still display posts if we have them */}
       {error && (
-        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 rounded-md mb-4 flex items-start">
+        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 rounded-xl mb-4 flex items-start">
           <div className="flex-1">{error}</div>
           <Button 
             variant="outline" 
@@ -106,15 +106,17 @@ if (error) {
       )}
       
       {postData.length > 0 ? (
-        postData.map((post) => (
-          <Post key={post.id} post={post} />
-        ))
+        <div className="space-y-5">
+          {postData.map((post) => (
+            <Post key={post.id} post={post} />
+          ))}
+        </div>
       ) : (
-        <div className="p-4 text-center bg-muted/20 rounded-lg py-8">
-          <p className="text-muted-foreground">No posts available.</p>
-          <Button onClick={handleRetry} className="mt-4" variant="outline">
+        <div className="p-6 text-center bg-muted/20 dark:bg-muted/10 rounded-xl py-12 my-8">
+          <p className="text-muted-foreground mb-4">No posts available in your feed.</p>
+          <Button onClick={handleRetry} variant="outline" className="px-6">
             <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
+            Refresh Feed
           </Button>
         </div>
       )}

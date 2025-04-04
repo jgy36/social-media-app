@@ -2,7 +2,6 @@
 import { useState } from "react";
 import PostList from "@/components/feed/PostList";
 import PostForm from "@/components/feed/PostForm";
-import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,23 +43,28 @@ const FeedPage = () => {
             </DialogContent>
           </Dialog>
 
-          {/* Shadcn UI Tabs */}
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "for-you" | "following")}>
-            <TabsList className="w-full flex justify-center gap-6 bg-card p-2 rounded-xl shadow-md">
-              <TabsTrigger value="for-you" className="text-lg">For You</TabsTrigger>
-              <TabsTrigger value="following" className="text-lg">Following</TabsTrigger>
-            </TabsList>
+          {/* Shadcn UI Tabs - Redesigned with cleaner appearance */}
+          <div className="bg-background dark:bg-background rounded-xl py-2 px-4 mb-6 shadow-md">
+            <Tabs 
+              value={activeTab} 
+              onValueChange={(value) => setActiveTab(value as "for-you" | "following")}
+              className="w-full"
+            >
+              <TabsList className="w-full flex justify-center gap-6 bg-card/50 backdrop-blur p-1 rounded-xl mb-4">
+                <TabsTrigger value="for-you" className="text-lg py-2 px-6 flex-1">For You</TabsTrigger>
+                <TabsTrigger value="following" className="text-lg py-2 px-6 flex-1">Following</TabsTrigger>
+              </TabsList>
 
-            {/* Posts Section in a Card */}
-            <Card className="mt-4 shadow-lg border border-border">
-              <TabsContent value="for-you">
+              {/* Make sure TabsContent is inside the Tabs component */}
+              <TabsContent value="for-you" className="mt-2 space-y-5">
                 <PostList activeTab="for-you" key={`for-you-${refreshTrigger}`} />
               </TabsContent>
-              <TabsContent value="following">
+              
+              <TabsContent value="following" className="mt-2 space-y-5">
                 <PostList activeTab="following" key={`following-${refreshTrigger}`} />
               </TabsContent>
-            </Card>
-          </Tabs>
+            </Tabs>
+          </div>
         </div>
       </MainLayout>
     </ProtectedRoute>
