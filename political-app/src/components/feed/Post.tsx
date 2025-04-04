@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// components/feed/Post.tsx - Fixed version
+// components/feed/Post.tsx
 import { useState } from "react";
 import { PostType } from "@/types/post";
 import { likePost } from "@/api/posts";
@@ -15,6 +13,8 @@ import CommentModal from "@/components/comments/CommentModal";
 import SaveButton from "@/components/feed/SaveButton";
 import ShareButton from "@/components/feed/ShareButton";
 import { PostProps } from "@/types/componentProps";
+import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
+import AuthorAvatar from "@/components/shared/AuthorAvatar";
 
 // Function to safely render content with clickable hashtags
 const renderContentWithHashtags = (
@@ -108,6 +108,43 @@ const Post: React.FC<PostProps> = ({
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
 
+  // Make sure post.author and post.content are strings, not objects
+  const authorName =
+    typeof post.author === "string"
+      ? post.author
+      : post.author &&
+        typeof post.author === "object" &&
+        "username" in (post.author as any)
+      ? String((post.author as any).username)
+      : "Unknown User";
+
+  // Extract profile image URL if available
+  const profileImageUrl = 
+    typeof post.author === "object" && 
+    post.author && 
+    "profileImageUrl" in (post.author as any)
+      ? (post.author as any).profileImageUrl
+      : null;
+      
+  // If authorDetails is available as a separate field, use that
+  const authorDetails = (post as any).authorDetails || null;
+  const authorDetailsImageUrl = 
+    authorDetails && 
+    typeof authorDetails === "object" && 
+    "profileImageUrl" in authorDetails
+      ? authorDetails.profileImageUrl
+      : null;
+      
+  // Final image URL to use
+  const finalImageUrl = profileImageUrl || authorDetailsImageUrl;
+  
+  const postContent =
+    typeof post.content === "string"
+      ? post.content
+      : post.content
+      ? JSON.stringify(post.content)
+      : "";
+
   // Function to handle hashtag click
   const handleHashtagClick = (hashtag: string) => {
     // Remove the # prefix for URL
@@ -144,69 +181,61 @@ const Post: React.FC<PostProps> = ({
     router.push(`/profile/${post.author}`);
   };
 
-  // Make sure post.author and post.content are strings, not objects
-  const authorName =
-    typeof post.author === "string"
-      ? post.author
-      : post.author &&
-        typeof post.author === "object" &&
-        "username" in (post.author as any)
-      ? String((post.author as any).username)
-      : "Unknown User";
-
-  const postContent =
-    typeof post.content === "string"
-      ? post.content
-      : post.content
-      ? JSON.stringify(post.content)
-      : "";
-
   // Safely get hashtags as an array of strings
   const safeHashtags = safeGetHashtags(post);
 
   return (
-    <Card className="p-4 shadow-md border border-border transition-all hover:shadow-lg mb-4">
+    <Card className="overflow-hidden bg-card dark:bg-card/95 shadow-md hover:shadow-lg border-2 border-black/70 dark:border-white/70 outline outline-1 outline-black/30 dark:outline-white/30 transition-all duration-200 mb-5 rounded-xl">
+      {/* Post header with author info and community badge */}
+      <div className="p-4 flex items-center justify-between border-b border-border/10 dark:border-border/5 bg-muted/20 dark:bg-muted/10">
+        <div 
+          className="flex items-center gap-3 cursor-pointer" 
+          onClick={handleAuthorClick}
+        >
+          {/* User avatar with profile image - using specialized component that fetches profile */}
+          <AuthorAvatar 
+            username={authorName} 
+            size={32}
+            className="cursor-pointer"
+            onClick={handleAuthorClick}
+          />
+          <h3 className="font-semibold text-foreground hover:text-primary hover:underline transition-colors">
+            {authorName}
+          </h3>
+        </div>
+
+        {post.communityName && (
+          <Badge
+            variant="outline"
+            className="hover:bg-primary/10 cursor-pointer transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/community/${post.communityId}`);
+            }}
+          >
+            {post.communityName}
+          </Badge>
+        )}
+      </div>
+
       {/* Post Content - Clickable to view full post */}
       <div
         onClick={() => router.push(`/post/${post.id}`)}
-        className="cursor-pointer"
+        className="p-4 cursor-pointer"
       >
-        {/* Author info and community badge if available */}
-        <div className="flex items-center mb-2 justify-between">
-          <h3
-            className="font-semibold text-lg hover:text-primary hover:underline"
-            onClick={handleAuthorClick}
-          >
-            {authorName}
-          </h3>
-
-          {post.communityName && (
-            <Badge
-              variant="outline"
-              className="ml-2 hover:bg-primary/10 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                router.push(`/community/${post.communityId}`);
-              }}
-            >
-              {post.communityName}
-            </Badge>
-          )}
-        </div>
-
         {/* Post content with clickable hashtags */}
-        <p className="text-sm text-muted-foreground mt-1">
+        <p className="text-foreground leading-relaxed">
           {renderContentWithHashtags(postContent, handleHashtagClick)}
         </p>
 
-        {/* Display hashtags as badges if available */}
+        {/* Display hashtags as badges */}
         {safeHashtags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
+          <div className="flex flex-wrap gap-1.5 mt-3">
             {safeHashtags.map((tag, index) => (
               <Badge
                 key={index}
                 variant="outline"
-                className="text-xs bg-primary/10 text-primary"
+                className="text-xs py-1 bg-primary/5 hover:bg-primary/10 text-primary transition-colors"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleHashtagClick(tag);
@@ -220,32 +249,36 @@ const Post: React.FC<PostProps> = ({
       </div>
 
       {/* Post Actions */}
-      <div className="flex items-center justify-between mt-3 text-sm text-muted-foreground">
+      <div className="px-2 py-2 flex items-center justify-between text-sm text-muted-foreground border-t border-border/10 dark:border-border/5 bg-muted/10 dark:bg-muted/5">
         {/* Like Button */}
         <Button
           variant="ghost"
+          size="sm"
           onClick={(e) => {
             e.stopPropagation(); // Prevent navigating to post details
             handleLike();
           }}
           disabled={isLiking}
-          className={`flex items-center gap-1 ${isLiked ? "text-red-500" : ""}`}
+          className={`flex items-center gap-1 rounded-full ${
+            isLiked ? "text-red-500 dark:text-red-400" : ""
+          }`}
         >
           <Heart className={`h-4 w-4 ${isLiked ? "fill-current" : ""}`} />
-          {likesCount}
+          <span className="ml-1">{likesCount}</span>
         </Button>
 
         {/* Comment Button */}
         <Button
           variant="ghost"
+          size="sm"
           onClick={(e) => {
             e.stopPropagation(); // Prevent navigating to post details
             setCommentModalOpen(true);
           }}
-          className="flex items-center gap-1 hover:text-blue-500 transition-all"
+          className="flex items-center gap-1 rounded-full hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
         >
           <MessageCircle className="h-4 w-4" />
-          {post.commentsCount || 0}
+          <span className="ml-1">{post.commentsCount || 0}</span>
         </Button>
 
         {/* Save Button */}

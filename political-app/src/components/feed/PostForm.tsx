@@ -60,7 +60,7 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
         placeholder="What's on your mind?"
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        className="min-h-[120px] resize-none"
+        className="min-h-[120px] resize-none text-foreground dark:text-foreground bg-background dark:bg-background border-input"
         disabled={loading}
         required
       />
