@@ -16,19 +16,19 @@ public class PostDTO {
     private String content;
     private String author;
     private LocalDateTime createdAt;
-    private int likes;  // Stores the number of likes
-    private List<String> hashtags; // Store just the hashtag strings, not the entities
+    private int likes;
+    private List<String> hashtags;
     private String communityId;
     private String communityName;
     private int commentsCount;
-    private boolean isLiked;  // Tracks if current user liked the post
-    private boolean isSaved;  // Tracks if current user saved the post
+    private boolean isLiked;
+    private boolean isSaved;
 
     // Repost-related fields
     private boolean isRepost;
     private Long originalPostId;
     private int repostCount;
-    private String originalAuthor; // To show who created the original post
+    private String originalAuthor;
 
     public PostDTO(Post post) {
         this.id = post.getId();
@@ -38,14 +38,37 @@ public class PostDTO {
         this.likes = post.getLikedUsers().size();
         this.commentsCount = post.getComments().size();
 
+        // Enhanced logging for repost information
+        System.out.println("Creating PostDTO for post ID: " + post.getId());
+        System.out.println("Is repost? " + post.isRepost());
+
+        if (post.isRepost()) {
+            System.out.println("Original post ID: " + post.getOriginalPostId());
+            if (post.getOriginalPost() != null) {
+                System.out.println("Original post loaded: Yes");
+                System.out.println("Original author: " +
+                        (post.getOriginalPost().getAuthor() != null ?
+                                post.getOriginalPost().getAuthor().getUsername() : "null"));
+            } else {
+                System.out.println("Original post loaded: No");
+            }
+        }
+
         // Initialize repost-related fields
         this.isRepost = post.isRepost();
         this.originalPostId = post.getOriginalPostId();
         this.repostCount = post.getRepostCount();
 
         // If this is a repost and the original post is available, get the original author
-        if (post.isRepost() && post.getOriginalPost() != null) {
-            this.originalAuthor = post.getOriginalPost().getAuthor().getUsername();
+        if (post.isRepost()) {
+            // Safely get original author even if post.getOriginalPost() is null
+            if (post.getOriginalPost() != null && post.getOriginalPost().getAuthor() != null) {
+                this.originalAuthor = post.getOriginalPost().getAuthor().getUsername();
+            } else {
+                // Try to find original author by other means - this could be enhanced
+                // with a user repository lookup if needed
+                this.originalAuthor = "Unknown"; // Fallback
+            }
         }
 
         // Extract hashtag strings from Hashtag entities

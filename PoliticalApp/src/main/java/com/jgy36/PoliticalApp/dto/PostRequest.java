@@ -10,6 +10,16 @@ import lombok.NoArgsConstructor;
 public class PostRequest {
     private String content;
     private Long originalPostId; // ID of the original post (for reposts)
-    private boolean isRepost = false;
+    private boolean repost = false; // Changed from isRepost to repost for proper JSON mapping
     private Long communityId; // Optional community ID
+
+    // Add explicit getter for repost flag with isRepost name
+    public boolean isRepost() {
+        return repost;
+    }
+
+    // Add explicit setter for repost flag
+    public void setRepost(boolean repost) {
+        this.repost = repost;
+    }
 }

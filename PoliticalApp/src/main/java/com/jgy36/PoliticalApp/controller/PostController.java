@@ -85,22 +85,24 @@ public class PostController {
     @PreAuthorize("isAuthenticated()") // Requires authentication
     public ResponseEntity<PostDTO> createPost(@RequestBody PostRequest request) {
         System.out.println("📝 Creating new post with content: " + request.getContent());
+        System.out.println("🔄 IS_REPOST flag: " + request.isRepost());
+        System.out.println("🔄 Original Post ID: " + request.getOriginalPostId());
 
         // Handle different types of posts
         Post createdPost;
 
         if (request.isRepost() && request.getOriginalPostId() != null) {
             // Handle repost
+            System.out.println("🔄 Creating repost of post ID: " + request.getOriginalPostId());
             createdPost = postService.createRepost(request.getContent(), request.getOriginalPostId());
-            System.out.println("🔄 Created repost of post ID: " + request.getOriginalPostId());
         } else if (request.getCommunityId() != null) {
             // Handle community post
+            System.out.println("👥 Creating community post in community ID: " + request.getCommunityId());
             createdPost = postService.createCommunityPost(request.getCommunityId().toString(), request.getContent());
-            System.out.println("👥 Created community post in community ID: " + request.getCommunityId());
         } else {
             // Handle normal post
+            System.out.println("✅ Creating normal post");
             createdPost = postService.createPost(request.getContent());
-            System.out.println("✅ Created post with ID: " + createdPost.getId());
         }
 
         // If you have hashtags, log them
@@ -110,6 +112,11 @@ public class PostController {
                             .map(h -> h.getTag())
                             .collect(Collectors.joining(", ")));
         }
+
+        // Log post details for debugging
+        System.out.println("📄 Post details - ID: " + createdPost.getId() +
+                ", isRepost: " + createdPost.isRepost() +
+                ", originalPostId: " + createdPost.getOriginalPostId());
 
         // Convert to DTO before returning
         PostDTO postDTO = new PostDTO(createdPost);
