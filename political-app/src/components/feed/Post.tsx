@@ -1,5 +1,5 @@
-// components/feed/Post.tsx
-import { useState, useEffect } from "react";
+// Import the separate NestedOriginalPost component
+import { useState } from "react";
 import { PostType } from "@/types/post";
 import { likePost } from "@/api/posts";
 import { Card } from "@/components/ui/card";
@@ -14,139 +14,8 @@ import SaveButton from "@/components/feed/SaveButton";
 import ShareButton from "@/components/feed/ShareButton";
 import RepostButton from "@/components/feed/RepostButton";
 import { PostProps } from "@/types/componentProps";
-import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
 import AuthorAvatar from "@/components/shared/AuthorAvatar";
-
-// Function to get a post by ID - add this to your posts API or import it
-export const getPostById = async (postId: number): Promise<PostType> => {
-  try {
-    const response = await fetch(`/api/posts/${postId}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token")}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch post: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error fetching post by ID:", error);
-    throw error;
-  }
-};
-
-// This component displays an original post in a nested format inside a repost
-const NestedOriginalPost = ({ postId }: { postId: number }) => {
-  const [originalPost, setOriginalPost] = useState<PostType | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
-
-  useEffect(() => {
-    const fetchOriginalPost = async () => {
-      console.log("Fetching original post with ID:", postId);
-      try {
-        const post = await getPostById(postId);
-        console.log("Original post fetched:", post);
-        setOriginalPost(post);
-      } catch (err) {
-        console.error(`Error fetching original post ${postId}:`, err);
-        setError("Could not load the original post");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (postId) {
-      fetchOriginalPost();
-    } else {
-      setError("No original post ID provided");
-      setLoading(false);
-    }
-  }, [postId]);
-
-  if (loading) {
-    return (
-      <div className="p-3 border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10">
-        <div className="animate-pulse flex space-x-3">
-          <div className="rounded-full bg-muted h-8 w-8"></div>
-          <div className="flex-1 space-y-2">
-            <div className="h-3 bg-muted rounded w-1/4"></div>
-            <div className="h-3 bg-muted rounded w-3/4"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !originalPost) {
-    return (
-      <div className="p-3 border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10">
-        <p className="text-sm text-muted-foreground">
-          {error || "The original post could not be loaded"}
-        </p>
-      </div>
-    );
-  }
-
-  const authorName =
-    typeof originalPost.author === "string"
-      ? originalPost.author
-      : originalPost.author &&
-        typeof originalPost.author === "object" &&
-        "username" in (originalPost.author as any)
-      ? String((originalPost.author as any).username)
-      : "Unknown User";
-
-  const postContent =
-    typeof originalPost.content === "string"
-      ? originalPost.content
-      : originalPost.content
-      ? JSON.stringify(originalPost.content)
-      : "";
-
-  const handleAuthorClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent bubbling
-    router.push(`/profile/${authorName}`);
-  };
-
-  return (
-    <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
-      <div className="flex items-center gap-2 mb-2">
-        <AuthorAvatar
-          username={authorName}
-          size={20}
-          onClick={handleAuthorClick}
-          className="cursor-pointer"
-        />
-        <span
-          className="font-medium cursor-pointer hover:underline"
-          onClick={handleAuthorClick}
-        >
-          @{authorName}
-        </span>
-      </div>
-      <p className="text-foreground">{postContent}</p>
-
-      {/* Simplified stats from original post */}
-      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1">
-          <Heart className="h-3 w-3" />
-          {originalPost.likes || 0}
-        </span>
-        <span className="flex items-center gap-1">
-          <MessageCircle className="h-3 w-3" />
-          {originalPost.commentsCount || 0}
-        </span>
-      </div>
-    </div>
-  );
-};
+import NestedOriginalPost from "@/components/feed/NestedOriginalPost";
 
 // Function to safely render content with clickable hashtags
 const renderContentWithHashtags = (
@@ -240,6 +109,13 @@ const Post: React.FC<PostProps> = ({
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
 
+  // Add debug logging for repost data
+  console.log(`Post ID ${post.id} data:`, {
+    isRepost: post.isRepost,
+    originalPostId: post.originalPostId,
+    content: post.content?.substring(0, 30) + '...',
+  });
+
   // Make sure post.author and post.content are strings, not objects
   const authorName =
     typeof post.author === "string"
@@ -249,26 +125,6 @@ const Post: React.FC<PostProps> = ({
         "username" in (post.author as any)
       ? String((post.author as any).username)
       : "Unknown User";
-
-  // Extract profile image URL if available
-  const profileImageUrl =
-    typeof post.author === "object" &&
-    post.author &&
-    "profileImageUrl" in (post.author as any)
-      ? (post.author as any).profileImageUrl
-      : null;
-
-  // If authorDetails is available as a separate field, use that
-  const authorDetails = (post as any).authorDetails || null;
-  const authorDetailsImageUrl =
-    authorDetails &&
-    typeof authorDetails === "object" &&
-    "profileImageUrl" in authorDetails
-      ? authorDetails.profileImageUrl
-      : null;
-
-  // Final image URL to use
-  const finalImageUrl = profileImageUrl || authorDetailsImageUrl;
 
   const postContent =
     typeof post.content === "string"
@@ -355,12 +211,12 @@ const Post: React.FC<PostProps> = ({
         onClick={() => router.push(`/post/${post.id}`)}
         className="p-4 cursor-pointer"
       >
-        {/* Updated repost indicator with icon */}
-        {post.isRepost && post.originalPostId && (
+        {/* Repost indicator */}
+        {post.isRepost && (
           <div className="mb-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center">
               <Repeat className="h-3 w-3 mr-1" />
-              Reposted
+              Reposted{post.originalAuthor ? ` from @${post.originalAuthor}` : ''}
             </span>
           </div>
         )}

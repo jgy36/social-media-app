@@ -51,17 +51,23 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
     setIsReposting(true);
     
     try {
-      // Only use the comment as content - don't include original post text
-      // The original post will be displayed separately in the UI
-      const postData = {
-        content: repostComment, // Just store the user's comment
+      // Log debug information
+      console.log("Creating repost with data:", {
+        content: repostComment,
         originalPostId: postId,
-        isRepost: true,
-        originalAuthor: author // Store original author for reference
+        isRepost: true
+      });
+      
+      // Create the repost request with explicit types matching the backend expectations
+      const postData = {
+        content: repostComment,
+        originalPostId: postId,
+        isRepost: true
       };
       
       // Create the repost
       const result = await createPost(postData);
+      console.log("Repost creation result:", result);
       
       if (result) {
         toast({
@@ -69,6 +75,9 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
           description: "Post reposted successfully",
           duration: 3000,
         });
+        
+        // Trigger a refresh of the feed to show the new repost
+        window.dispatchEvent(new CustomEvent('refreshFeed'));
         
         setIsOpen(false);
         setRepostComment("");
