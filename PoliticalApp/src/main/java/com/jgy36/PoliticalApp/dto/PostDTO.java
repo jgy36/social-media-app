@@ -16,13 +16,19 @@ public class PostDTO {
     private String content;
     private String author;
     private LocalDateTime createdAt;
-    private int likes;  // ✅ Now stores the number of likes
+    private int likes;  // Stores the number of likes
     private List<String> hashtags; // Store just the hashtag strings, not the entities
     private String communityId;
     private String communityName;
     private int commentsCount;
-    private boolean isLiked;  // ✅ Added to track if current user liked the post
-    private boolean isSaved;  // ✅ Added to track if current user saved the post
+    private boolean isLiked;  // Tracks if current user liked the post
+    private boolean isSaved;  // Tracks if current user saved the post
+
+    // Repost-related fields
+    private boolean isRepost;
+    private Long originalPostId;
+    private int repostCount;
+    private String originalAuthor; // To show who created the original post
 
     public PostDTO(Post post) {
         this.id = post.getId();
@@ -31,6 +37,16 @@ public class PostDTO {
         this.createdAt = post.getCreatedAt();
         this.likes = post.getLikedUsers().size();
         this.commentsCount = post.getComments().size();
+
+        // Initialize repost-related fields
+        this.isRepost = post.isRepost();
+        this.originalPostId = post.getOriginalPostId();
+        this.repostCount = post.getRepostCount();
+
+        // If this is a repost and the original post is available, get the original author
+        if (post.isRepost() && post.getOriginalPost() != null) {
+            this.originalAuthor = post.getOriginalPost().getAuthor().getUsername();
+        }
 
         // Extract hashtag strings from Hashtag entities
         if (post.getHashtags() != null && !post.getHashtags().isEmpty()) {
@@ -61,10 +77,6 @@ public class PostDTO {
                         .findFirst()
                         .orElse(null);
 
-                // If not found in liked users, we need to look elsewhere
-                // This is a placeholder - you need proper user lookup depending on your app's structure
-                // The actual implementation should use a user repository or service
-
                 // Check if post is saved by current user
                 if (currentUser != null && currentUser.getSavedPosts() != null) {
                     this.isSaved = currentUser.getSavedPosts().contains(post);
@@ -77,7 +89,7 @@ public class PostDTO {
         }
     }
 
-    // ✅ Getters and Setters
+    // Getters and Setters
     public Long getId() {
         return id;
     }
@@ -118,7 +130,6 @@ public class PostDTO {
         return isLiked;
     }
 
-    // These setter methods might be useful for manual adjustment if needed
     public void setIsLiked(boolean isLiked) {
         this.isLiked = isLiked;
     }
@@ -129,5 +140,22 @@ public class PostDTO {
 
     public void setIsSaved(boolean isSaved) {
         this.isSaved = isSaved;
+    }
+
+    // Getters for repost-related fields
+    public boolean isRepost() {
+        return isRepost;
+    }
+
+    public Long getOriginalPostId() {
+        return originalPostId;
+    }
+
+    public int getRepostCount() {
+        return repostCount;
+    }
+
+    public String getOriginalAuthor() {
+        return originalAuthor;
     }
 }

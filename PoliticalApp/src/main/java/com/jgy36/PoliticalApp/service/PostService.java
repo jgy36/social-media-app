@@ -304,6 +304,65 @@ public class PostService {
 
         return false;
     }
+
+    // Add these methods to your PostService class
+
+    /**
+     * Create a repost of an existing post
+     */
+    @Transactional
+    public Post createRepost(String content, Long originalPostId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        // Find the original post
+        Post originalPost = postRepository.findById(originalPostId)
+                .orElseThrow(() -> new NoSuchElementException("Original post not found"));
+
+        // Create new post as a repost
+        Post repost = new Post();
+        repost.setContent(content);
+        repost.setAuthor(user);
+        repost.setCreatedAt(LocalDateTime.now());
+        repost.setRepost(true);
+        repost.setOriginalPostId(originalPostId);
+
+        // Optional: Copy hashtags from original post
+        if (originalPost.getHashtags() != null && !originalPost.getHashtags().isEmpty()) {
+            for (Hashtag hashtag : originalPost.getHashtags()) {
+                repost.addHashtag(hashtag);
+                // Update hashtag count
+                hashtag.setCount(hashtag.getCount() + 1);
+                hashtagRepository.save(hashtag);
+            }
+        }
+
+        // Extract and save any new hashtags from the additional comment
+        Set<Hashtag> newHashtags = extractHashtags(content);
+        for (Hashtag hashtag : newHashtags) {
+            if (!repost.getHashtags().contains(hashtag)) {
+                repost.addHashtag(hashtag);
+            }
+        }
+
+        // Save the repost
+        Post savedRepost = postRepository.save(repost);
+
+        // Increment the repost count on the original post
+        originalPost.setRepostCount(originalPost.getRepostCount() + 1);
+        postRepository.save(originalPost);
+
+        return savedRepost;
+    }
+
+    /**
+     * Get all reposts of a specific post
+     */
+    public List<Post> getRepostsOfPost(Long postId) {
+        return postRepository.findRepostsOfPost(postId);
+    }
 }
 
 

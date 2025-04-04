@@ -67,6 +67,21 @@ public class Post {
     @JoinColumn(name = "community_id", referencedColumnName = "id")
     @JsonIgnoreProperties({"posts", "members", "moderators", "hibernateLazyInitializer", "handler"})
     private Community community;
+    @Column(nullable = false)
+    private boolean isRepost = false;
+    @Column(name = "original_post_id")
+    private Long originalPostId;
+    @Column(nullable = false)
+    private int repostCount = 0;
+    // Add this relationship to get the original post (if this is a repost)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "original_post_id", insertable = false, updatable = false)
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Post originalPost;
+    // Add this to get reposts of this post
+    @OneToMany(mappedBy = "originalPost")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Set<Post> reposts = new HashSet<>();
 
     public Post(String content, User author) {
         this.content = content;
