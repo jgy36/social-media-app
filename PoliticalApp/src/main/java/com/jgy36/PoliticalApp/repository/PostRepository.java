@@ -13,29 +13,34 @@ import java.util.Optional;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
-    // ✅ Fetch posts from followed users (ordered by newest first)
-    @Query("SELECT p FROM Post p WHERE p.author.id IN :followingIds ORDER BY p.createdAt DESC")
+    // Updated: Added LEFT JOIN FETCH p.originalPost to load original post data
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.originalPost WHERE p.author.id IN :followingIds ORDER BY p.createdAt DESC")
     List<Post> findPostsFromFollowing(@Param("followingIds") List<Long> followingIds);
 
-    // ✅ Fetch all posts (for "For You" tab)
+    // Updated: Custom implementation to fetch all posts with original post data
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.originalPost ORDER BY p.createdAt DESC")
+    List<Post> findAllWithOriginalPostOrderByCreatedAtDesc();
+
+    // Legacy method kept for backward compatibility
     List<Post> findAllByOrderByCreatedAtDesc();
 
-    // ✅ Query to find posts by a specific user
+    // Query to find posts by a specific user
     List<Post> findByAuthorId(Long userId);
 
-    // In PostRepository.java
-    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.likes WHERE p.id = :postId")
+    // Updated to include original post data
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.likes LEFT JOIN FETCH p.originalPost WHERE p.id = :postId")
     Optional<Post> findByIdWithDetails(@Param("postId") Long postId);
 
-    @Query("SELECT p FROM Post p WHERE p.community.slug = :communitySlug ORDER BY p.createdAt DESC")
+    // Updated to include original post data
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.originalPost WHERE p.community.slug = :communitySlug ORDER BY p.createdAt DESC")
     List<Post> findByCommunitySlugOrderByCreatedAtDesc(@Param("communitySlug") String communitySlug);
 
-    // ✅ NEW: Find trending posts by community (most likes)
-    @Query("SELECT p FROM Post p WHERE p.community.id = :communityId ORDER BY SIZE(p.likes) DESC, p.createdAt DESC")
+    // Updated to include original post data
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.originalPost WHERE p.community.id = :communityId ORDER BY SIZE(p.likes) DESC, p.createdAt DESC")
     List<Post> findTrendingByCommunityId(@Param("communityId") String communityId);
 
-    // ✅ NEW: Find posts containing a specific hashtag
-    @Query("SELECT p FROM Post p WHERE p.content LIKE %:hashtag% ORDER BY p.createdAt DESC")
+    // Updated to include original post data
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.originalPost WHERE p.content LIKE %:hashtag% ORDER BY p.createdAt DESC")
     List<Post> findByContentContainingHashtag(@Param("hashtag") String hashtag);
 
     // Find posts by community, ordered by creation date (newest first)
@@ -67,9 +72,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("UPDATE Post p SET p.repostCount = p.repostCount - 1 WHERE p.id = :postId AND p.repostCount > 0")
     void decrementRepostCount(@Param("postId") Long postId);
 
-    // Get reposts of a post
-    @Query("SELECT p FROM Post p WHERE p.originalPostId = :postId ORDER BY p.createdAt DESC")
+    // Updated to include original post data
+    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.originalPost WHERE p.originalPostId = :postId ORDER BY p.createdAt DESC")
     List<Post> findRepostsOfPost(@Param("postId") Long postId);
-
-    
 }

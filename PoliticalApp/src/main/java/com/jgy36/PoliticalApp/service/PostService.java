@@ -41,9 +41,11 @@ public class PostService {
         this.postLikeRepository = postLikeRepository;
     }
 
-    // ✅ Get all posts
+
+    // ✅ Get all posts - Updated to use the new repository method that fetches original posts
     public List<PostDTO> getAllPosts() {
-        List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
+        // Use the new method that includes JOIN FETCH for original posts
+        List<Post> posts = postRepository.findAllWithOriginalPostOrderByCreatedAtDesc();
         return posts.stream()
                 .map(PostDTO::new)
                 .collect(Collectors.toList());
@@ -321,13 +323,17 @@ public class PostService {
         Post originalPost = postRepository.findById(originalPostId)
                 .orElseThrow(() -> new NoSuchElementException("Original post not found"));
 
+        System.out.println("🔄 Creating repost - Original post found: " + originalPost.getId() +
+                " by user " + originalPost.getAuthor().getUsername());
+
         // Create new post as a repost
         Post repost = new Post();
         repost.setContent(content);
         repost.setAuthor(user);
         repost.setCreatedAt(LocalDateTime.now());
-        repost.setRepost(true);
+        repost.setRepost(true);  // Explicitly set as repost
         repost.setOriginalPostId(originalPostId);
+        repost.setOriginalPost(originalPost);  // Set the direct reference to original post
 
         // Optional: Copy hashtags from original post
         if (originalPost.getHashtags() != null && !originalPost.getHashtags().isEmpty()) {
@@ -347,12 +353,19 @@ public class PostService {
             }
         }
 
+        System.out.println("🔄 Saving repost with explicit settings - isRepost: " + repost.isRepost() +
+                ", originalPostId: " + repost.getOriginalPostId());
+
         // Save the repost
         Post savedRepost = postRepository.save(repost);
 
         // Increment the repost count on the original post
         originalPost.setRepostCount(originalPost.getRepostCount() + 1);
         postRepository.save(originalPost);
+
+        System.out.println("🔄 Repost saved successfully - ID: " + savedRepost.getId() +
+                ", isRepost: " + savedRepost.isRepost() +
+                ", originalPostId: " + savedRepost.getOriginalPostId());
 
         return savedRepost;
     }
