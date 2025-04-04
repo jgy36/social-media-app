@@ -4,6 +4,7 @@ import com.jgy36.PoliticalApp.entity.Community;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -56,4 +57,19 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // Find posts with hashtag search parameter
     @Query("SELECT p FROM Post p JOIN p.hashtags h WHERE h.tag LIKE %:query% OR h.tag = :query")
     List<Post> findByHashtagContainingIgnoreCase(@Param("query") String query);
+
+    // Update repost count
+    @Modifying
+    @Query("UPDATE Post p SET p.repostCount = p.repostCount + 1 WHERE p.id = :postId")
+    void incrementRepostCount(@Param("postId") Long postId);
+
+    @Modifying
+    @Query("UPDATE Post p SET p.repostCount = p.repostCount - 1 WHERE p.id = :postId AND p.repostCount > 0")
+    void decrementRepostCount(@Param("postId") Long postId);
+
+    // Get reposts of a post
+    @Query("SELECT p FROM Post p WHERE p.originalPostId = :postId ORDER BY p.createdAt DESC")
+    List<Post> findRepostsOfPost(@Param("postId") Long postId);
+
+    
 }

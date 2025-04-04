@@ -2,6 +2,7 @@ package com.jgy36.PoliticalApp.controller;
 
 import com.jgy36.PoliticalApp.dto.CommunityPostRequest;
 import com.jgy36.PoliticalApp.dto.PostDTO;
+import com.jgy36.PoliticalApp.dto.PostRequest;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.UserRepository;
@@ -78,15 +79,29 @@ public class PostController {
     }
 
     // ✅ Create a new post
+    // Replace your existing createPost method with this one:
+
     @PostMapping
     @PreAuthorize("isAuthenticated()") // Requires authentication
-    public ResponseEntity<PostDTO> createPost(@RequestBody String content) {
-        System.out.println("📝 Creating new post with content: " + content);
+    public ResponseEntity<PostDTO> createPost(@RequestBody PostRequest request) {
+        System.out.println("📝 Creating new post with content: " + request.getContent());
 
-        // The PostService.createPost method should extract and save hashtags
-        Post createdPost = postService.createPost(content);
+        // Handle different types of posts
+        Post createdPost;
 
-        System.out.println("✅ Created post with ID: " + createdPost.getId());
+        if (request.isRepost() && request.getOriginalPostId() != null) {
+            // Handle repost
+            createdPost = postService.createRepost(request.getContent(), request.getOriginalPostId());
+            System.out.println("🔄 Created repost of post ID: " + request.getOriginalPostId());
+        } else if (request.getCommunityId() != null) {
+            // Handle community post
+            createdPost = postService.createCommunityPost(request.getCommunityId().toString(), request.getContent());
+            System.out.println("👥 Created community post in community ID: " + request.getCommunityId());
+        } else {
+            // Handle normal post
+            createdPost = postService.createPost(request.getContent());
+            System.out.println("✅ Created post with ID: " + createdPost.getId());
+        }
 
         // If you have hashtags, log them
         if (createdPost.getHashtags() != null && !createdPost.getHashtags().isEmpty()) {
@@ -99,6 +114,16 @@ public class PostController {
         // Convert to DTO before returning
         PostDTO postDTO = new PostDTO(createdPost);
         return ResponseEntity.ok(postDTO);
+    }
+
+    // Add a new endpoint to get reposts of a post
+    @GetMapping("/{postId}/reposts")
+    public ResponseEntity<List<PostDTO>> getPostReposts(@PathVariable Long postId) {
+        List<Post> reposts = postService.getRepostsOfPost(postId);
+        List<PostDTO> repostDTOs = reposts.stream()
+                .map(post -> new PostDTO(post))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(repostDTOs);
     }
 
     @GetMapping("/extract-hashtags")
