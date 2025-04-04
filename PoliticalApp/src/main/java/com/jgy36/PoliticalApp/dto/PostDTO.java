@@ -29,7 +29,7 @@ public class PostDTO {
         this.content = post.getContent();
         this.author = post.getAuthor().getUsername();
         this.createdAt = post.getCreatedAt();
-        this.likes = post.getLikes().size(); // ✅ Get the count of likes
+        this.likes = post.getLikedUsers().size();
         this.commentsCount = post.getComments().size();
 
         // Extract hashtag strings from Hashtag entities
