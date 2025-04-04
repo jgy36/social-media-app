@@ -12,6 +12,7 @@ import { useRouter } from "next/router";
 import CommentModal from "@/components/comments/CommentModal";
 import SaveButton from "@/components/feed/SaveButton";
 import ShareButton from "@/components/feed/ShareButton";
+import RepostButton from "@/components/feed/RepostButton";
 import { PostProps } from "@/types/componentProps";
 import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
 import AuthorAvatar from "@/components/shared/AuthorAvatar";
@@ -223,6 +224,21 @@ const Post: React.FC<PostProps> = ({
         onClick={() => router.push(`/post/${post.id}`)}
         className="p-4 cursor-pointer"
       >
+        {/* Check if this is a repost and show original post info if it is */}
+        {post.isRepost && post.originalPostId && (
+          <div className="mb-3 text-xs text-muted-foreground">
+            <span className="inline-flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 mr-1">
+                <path d="M17 1l4 4-4 4"></path>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"></path>
+                <path d="M7 23l-4-4 4-4"></path>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
+              </svg>
+              Reposted
+            </span>
+          </div>
+        )}
+
         {/* Post content with clickable hashtags */}
         <p className="text-foreground leading-relaxed">
           {renderContentWithHashtags(postContent, handleHashtagClick)}
@@ -283,6 +299,14 @@ const Post: React.FC<PostProps> = ({
 
         {/* Save Button */}
         <SaveButton postId={post.id} isSaved={post.isSaved ?? false} />
+        
+        {/* Repost Button - NEW */}
+        <RepostButton 
+          postId={post.id} 
+          author={authorName} 
+          content={postContent}
+          repostsCount={post.repostsCount || 0}
+        />
 
         {/* Share Button */}
         <ShareButton postId={post.id} sharesCount={post.sharesCount ?? 0} />
