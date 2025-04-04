@@ -1,10 +1,7 @@
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.dto.PostDTO;
-import com.jgy36.PoliticalApp.entity.Community;
-import com.jgy36.PoliticalApp.entity.Hashtag;
-import com.jgy36.PoliticalApp.entity.Post;
-import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.entity.*;
 import com.jgy36.PoliticalApp.repository.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -160,9 +157,18 @@ public class PostService {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
 
-        if (post.getLikedUsers().contains(user)) {
+        Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
+
+        if (existingLike.isPresent()) {
+            // Remove like
+            postLikeRepository.deleteByPostAndUser(post, user);
             post.getLikedUsers().remove(user);
         } else {
+            // Add like
+            PostLike newLike = new PostLike();
+            newLike.setPost(post);
+            newLike.setUser(user);
+            postLikeRepository.save(newLike);
             post.getLikedUsers().add(user);
         }
 
