@@ -1,5 +1,3 @@
-// This is an improved version of the NestedOriginalPost component to fix repost display issues
-
 import { useState, useEffect } from "react";
 import { PostType } from "@/types/post";
 import { getPostById } from "@/api/posts";
@@ -32,18 +30,22 @@ const NestedOriginalPost: React.FC<NestedOriginalPostProps> = ({ postId }) => {
   };
 
   useEffect(() => {
+    // Validate postId - enhanced validation logic
+    if (!postId || isNaN(Number(postId)) || postId <= 0) {
+      console.error(`NestedOriginalPost - Invalid postId: ${postId}`);
+      setError(`Invalid post ID: ${postId}`);
+      setLoading(false);
+      return;
+    }
+
     const fetchOriginalPost = async () => {
-      console.log("NestedOriginalPost - Fetching original post with ID:", postId);
+      console.log(`NestedOriginalPost - Fetching original post with ID: ${postId} of type: ${typeof postId}`);
       setLoading(true);
       setError(null);
       
       try {
-        // Validate postId
-        if (!postId || isNaN(Number(postId))) {
-          throw new Error(`Invalid postId: ${postId}`);
-        }
-
-        // Try standard API call first
+        // Try standard API call first with more detailed logging
+        console.log("Attempting to fetch post with standard API call");
         let post = await getPostById(postId);
         
         // If that fails, try direct API call as fallback
@@ -57,6 +59,7 @@ const NestedOriginalPost: React.FC<NestedOriginalPostProps> = ({ postId }) => {
         if (post) {
           setOriginalPost(post);
         } else {
+          console.error(`Could not fetch original post with ID: ${postId}`);
           throw new Error("Failed to retrieve original post");
         }
       } catch (err) {
@@ -67,13 +70,7 @@ const NestedOriginalPost: React.FC<NestedOriginalPostProps> = ({ postId }) => {
       }
     };
 
-    if (postId) {
-      fetchOriginalPost();
-    } else {
-      console.error("NestedOriginalPost - No postId provided!");
-      setError("No original post ID provided");
-      setLoading(false);
-    }
+    fetchOriginalPost();
   }, [postId]);
 
   // Display loading state

@@ -1,5 +1,5 @@
 // Import the separate NestedOriginalPost component
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PostType } from "@/types/post";
 import { likePost } from "@/api/posts";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import RepostButton from "@/components/feed/RepostButton";
 import { PostProps } from "@/types/componentProps";
 import AuthorAvatar from "@/components/shared/AuthorAvatar";
 import NestedOriginalPost from "@/components/feed/NestedOriginalPost";
+import React from "react";
 
 // Function to safely render content with clickable hashtags
 const renderContentWithHashtags = (
@@ -110,11 +111,17 @@ const Post: React.FC<PostProps> = ({
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
 
   // Add debug logging for repost data
-  console.log(`Post ID ${post.id} data:`, {
-    isRepost: post.isRepost,
-    originalPostId: post.originalPostId,
-    content: post.content?.substring(0, 30) + '...',
-  });
+  useEffect(() => {
+    // Enhanced debug logging for repost data
+    if (post.isRepost) {
+      console.log(`[Repost Debug] Post ID ${post.id} repost data:`, {
+        isRepost: post.isRepost,
+        originalPostId: post.originalPostId,
+        originalAuthor: post.originalAuthor,
+        content: post.content?.substring(0, 30) + '...',
+      });
+    }
+  }, [post]);
 
   // Make sure post.author and post.content are strings, not objects
   const authorName =
@@ -228,7 +235,14 @@ const Post: React.FC<PostProps> = ({
 
         {/* Display nested original post if this is a repost */}
         {post.isRepost && post.originalPostId && (
-          <NestedOriginalPost postId={post.originalPostId} />
+          <React.Fragment>
+            <div className="mb-2 mt-2 border-t border-border/10 pt-2">
+              <div className="text-xs text-muted-foreground mb-1">
+                Original post:
+              </div>
+              <NestedOriginalPost postId={post.originalPostId} />
+            </div>
+          </React.Fragment>
         )}
 
         {/* Display hashtags as badges */}
