@@ -20,7 +20,18 @@ export const getPosts = async (endpoint: string): Promise<PostResponse[]> => {
     
     return await safeApiCall(async () => {
       const response = await resilientApiClient.get<PostResponse[]>(normalizedEndpoint);
-      return response.data;
+      
+      // Normalize properties for all posts in the response
+      return response.data.map(post => {
+        return {
+          ...post,
+          // Ensure isRepost is set correctly regardless of which property exists
+          isRepost: post.isRepost || post.repost || false,
+          // Ensure repostCount/repostsCount are consistent
+          repostCount: post.repostCount || post.repostsCount || 0,
+          repostsCount: post.repostsCount || post.repostCount || 0
+        };
+      });
     }, `Fetching posts from ${endpoint}`);
   } catch (error) {
     console.error(`Error fetching posts from ${endpoint}:`, error);

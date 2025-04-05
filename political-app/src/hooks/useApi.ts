@@ -117,3 +117,11 @@ export const useSearchAll = () => {
   );
   return { loading, error, execute };
 };
+
+/**
+ * Hook for fetching notifications
+ */
+export const useNotifications = () => {
+  const { data, loading, error, execute } = useApi<Notification[], []>(getNotifications);
+  return { notifications: data || [], loading, error, refresh: execute };
+};

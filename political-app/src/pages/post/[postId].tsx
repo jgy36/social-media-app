@@ -4,13 +4,15 @@ import { getPostComments, getPostById, likePost } from "@/api/posts"; // Update 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CommentModal from "@/components/comments/CommentModal";
-import { Heart, MessageCircle, ArrowLeft } from "lucide-react";
+import { Heart, MessageCircle, ArrowLeft, Repeat } from "lucide-react";
 import { PostType } from "@/types/post";
 import { CommentType } from "@/types/comment";
 import Navbar from "@/components/navbar/Navbar";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { Skeleton } from "@/components/ui/skeleton";
+import AuthorAvatar from "@/components/shared/AuthorAvatar";
+import React from "react";
 
 const PostDetail = () => {
   const router = useRouter();
@@ -49,9 +51,15 @@ const PostDetail = () => {
           return;
         }
         
-        setPost(postData);
-        setLikesCount(postData.likes || 0);
-        setIsLiked(postData.isLiked || false);
+        // Normalize the repost properties for consistency
+        const normalizedPost = {
+          ...postData,
+          isRepost: postData.isRepost || postData.repost || false
+        };
+        
+        setPost(normalizedPost);
+        setLikesCount(normalizedPost.likes || 0);
+        setIsLiked(normalizedPost.isLiked || false);
         
         // Fetch comments
         try {
@@ -154,8 +162,57 @@ const PostDetail = () => {
         
         <Card className="p-6 shadow-lg border border-border rounded-lg">
           <div className="mb-4">
-            <h3 className="font-semibold text-lg">{post.author}</h3>
+            {/* Add repost indicator */}
+            {(post.isRepost === true || post.repost === true) && (
+              <div className="mb-3 text-xs text-muted-foreground">
+                <span className="inline-flex items-center">
+                  <Repeat className="h-3 w-3 mr-1" />
+                  Reposted
+                  {post.originalAuthor ? ` from @${post.originalAuthor}` : ""}
+                </span>
+              </div>
+            )}
+            
+            <h3 className="font-semibold text-lg flex items-center gap-2">
+              <AuthorAvatar username={post.author} size={24} />
+              @{post.author}
+            </h3>
+            
             <p className="mt-2 text-md text-foreground">{post.content}</p>
+            
+            {/* Add the original post content section for reposts */}
+            {(post.isRepost === true || post.repost === true) && post.originalPostId && (
+              <div className="mb-2 mt-4 border-t border-border/10 pt-2">
+                <div className="text-xs text-muted-foreground mb-1">
+                  Original post:
+                </div>
+                {post.originalPostContent ? (
+                  <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AuthorAvatar
+                        username={post.originalAuthor || "Unknown"}
+                        size={20}
+                        className="cursor-pointer"
+                        onClick={() => post.originalAuthor && router.push(`/profile/${post.originalAuthor}`)}
+                      />
+                      <span 
+                        className="font-medium cursor-pointer hover:underline"
+                        onClick={() => post.originalAuthor && router.push(`/profile/${post.originalAuthor}`)}
+                      >
+                        @{post.originalAuthor || "Unknown"}
+                      </span>
+                    </div>
+                    <p className="text-foreground">{post.originalPostContent}</p>
+                  </div>
+                ) : (
+                  <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
+                    <p className="text-muted-foreground">
+                      The original post content could not be loaded
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div className="flex items-center space-x-4 mt-4">
