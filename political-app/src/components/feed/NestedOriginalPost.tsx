@@ -16,20 +16,39 @@ const NestedOriginalPost: React.FC<NestedOriginalPostProps> = ({ postId }) => {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
-  // Direct API fetch function to bypass any potential issues with the getPostById function
+  // Direct API fetch function with improved error handling
   const directFetchPost = async (id: number): Promise<PostType | null> => {
     try {
-      console.log(`Direct API call to fetch post ${id}`);
-      const response = await apiClient.get(`/posts/${id}`);
-      console.log("Direct API response:", response.data);
+      console.log(`NestedOriginalPost - Direct API call to fetch post ${id}`);
+      
+      // Make sure we add a cache-busting parameter to avoid cached responses
+      const timestamp = new Date().getTime();
+      const response = await apiClient.get(`/posts/${id}?t=${timestamp}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      console.log("NestedOriginalPost - Direct API response:", response.data);
+      
+      // Validate the response data
+      if (!response.data || !response.data.id) {
+        console.error("NestedOriginalPost - Invalid response data:", response.data);
+        return null;
+      }
+      
       return response.data;
     } catch (err) {
-      console.error("Direct API error:", err);
+      console.error("NestedOriginalPost - Direct API error:", err);
       return null;
     }
   };
 
   useEffect(() => {
+    // Log when the component mounts with the postId
+    console.log(`NestedOriginalPost - Component mounted with postId: ${postId}, type: ${typeof postId}`);
+    
     // Validate postId - enhanced validation logic
     if (!postId || isNaN(Number(postId)) || postId <= 0) {
       console.error(`NestedOriginalPost - Invalid postId: ${postId}`);
@@ -39,27 +58,28 @@ const NestedOriginalPost: React.FC<NestedOriginalPostProps> = ({ postId }) => {
     }
 
     const fetchOriginalPost = async () => {
-      console.log(`NestedOriginalPost - Fetching original post with ID: ${postId} of type: ${typeof postId}`);
+      console.log(`NestedOriginalPost - Starting to fetch original post with ID: ${postId}`);
       setLoading(true);
       setError(null);
       
       try {
         // Try standard API call first with more detailed logging
-        console.log("Attempting to fetch post with standard API call");
-        let post = await getPostById(postId);
+        console.log("NestedOriginalPost - Attempting standard API call");
+        let post = await getPostById(Number(postId));
         
         // If that fails, try direct API call as fallback
         if (!post) {
-          console.log("Standard API call failed, trying direct fetch");
-          post = await directFetchPost(postId);
+          console.log("NestedOriginalPost - Standard API call failed, trying direct fetch");
+          post = await directFetchPost(Number(postId));
         }
 
         console.log("NestedOriginalPost - Fetch result:", post);
         
         if (post) {
           setOriginalPost(post);
+          console.log("NestedOriginalPost - Successfully set original post data");
         } else {
-          console.error(`Could not fetch original post with ID: ${postId}`);
+          console.error(`NestedOriginalPost - Could not fetch original post with ID: ${postId}`);
           throw new Error("Failed to retrieve original post");
         }
       } catch (err) {

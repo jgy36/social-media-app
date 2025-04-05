@@ -3,7 +3,6 @@
 import { apiClient, resilientApiClient, safeApiCall } from "./apiClient";
 import {
   PostResponse,
-  CreatePostRequest,
   CommentResponse,
   CreateCommentRequest,
   SavePostResponse,
@@ -96,11 +95,20 @@ export const getPostsByUsername = async (
 export const createPost = async (
   postData: CreatePostRequest
 ): Promise<PostResponse> => {
+  console.log("createPost API call with data:", postData);
   return safeApiCall(async () => {
     const response = await apiClient.post<PostResponse>("/posts", postData);
+    console.log("createPost API response:", response.data);
     return response.data;
   }, "Creating post");
 };
+
+export interface CreatePostRequest {
+  content: string;
+  originalPostId?: number;
+  repost?: boolean;  // This should be "repost", not "isRepost" to match the backend
+  communityId?: number;
+}
 
 /**
  * Like or unlike a post

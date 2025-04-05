@@ -1,4 +1,4 @@
-// src/components/feed/RepostButton.tsx
+// src/components/feed/RepostButton.tsx - Updated version
 import { useState } from "react";
 import { Repeat, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -51,18 +51,24 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
     setIsReposting(true);
     
     try {
+      // Check that post ID is valid
+      if (!postId || isNaN(Number(postId)) || postId <= 0) {
+        throw new Error("Invalid original post ID");
+      }
+      
       // Log debug information
       console.log("Creating repost with data:", {
         content: repostComment,
         originalPostId: postId,
-        isRepost: true
+        repost: true // IMPORTANT: Backend expects 'repost', not 'isRepost'
       });
       
-      // Create the repost request with explicit types matching the backend expectations
+      // Create the repost request using the field name expected by the backend
+      // The backend PostRequest.java uses 'repost', not 'isRepost'
       const postData = {
         content: repostComment,
         originalPostId: postId,
-        isRepost: true
+        repost: true // Match the field name in the backend
       };
       
       // Create the repost

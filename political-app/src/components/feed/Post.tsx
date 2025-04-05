@@ -118,7 +118,7 @@ const Post: React.FC<PostProps> = ({
         isRepost: post.isRepost,
         originalPostId: post.originalPostId,
         originalAuthor: post.originalAuthor,
-        content: post.content?.substring(0, 30) + '...',
+        content: post.content?.substring(0, 30) + "...",
       });
     }
   }, [post]);
@@ -223,7 +223,8 @@ const Post: React.FC<PostProps> = ({
           <div className="mb-3 text-xs text-muted-foreground">
             <span className="inline-flex items-center">
               <Repeat className="h-3 w-3 mr-1" />
-              Reposted{post.originalAuthor ? ` from @${post.originalAuthor}` : ''}
+              Reposted
+              {post.originalAuthor ? ` from @${post.originalAuthor}` : ""}
             </span>
           </div>
         )}
@@ -233,17 +234,38 @@ const Post: React.FC<PostProps> = ({
           {renderContentWithHashtags(postContent, handleHashtagClick)}
         </p>
 
-        {/* Display nested original post if this is a repost */}
-        {post.isRepost && post.originalPostId && (
-          <React.Fragment>
-            <div className="mb-2 mt-2 border-t border-border/10 pt-2">
-              <div className="text-xs text-muted-foreground mb-1">
-                Original post:
+        {/* Display nested original post if this is a repost - FIXED SECTION */}
+        {Boolean(post.isRepost) === true &&
+          Boolean(post.originalPostId) === true && (
+            <React.Fragment>
+              <div className="mb-2 mt-2 border-t border-border/10 pt-2">
+                <div className="text-xs text-muted-foreground mb-1">
+                  Original post:
+                </div>
+                {/* If originalPostContent is available, display it directly */}
+                {post.originalPostContent ? (
+                  <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AuthorAvatar
+                        username={post.originalAuthor || "Unknown"}
+                        size={20}
+                        className="cursor-pointer"
+                      />
+                      <span className="font-medium">
+                        @{post.originalAuthor || "Unknown"}
+                      </span>
+                    </div>
+                    <p className="text-foreground">
+                      {post.originalPostContent}
+                    </p>
+                  </div>
+                ) : (
+                  /* Fall back to fetching the post if content isn't directly available */
+                  <NestedOriginalPost postId={post.originalPostId} />
+                )}
               </div>
-              <NestedOriginalPost postId={post.originalPostId} />
-            </div>
-          </React.Fragment>
-        )}
+            </React.Fragment>
+          )}
 
         {/* Display hashtags as badges */}
         {safeHashtags.length > 0 && (

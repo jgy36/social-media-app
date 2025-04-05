@@ -1,4 +1,3 @@
-// Updated post.ts with more explicit repost fields
 export interface PostType {
   id: number;
   author: string;
@@ -18,7 +17,6 @@ export interface PostType {
   originalPostId?: number;
   repostsCount?: number;
   originalAuthor?: string;
-  
-  // Original post content (for API responses that include the full original post)
-  originalPost?: PostType;
+  originalPostContent?: string; // Add this field
+
 }
