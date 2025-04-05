@@ -118,6 +118,7 @@ const Post: React.FC<PostProps> = ({
         isRepost: post.isRepost,
         originalPostId: post.originalPostId,
         originalAuthor: post.originalAuthor,
+        originalPostContent: post.originalPostContent ? "present" : "missing",
         content: post.content?.substring(0, 30) + "...",
       });
     }
@@ -235,37 +236,34 @@ const Post: React.FC<PostProps> = ({
         </p>
 
         {/* Display nested original post if this is a repost - FIXED SECTION */}
-        {Boolean(post.isRepost) === true &&
-          Boolean(post.originalPostId) === true && (
-            <React.Fragment>
-              <div className="mb-2 mt-2 border-t border-border/10 pt-2">
-                <div className="text-xs text-muted-foreground mb-1">
-                  Original post:
-                </div>
-                {/* If originalPostContent is available, display it directly */}
-                {post.originalPostContent ? (
-                  <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AuthorAvatar
-                        username={post.originalAuthor || "Unknown"}
-                        size={20}
-                        className="cursor-pointer"
-                      />
-                      <span className="font-medium">
-                        @{post.originalAuthor || "Unknown"}
-                      </span>
-                    </div>
-                    <p className="text-foreground">
-                      {post.originalPostContent}
-                    </p>
-                  </div>
-                ) : (
-                  /* Fall back to fetching the post if content isn't directly available */
-                  <NestedOriginalPost postId={post.originalPostId} />
-                )}
+        {post.isRepost === true && post.originalPostId && (
+          <React.Fragment>
+            <div className="mb-2 mt-2 border-t border-border/10 pt-2">
+              <div className="text-xs text-muted-foreground mb-1">
+                Original post:
               </div>
-            </React.Fragment>
-          )}
+              {/* If originalPostContent is available, display it directly */}
+              {post.originalPostContent ? (
+                <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AuthorAvatar
+                      username={post.originalAuthor || "Unknown"}
+                      size={20}
+                      className="cursor-pointer"
+                    />
+                    <span className="font-medium">
+                      @{post.originalAuthor || "Unknown"}
+                    </span>
+                  </div>
+                  <p className="text-foreground">{post.originalPostContent}</p>
+                </div>
+              ) : (
+                /* Fall back to fetching the post if content isn't directly available */
+                <NestedOriginalPost postId={post.originalPostId} />
+              )}
+            </div>
+          </React.Fragment>
+        )}
 
         {/* Display hashtags as badges */}
         {safeHashtags.length > 0 && (
@@ -328,7 +326,7 @@ const Post: React.FC<PostProps> = ({
           postId={post.id}
           author={authorName}
           content={postContent}
-          repostsCount={post.repostsCount || 0}
+          repostsCount={post.repostsCount || post.repostCount || 0}
         />
 
         {/* Share Button */}

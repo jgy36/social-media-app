@@ -95,11 +95,58 @@ export const getPostsByUsername = async (
 export const createPost = async (
   postData: CreatePostRequest
 ): Promise<PostResponse> => {
-  console.log("createPost API call with data:", postData);
+  console.log("📝 createPost API call with data:", JSON.stringify(postData, null, 2));
+  
   return safeApiCall(async () => {
+    // Ensure repost flag is set correctly if we have an originalPostId
+    if (postData.originalPostId && postData.repost !== true) {
+      console.warn("⚠️ originalPostId provided but repost flag not set - fixing");
+      postData.repost = true;
+    }
+    
     const response = await apiClient.post<PostResponse>("/posts", postData);
-    console.log("createPost API response:", response.data);
-    return response.data;
+    
+    // Log the raw response for debugging
+    console.log("📝 Raw API response:", response);
+    console.log("📝 Response data:", JSON.stringify(response.data, null, 2));
+    
+    // Initialize an enhanced response that will include fields we need
+    const enhancedResponse: PostResponse = {
+      ...response.data,
+      // Ensure we have both property names for consistency
+      repostCount: response.data.repostsCount || response.data.repostCount,
+      repostsCount: response.data.repostsCount || response.data.repostCount,
+    };
+    
+    // Make sure repost fields are properly set
+    if (postData.repost === true && postData.originalPostId) {
+      if (!response.data.isRepost) {
+        console.warn("⚠️ API response missing isRepost flag - adding it");
+        enhancedResponse.isRepost = true;
+      }
+      
+      if (!response.data.originalPostId) {
+        console.warn("⚠️ API response missing originalPostId - adding it");
+        enhancedResponse.originalPostId = postData.originalPostId;
+      }
+      
+      // Force another API call to get the original post data if it's missing
+      if (!response.data.originalPostContent && enhancedResponse.originalPostId) {
+        try {
+          console.log("🔍 Fetching missing original post data");
+          const originalPost = await getPostById(enhancedResponse.originalPostId);
+          if (originalPost) {
+            enhancedResponse.originalAuthor = originalPost.author;
+            enhancedResponse.originalPostContent = originalPost.content;
+            console.log("✅ Successfully added missing original post data");
+          }
+        } catch (error) {
+          console.error("❌ Failed to fetch original post data:", error);
+        }
+      }
+    }
+    
+    return enhancedResponse;
   }, "Creating post");
 };
 

@@ -79,6 +79,8 @@ export interface CreatePostRequest {
 }
 
 // Instead of extending with an empty interface, directly export the type
+// In your types.ts file, update the PostResponse interface:
+
 export interface PostResponse {
   id: number;
   content: string;
@@ -89,12 +91,17 @@ export interface PostResponse {
   hashtags?: string[];
   communityId?: string;
   communityName?: string;
+  isLiked?: boolean;
+  isSaved?: boolean;
+  sharesCount?: number;
 
   // Repost-related fields
   isRepost?: boolean;
   originalPostId?: number;
-  repostCount?: number;
+  repostsCount?: number;
+  repostCount?: number;  // Add alias for compatibility
   originalAuthor?: string;
+  originalPostContent?: string;  // Add this critical missing field
 }
 
 export interface SavePostResponse {
