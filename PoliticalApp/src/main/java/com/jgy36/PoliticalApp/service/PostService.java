@@ -25,6 +25,7 @@ public class PostService {
     private final CommentRepository commentRepository;
     private final CommunityRepository communityRepository;
     private final PostLikeRepository postLikeRepository;
+    private final NotificationService notificationService;
 
     public PostService(
             PostRepository postRepository,
@@ -32,13 +33,15 @@ public class PostService {
             HashtagRepository hashtagRepository,
             CommentRepository commentRepository,
             CommunityRepository communityRepository,
-            PostLikeRepository postLikeRepository) {
+            PostLikeRepository postLikeRepository,
+            NotificationService notificationService) {
         this.postRepository = postRepository;
         this.userRepository = userRepository;
         this.hashtagRepository = hashtagRepository;
         this.commentRepository = commentRepository;
         this.communityRepository = communityRepository;
         this.postLikeRepository = postLikeRepository;
+        this.notificationService = notificationService;
     }
 
 
@@ -362,6 +365,16 @@ public class PostService {
         // Increment the repost count on the original post
         originalPost.setRepostCount(originalPost.getRepostCount() + 1);
         postRepository.save(originalPost);
+
+        // Create notification for the original post author (add this)
+        User originalAuthor = originalPost.getAuthor();
+        if (!originalAuthor.getId().equals(user.getId())) { // Don't notify if reposting own post
+            String notificationMessage = user.getUsername() + " reposted your post: \"" +
+                    (originalPost.getContent().length() > 30 ?
+                            originalPost.getContent().substring(0, 30) + "..." :
+                            originalPost.getContent()) + "\"";
+            notificationService.createNotification(originalAuthor, notificationMessage);
+        }
 
         System.out.println("🔄 Repost saved successfully - ID: " + savedRepost.getId() +
                 ", isRepost: " + savedRepost.isRepost() +
