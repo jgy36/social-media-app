@@ -313,3 +313,14 @@ function generateFallbackPosts(endpoint: string): PostResponse[] {
     ];
   }
 }
+
+export const likeComment = async (
+  commentId: number
+): Promise<{ message: string; likesCount: number; isLiked: boolean }> => {
+  return safeApiCall(async () => {
+    const response = await apiClient.post<{ message: string; likesCount: number; isLiked: boolean }>(
+      `/posts/comments/${commentId}/like`
+    );
+    return response.data;
+  }, `Liking comment ${commentId}`);
+};

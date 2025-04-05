@@ -1,10 +1,13 @@
+// In src/types/comment.ts, update the CommentType interface:
 export interface CommentType {
   id: number;
   content: string;
-  author: {
+  user: {
     id: number;
     username: string;
   };
-  createdAt: string; // ✅ Java LocalDateTime comes as a string
-  parentCommentId?: number; // ✅ Optional for replies
+  createdAt: string;
+  parentCommentId?: number;
+  likesCount?: number;
+  likedByCurrentUser?: boolean;
 }
