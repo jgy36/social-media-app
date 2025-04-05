@@ -1,5 +1,7 @@
 package com.jgy36.PoliticalApp.service;
 
+import com.jgy36.PoliticalApp.dto.CommentDTO;
+import com.jgy36.PoliticalApp.dto.UserDTO;
 import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.entity.CommentLike;
 import com.jgy36.PoliticalApp.entity.Post;
@@ -17,6 +19,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class CommentService {
@@ -38,16 +41,47 @@ public class CommentService {
 
     // ✅ Fetch all comments for a given post
     @Transactional(readOnly = true)
-    public List<Comment> getCommentsByPost(Long postId) {
+    public List<CommentDTO> getCommentsByPost(Long postId) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new NoSuchElementException("Post not found with ID: " + postId));
 
-        return commentRepository.findByPost(post);
+        List<Comment> comments = commentRepository.findByPost(post);
+
+        return comments.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    private CommentDTO convertToDTO(Comment comment) {
+        CommentDTO dto = new CommentDTO();
+        dto.setId(comment.getId());
+        dto.setContent(comment.getContent());
+        dto.setCreatedAt(comment.getCreatedAt());
+        dto.setLikesCount(comment.getCommentLikes().size());
+
+        // Set user info
+        UserDTO userDTO = new UserDTO();
+        userDTO.setId(comment.getUser().getId());
+        userDTO.setUsername(comment.getUser().getUsername());
+        userDTO.setDisplayName(comment.getUser().getDisplayName());
+        userDTO.setProfileImageUrl(comment.getUser().getProfileImageUrl());
+        dto.setUser(userDTO);
+
+        // Check if current user has liked this comment
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+            User currentUser = userRepository.findByEmail(auth.getName()).orElse(null);
+            if (currentUser != null) {
+                dto.setLikedByCurrentUser(commentLikeRepository.existsByUserAndComment(currentUser, comment));
+            }
+        }
+
+        return dto;
     }
 
     // ✅ Add a new comment to a post
     @Transactional
-    public Comment addComment(Long postId, String content) {
+    public CommentDTO addComment(Long postId, String content) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new NoSuchElementException("User not found with email: " + auth.getName()));
@@ -77,12 +111,12 @@ public class CommentService {
                     )
             );
         }
-        return savedComment;
+        return convertToDTO(savedComment);
     }
 
     // ✅ Like a comment
     @Transactional
-    public void likeComment(Long commentId) {
+    public CommentDTO likeComment(Long commentId) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
@@ -90,25 +124,32 @@ public class CommentService {
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new NoSuchElementException("Comment not found"));
 
-        if (commentLikeRepository.existsByUserAndComment(user, comment)) {
-            throw new IllegalArgumentException("You already liked this comment.");
+        boolean alreadyLiked = commentLikeRepository.existsByUserAndComment(user, comment);
+
+        if (alreadyLiked) {
+            // Unlike the comment by removing the existing like
+            commentLikeRepository.findByUserAndComment(user, comment)
+                    .ifPresent(commentLikeRepository::delete);
+        } else {
+            // Like the comment
+            CommentLike like = new CommentLike(user, comment);
+            commentLikeRepository.save(like);
+
+            // ✅ Notify comment owner
+            if (!comment.getUser().equals(user)) {
+                notificationService.createNotification(
+                        comment.getUser(),
+                        user.getUsername() + " liked your comment: \"" + comment.getContent() + "\""
+                );
+            }
         }
 
-        CommentLike like = new CommentLike(user, comment);
-        commentLikeRepository.save(like);
-
-        // ✅ Notify comment owner
-        if (!comment.getUser().equals(user)) {
-            notificationService.createNotification(
-                    comment.getUser(),
-                    user.getUsername() + " liked your comment: \"" + comment.getContent() + "\""
-            );
-        }
+        return convertToDTO(comment);
     }
 
     // ✅ Reply to a comment
     @Transactional
-    public Comment replyToComment(Long parentCommentId, String content) {
+    public CommentDTO replyToComment(Long parentCommentId, String content) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         User user = userRepository.findByEmail(auth.getName())
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
@@ -118,7 +159,9 @@ public class CommentService {
 
         Comment reply = new Comment(content, user, parentComment.getPost());
         reply.setParentComment(parentComment);
-        return commentRepository.save(reply);
+        Comment savedReply = commentRepository.save(reply);
+
+        return convertToDTO(savedReply);
     }
 
     // ✅ Delete a comment

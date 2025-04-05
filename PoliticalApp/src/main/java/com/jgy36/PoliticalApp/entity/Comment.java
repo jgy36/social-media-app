@@ -32,7 +32,7 @@ public class Comment {
     @JsonBackReference
     private Post post;
 
-    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "comment", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JsonIgnoreProperties("comment")
     private Set<CommentLike> commentLikes = new HashSet<>();
 
@@ -46,6 +46,8 @@ public class Comment {
     @JoinColumn(name = "parent_comment_id")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Comment parentComment;
+    @Transient // This field won't be stored in the database
+    private boolean likedByCurrentUser = false;
 
     // Constructor needed for new Comment(text, user, post)
     public Comment(String content, User user, Post post) {
@@ -53,5 +55,17 @@ public class Comment {
         this.user = user;
         this.post = post;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public int getLikesCount() {
+        return this.commentLikes.size();
+    }
+
+    public boolean isLikedByCurrentUser() {
+        return likedByCurrentUser;
+    }
+
+    public void setLikedByCurrentUser(boolean likedByCurrentUser) {
+        this.likedByCurrentUser = likedByCurrentUser;
     }
 }

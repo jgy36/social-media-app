@@ -1,7 +1,7 @@
 package com.jgy36.PoliticalApp.controller;
 
+import com.jgy36.PoliticalApp.dto.CommentDTO;
 import com.jgy36.PoliticalApp.dto.CommentRequest;
-import com.jgy36.PoliticalApp.entity.Comment;
 import com.jgy36.PoliticalApp.service.CommentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -28,7 +28,7 @@ public class CommentController {
             @RequestBody CommentRequest commentRequest,
             Authentication auth) {
 
-        Comment comment = commentService.addComment(postId, commentRequest.getContent());
+        CommentDTO comment = commentService.addComment(postId, commentRequest.getContent());
 
         return ResponseEntity.ok(Map.of(
                 "message", "Comment added successfully",
@@ -37,7 +37,7 @@ public class CommentController {
     }
 
     @GetMapping("/{postId}/comments")
-    public ResponseEntity<List<Comment>> getComments(@PathVariable Long postId) {
+    public ResponseEntity<List<CommentDTO>> getComments(@PathVariable Long postId) {
         return ResponseEntity.ok(commentService.getCommentsByPost(postId));
     }
 
@@ -50,18 +50,19 @@ public class CommentController {
 
     @PostMapping("/comments/{commentId}/like")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<String> likeComment(@PathVariable Long commentId) {
-        commentService.likeComment(commentId);
-        return ResponseEntity.ok("Comment liked successfully!");
+    public ResponseEntity<CommentDTO> likeComment(@PathVariable Long commentId) {
+        CommentDTO updatedComment = commentService.likeComment(commentId);
+        return ResponseEntity.ok(updatedComment);
     }
 
     @PostMapping("/comments/{commentId}/reply")
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Comment> replyToComment(@PathVariable Long commentId,
-                                                  @RequestBody CommentRequest commentRequest,
-                                                  Authentication authentication) {
+    public ResponseEntity<CommentDTO> replyToComment(
+            @PathVariable Long commentId,
+            @RequestBody CommentRequest commentRequest,
+            Authentication authentication) {
 
-        Comment reply = commentService.replyToComment(commentId, commentRequest.getContent());
+        CommentDTO reply = commentService.replyToComment(commentId, commentRequest.getContent());
         return ResponseEntity.ok(reply);
     }
 }
