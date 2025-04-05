@@ -14,11 +14,20 @@ import java.util.Optional;
 public interface PostRepository extends JpaRepository<Post, Long> {
 
     // Updated: Added LEFT JOIN FETCH p.originalPost to load original post data
-    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.originalPost WHERE p.author.id IN :followingIds ORDER BY p.createdAt DESC")
+    @Query("SELECT DISTINCT p FROM Post p " +
+            "LEFT JOIN FETCH p.author " +
+            "LEFT JOIN FETCH p.originalPost op " +
+            "LEFT JOIN FETCH op.author " +
+            "WHERE p.author.id IN :followingIds " +
+            "ORDER BY p.createdAt DESC")
     List<Post> findPostsFromFollowing(@Param("followingIds") List<Long> followingIds);
 
     // Updated: Custom implementation to fetch all posts with original post data
-    @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.originalPost ORDER BY p.createdAt DESC")
+    @Query("SELECT DISTINCT p FROM Post p " +
+            "LEFT JOIN FETCH p.author " +
+            "LEFT JOIN FETCH p.originalPost op " +
+            "LEFT JOIN FETCH op.author " +
+            "ORDER BY p.createdAt DESC")
     List<Post> findAllWithOriginalPostOrderByCreatedAtDesc();
 
     // Legacy method kept for backward compatibility
