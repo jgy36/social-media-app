@@ -29,6 +29,7 @@ public class PostDTO {
     private Long originalPostId;
     private int repostCount;
     private String originalAuthor;
+    private String originalPostContent;
 
     public PostDTO(Post post) {
         this.id = post.getId();
@@ -60,15 +61,15 @@ public class PostDTO {
         this.repostCount = post.getRepostCount();
 
         // If this is a repost and the original post is available, get the original author
-        if (post.isRepost()) {
-            // Safely get original author even if post.getOriginalPost() is null
-            if (post.getOriginalPost() != null && post.getOriginalPost().getAuthor() != null) {
-                this.originalAuthor = post.getOriginalPost().getAuthor().getUsername();
-            } else {
-                // Try to find original author by other means - this could be enhanced
-                // with a user repository lookup if needed
-                this.originalAuthor = "Unknown"; // Fallback
-            }
+        // In the PostDTO constructor:
+        if (post.isRepost() && post.getOriginalPost() != null) {
+            this.isRepost = true;
+            this.originalPostId = post.getOriginalPostId();
+            this.originalAuthor = post.getOriginalPost().getAuthor() != null ?
+                    post.getOriginalPost().getAuthor().getUsername() : "Unknown";
+
+            // Add this line to include the original post's content:
+            this.originalPostContent = post.getOriginalPost().getContent();
         }
 
         // Extract hashtag strings from Hashtag entities
@@ -180,5 +181,9 @@ public class PostDTO {
 
     public String getOriginalAuthor() {
         return originalAuthor;
+    }
+
+    public String getOriginalPostContent() {
+        return originalPostContent;
     }
 }
