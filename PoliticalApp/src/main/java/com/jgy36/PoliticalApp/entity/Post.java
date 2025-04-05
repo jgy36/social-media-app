@@ -2,6 +2,7 @@ package com.jgy36.PoliticalApp.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -68,6 +69,7 @@ public class Post {
     @JsonIgnoreProperties({"posts", "members", "moderators", "hibernateLazyInitializer", "handler"})
     private Community community;
     @Column(nullable = false)
+    @JsonProperty("isRepost")
     private boolean isRepost = false;
     @Column(name = "original_post_id")
     private Long originalPostId;

@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.jgy36.PoliticalApp.entity.Hashtag;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
@@ -26,6 +27,8 @@ public class PostDTO {
 
     // Repost-related fields
     private boolean isRepost;
+    @JsonProperty("isRepost")
+    private boolean repost;
     private Long originalPostId;
     private int repostCount;
     private String originalAuthor;
@@ -169,6 +172,11 @@ public class PostDTO {
     // Getters for repost-related fields
     public boolean isRepost() {
         return isRepost;
+    }
+
+    // Add a matching setter that works with the property name
+    public void setRepost(boolean repost) {
+        this.repost = repost;
     }
 
     public Long getOriginalPostId() {
