@@ -33,23 +33,25 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
     setLoading(true);
     setError(null);
     setIsRetrying(false);
-    
+
     // Properly format endpoints with leading slash
-    const endpoint = activeTab === "for-you" ? "/posts/for-you" : "/posts/following";
+    const endpoint =
+      activeTab === "for-you" ? "/posts/for-you" : "/posts/following";
 
     try {
       console.log(`Fetching posts from endpoint: ${endpoint}`);
       // Use our new API function
       const data = await posts.getPosts(endpoint);
-      
+
       // Check if we received fallback data vs actual data
-      const isFallbackData = data.length > 0 && data.some(post => post.author === "NetworkIssue");
-      
+      const isFallbackData =
+        data.length > 0 && data.some((post) => post.author === "NetworkIssue");
+
       if (isFallbackData) {
         // Show connection issue warning but still display fallback data
         setError("Connection issue detected. Showing cached content.");
       }
-      
+
       setPosts(data);
     } catch (err) {
       console.error("Failed to load posts:", err);
@@ -70,6 +72,22 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
     loadPosts();
   }, [activeTab, token, router, loadPosts]);
 
+  // Listen for refreshFeed events
+  useEffect(() => {
+    const handleRefreshFeed = () => {
+      console.log("🔄 refreshFeed event received - reloading posts");
+      loadPosts();
+    };
+
+    // Add event listener
+    window.addEventListener("refreshFeed", handleRefreshFeed);
+
+    // Clean up on unmount
+    return () => {
+      window.removeEventListener("refreshFeed", handleRefreshFeed);
+    };
+  }, [loadPosts]); // Make sure loadPosts is in the dependency array
+
   // Handle retry action
   const handleRetry = () => {
     setIsRetrying(true);
@@ -77,7 +95,7 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
   };
 
   if (!token && activeTab === "following") return null; // ✅ Prevent rendering before redirecting
-  
+
   if (loading) {
     return (
       <div className="my-6">
@@ -92,19 +110,21 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
       {error && (
         <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300 rounded-xl mb-4 flex items-start">
           <div className="flex-1">{error}</div>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <Button
+            variant="outline"
+            size="sm"
             onClick={handleRetry}
             disabled={isRetrying}
             className="ml-2 whitespace-nowrap"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRetrying ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 mr-2 ${isRetrying ? "animate-spin" : ""}`}
+            />
             Retry
           </Button>
         </div>
       )}
-      
+
       {postData.length > 0 ? (
         <div className="space-y-5">
           {postData.map((post) => (
@@ -113,7 +133,9 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
         </div>
       ) : (
         <div className="p-6 text-center bg-muted/20 dark:bg-muted/10 rounded-xl py-12 my-8">
-          <p className="text-muted-foreground mb-4">No posts available in your feed.</p>
+          <p className="text-muted-foreground mb-4">
+            No posts available in your feed.
+          </p>
           <Button onClick={handleRetry} variant="outline" className="px-6">
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh Feed

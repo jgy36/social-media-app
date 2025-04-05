@@ -2,13 +2,13 @@
 import { useState } from "react";
 import { Repeat, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogFooter,
-  DialogClose
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { useSelector } from "react-redux";
@@ -25,7 +25,12 @@ interface RepostButtonProps {
   repostsCount?: number;
 }
 
-const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButtonProps) => {
+const RepostButton = ({
+  postId,
+  author,
+  content,
+  repostsCount = 0,
+}: RepostButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isReposting, setIsReposting] = useState(false);
   const [repostComment, setRepostComment] = useState("");
@@ -35,56 +40,67 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
 
   const handleOpenRepost = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent post navigation
-    
+
     if (!user.token) {
       // Redirect to login if not authenticated
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
-    
+
     setIsOpen(true);
   };
 
+  // In RepostButton.tsx, enhance the handleRepost function:
+
   const handleRepost = async () => {
     if (!user.token) return;
-    
+
     setIsReposting(true);
-    
+
     try {
       // Check that post ID is valid
       if (!postId || isNaN(Number(postId)) || postId <= 0) {
         throw new Error("Invalid original post ID");
       }
-      
-      // Log debug information
-      console.log("Creating repost with data:", {
-        content: repostComment,
-        originalPostId: postId,
-        repost: true // IMPORTANT: Backend expects 'repost', not 'isRepost'
+
+      // Log debug information with more details
+      console.log("🔄 Creating repost for post:", {
+        id: postId,
+        author: author,
+        content:
+          content?.substring(0, 30) +
+          (content && content.length > 30 ? "..." : ""),
+        repostComment: repostComment,
       });
-      
+
       // Create the repost request using the field name expected by the backend
-      // The backend PostRequest.java uses 'repost', not 'isRepost'
       const postData = {
         content: repostComment,
         originalPostId: postId,
-        repost: true // Match the field name in the backend
+        repost: true, // Match the field name in the backend
       };
-      
+
       // Create the repost
       const result = await createPost(postData);
-      console.log("Repost creation result:", result);
-      
+      console.log("🔄 Repost creation result:", result);
+
       if (result) {
         toast({
           title: "Success!",
           description: "Post reposted successfully",
           duration: 3000,
         });
-        
-        // Trigger a refresh of the feed to show the new repost
-        window.dispatchEvent(new CustomEvent('refreshFeed'));
-        
+
+        // Enhanced refresh mechanism
+        // 1. Dispatch custom event as before
+        window.dispatchEvent(new CustomEvent("refreshFeed"));
+
+        // 2. Add a fallback refresh after a short delay in case the event doesn't work
+        setTimeout(() => {
+          console.log("🔄 Executing fallback feed refresh");
+          window.dispatchEvent(new CustomEvent("refreshFeed"));
+        }, 1000);
+
         setIsOpen(false);
         setRepostComment("");
       } else {
@@ -115,7 +131,9 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
         className="flex items-center gap-1 rounded-full hover:text-green-500 dark:hover:text-green-400 transition-colors"
       >
         <Repeat className="h-4 w-4" />
-        <span className="ml-1">{repostsCount > 0 ? repostsCount : "Repost"}</span>
+        <span className="ml-1">
+          {repostsCount > 0 ? repostsCount : "Repost"}
+        </span>
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -123,12 +141,16 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
           <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>Repost this content</DialogTitle>
             <DialogClose asChild>
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 rounded-full"
+              >
                 <X className="h-4 w-4" />
               </Button>
             </DialogClose>
           </DialogHeader>
-          
+
           <div className="mt-2">
             {/* Original post preview */}
             <div className="rounded-md border border-border/50 p-3 mb-4">
@@ -138,7 +160,7 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
               </div>
               <p className="text-sm text-muted-foreground">{content}</p>
             </div>
-            
+
             {/* Optional comment */}
             <Textarea
               placeholder="Add a comment (optional)"
@@ -147,16 +169,16 @@ const RepostButton = ({ postId, author, content, repostsCount = 0 }: RepostButto
               className="min-h-[100px] resize-none"
             />
           </div>
-          
+
           <DialogFooter className="mt-4">
-            <Button 
-              variant="secondary" 
+            <Button
+              variant="secondary"
               onClick={() => setIsOpen(false)}
               disabled={isReposting}
             >
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleRepost}
               disabled={isReposting}
               className="flex items-center gap-2"
