@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/types.ts - Updated with profile fields
-import { PostType } from '@/types/post';
-import { CommentType } from '@/types/comment';
-import { CommunityData, CommunityMembershipResponse } from '@/types/community';
-import { Politician } from '@/types/politician';
-import { FollowResponse, FollowUser } from '@/types/follow';
+import { PostType } from "@/types/post";
+import { CommentType } from "@/types/comment";
+import { CommunityData, CommunityMembershipResponse } from "@/types/community";
+import { Politician } from "@/types/politician";
+import { FollowResponse, FollowUser } from "@/types/follow";
 
 // Re-export these types from follow.ts
-export type { FollowResponse, FollowUser } from '@/types/follow';
+export type { FollowResponse, FollowUser } from "@/types/follow";
 
 // Auth Types
 export interface LoginRequest {
@@ -73,11 +73,29 @@ export interface UpdateProfileResponse {
 // Post Types
 export interface CreatePostRequest {
   content: string;
-  communityId?: string;
+  originalPostId?: number;
+  repost?: boolean; // This should be "repost", not "isRepost" to match the backend
+  communityId?: string | number; // Note: accepting both string and number types for compatibility
 }
 
 // Instead of extending with an empty interface, directly export the type
-export type PostResponse = PostType;
+export interface PostResponse {
+  id: number;
+  content: string;
+  author: string;
+  createdAt: string;
+  likes: number;
+  commentsCount: number;
+  hashtags?: string[];
+  communityId?: string;
+  communityName?: string;
+
+  // Repost-related fields
+  isRepost?: boolean;
+  originalPostId?: number;
+  repostCount?: number;
+  originalAuthor?: string;
+}
 
 export interface SavePostResponse {
   isSaved: boolean;
@@ -119,7 +137,7 @@ export type CommentResponse = CommentType;
 // Search Types
 export interface SearchResult {
   id: string | number;
-  type: 'user' | 'community' | 'hashtag' | 'post';
+  type: "user" | "community" | "hashtag" | "post";
   name: string;
   description?: string;
   content?: string;
