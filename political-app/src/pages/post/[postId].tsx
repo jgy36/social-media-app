@@ -4,7 +4,7 @@ import { getPostComments, getPostById, likePost } from "@/api/posts"; // Update 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CommentModal from "@/components/comments/CommentModal";
-import { Heart, MessageCircle, ArrowLeft, Repeat } from "lucide-react";
+import { Heart, MessageCircle, ArrowLeft, Repeat, Reply } from "lucide-react";
 import { PostType } from "@/types/post";
 import { CommentType } from "@/types/comment";
 import Navbar from "@/components/navbar/Navbar";
@@ -32,6 +32,9 @@ const PostDetail = () => {
   // Track comment likes
   const [commentLikes, setCommentLikes] = useState<{ [commentId: number]: number }>({});
   const [likedComments, setLikedComments] = useState<{ [commentId: number]: boolean }>({});
+  
+  // For reply functionality
+  const [replyPrefill, setReplyPrefill] = useState("");
 
   useEffect(() => {
     const fetchPostData = async () => {
@@ -185,6 +188,20 @@ const PostDetail = () => {
     }
 
     setIsCommentModalOpen(false);
+    setReplyPrefill(""); // Reset the reply prefill
+  };
+  
+  const handleReply = (username: string) => {
+    if (!user.token) {
+      router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
+      return;
+    }
+    
+    // Set the prefill text with the username
+    setReplyPrefill(`@${username} `);
+    
+    // Open the comment modal
+    setIsCommentModalOpen(true);
   };
 
   if (isLoading) {
@@ -310,7 +327,10 @@ const PostDetail = () => {
             </Button>
 
             <Button
-              onClick={() => setIsCommentModalOpen(true)}
+              onClick={() => {
+                setReplyPrefill(""); // Clear any prefill
+                setIsCommentModalOpen(true);
+              }}
               variant="ghost"
               className="flex items-center gap-1"
             >
@@ -344,8 +364,9 @@ const PostDetail = () => {
                 <CardContent className="p-0">
                   <p className="text-sm mt-1">{comment.content}</p>
                   
-                  {/* Like button for comment */}
+                  {/* Comment action buttons */}
                   <div className="mt-2 flex items-center text-xs text-muted-foreground">
+                    {/* Like button */}
                     <Button 
                       variant="ghost" 
                       size="sm" 
@@ -358,7 +379,22 @@ const PostDetail = () => {
                       <Heart className={`h-3 w-3 mr-1 ${likedComments[comment.id] ? "fill-current" : ""}`} />
                       {commentLikes[comment.id] || 0}
                     </Button>
-                    <span className="text-xs text-muted-foreground ml-2">
+                    
+                    {/* Reply button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs rounded-full ml-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReply(comment.user?.username || "Anonymous");
+                      }}
+                    >
+                      <Reply className="h-3 w-3 mr-1" />
+                      Reply
+                    </Button>
+                    
+                    <span className="text-xs text-muted-foreground ml-auto">
                       {new Date(comment.createdAt).toLocaleDateString()}
                     </span>
                   </div>
@@ -374,7 +410,10 @@ const PostDetail = () => {
 
         <div className="flex justify-center mt-4">
           <Button
-            onClick={() => setIsCommentModalOpen(true)}
+            onClick={() => {
+              setReplyPrefill(""); // Clear any prefill
+              setIsCommentModalOpen(true);
+            }}
             className="flex items-center gap-1"
           >
             <MessageCircle className="h-4 w-4" /> Add Comment
@@ -385,8 +424,12 @@ const PostDetail = () => {
       <CommentModal
         postId={post.id}
         isOpen={isCommentModalOpen}
-        onClose={() => setIsCommentModalOpen(false)}
+        onClose={() => {
+          setIsCommentModalOpen(false);
+          setReplyPrefill(""); // Reset prefill on close
+        }}
         onCommentAdded={handleCommentAdded}
+        prefillText={replyPrefill}
       />
     </div>
   );
