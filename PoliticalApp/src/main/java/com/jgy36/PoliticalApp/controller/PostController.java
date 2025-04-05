@@ -95,6 +95,19 @@ public class PostController {
             // Handle repost
             System.out.println("🔄 Creating repost of post ID: " + request.getOriginalPostId());
             createdPost = postService.createRepost(request.getContent(), request.getOriginalPostId());
+
+            // Add this debug code to verify the repost was created correctly
+            System.out.println("🔄 Repost created with ID: " + createdPost.getId());
+            System.out.println("🔄 Repost isRepost flag: " + createdPost.isRepost());
+            System.out.println("🔄 Repost originalPostId: " + createdPost.getOriginalPostId());
+            System.out.println("🔄 Repost originalPost loaded: " + (createdPost.getOriginalPost() != null));
+
+            if (createdPost.getOriginalPost() != null) {
+                System.out.println("🔄 Original post author: " +
+                        (createdPost.getOriginalPost().getAuthor() != null ?
+                                createdPost.getOriginalPost().getAuthor().getUsername() : "null"));
+                System.out.println("🔄 Original post content: " + createdPost.getOriginalPost().getContent());
+            }
         } else if (request.getCommunityId() != null) {
             // Handle community post
             System.out.println("👥 Creating community post in community ID: " + request.getCommunityId());
@@ -105,21 +118,16 @@ public class PostController {
             createdPost = postService.createPost(request.getContent());
         }
 
-        // If you have hashtags, log them
-        if (createdPost.getHashtags() != null && !createdPost.getHashtags().isEmpty()) {
-            System.out.println("🏷️ Post contains hashtags: " +
-                    createdPost.getHashtags().stream()
-                            .map(h -> h.getTag())
-                            .collect(Collectors.joining(", ")));
-        }
-
-        // Log post details for debugging
-        System.out.println("📄 Post details - ID: " + createdPost.getId() +
-                ", isRepost: " + createdPost.isRepost() +
-                ", originalPostId: " + createdPost.getOriginalPostId());
-
         // Convert to DTO before returning
         PostDTO postDTO = new PostDTO(createdPost);
+
+        // Add debug logging for the DTO
+        System.out.println("📤 Returning PostDTO with isRepost: " + postDTO.isRepost());
+        System.out.println("📤 Returning PostDTO with originalPostId: " + postDTO.getOriginalPostId());
+        System.out.println("📤 Returning PostDTO with originalAuthor: " + postDTO.getOriginalAuthor());
+        System.out.println("📤 Returning PostDTO with originalPostContent: " +
+                (postDTO.getOriginalPostContent() != null ? "present" : "null"));
+
         return ResponseEntity.ok(postDTO);
     }
 
