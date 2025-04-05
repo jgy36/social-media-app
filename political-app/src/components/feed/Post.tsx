@@ -236,7 +236,7 @@ const Post: React.FC<PostProps> = ({
         </p>
 
         {/* Display nested original post if this is a repost - FIXED SECTION */}
-        {post.isRepost === true && post.originalPostId && (
+        {((post.isRepost === true || post.repost === true) && post.originalPostId) && (
           <React.Fragment>
             <div className="mb-2 mt-2 border-t border-border/10 pt-2">
               <div className="text-xs text-muted-foreground mb-1">

@@ -137,7 +137,7 @@ const RepostButton = ({
       </Button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-background text-foreground">
           <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>Repost this content</DialogTitle>
             <DialogClose asChild>
@@ -158,15 +158,15 @@ const RepostButton = ({
                 <AuthorAvatar username={author} size={24} />
                 <span className="ml-2 font-medium">@{author}</span>
               </div>
-              <p className="text-sm text-muted-foreground">{content}</p>
+              <p className="text-sm text-foreground">{content}</p>
             </div>
 
-            {/* Optional comment */}
+            {/* Optional comment with fixed dark mode colors */}
             <Textarea
               placeholder="Add a comment (optional)"
               value={repostComment}
               onChange={(e) => setRepostComment(e.target.value)}
-              className="min-h-[100px] resize-none"
+              className="min-h-[100px] resize-none text-foreground dark:text-foreground bg-background dark:bg-background border-input"
             />
           </div>
 

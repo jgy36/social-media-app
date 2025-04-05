@@ -1,7 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/navbar/NotificationIcon.tsx
 import React, { useEffect, useState, useRef } from 'react';
-import { Bell, CircleDot } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import {
@@ -12,19 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/router';
-import axios from 'axios';
-
-// Notification Interface
-interface Notification {
-  id: number;
-  message: string;
-  read: boolean;
-  createdAt: string;
-  recipient: {
-    id: number;
-    username: string;
-  };
-}
+import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, Notification } from '@/api/notifications';
 
 const NotificationIcon = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -32,7 +19,6 @@ const NotificationIcon = () => {
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const user = useSelector((state: RootState) => state.user);
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
   const popoverRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
@@ -45,13 +31,8 @@ const NotificationIcon = () => {
       setError(null);
 
       try {
-        const response = await axios.get<Notification[]>(`${API_BASE_URL}/notifications`, {
-          headers: {
-            Authorization: `Bearer ${user.token}`
-          }
-        });
-
-        setNotifications(response.data);
+        const data = await getNotifications();
+        setNotifications(data);
       } catch (err) {
         console.error("Error fetching notifications:", err);
         setError("Failed to load notifications.");
@@ -61,7 +42,12 @@ const NotificationIcon = () => {
     };
 
     fetchNotifications();
-  }, [user.token, API_BASE_URL]);
+
+    // Optional: Set up a polling interval to fetch notifications periodically
+    const interval = setInterval(fetchNotifications, 60000); // Refresh every minute
+    
+    return () => clearInterval(interval); // Clean up on unmount
+  }, [user.token]);
 
   // Update unread count whenever notifications change
   useEffect(() => {
@@ -72,18 +58,16 @@ const NotificationIcon = () => {
   // Handle marking a notification as read
   const markAsRead = async (notificationId: number) => {
     try {
-      await axios.put(`${API_BASE_URL}/notifications/${notificationId}/read`, {}, {
-        headers: {
-          Authorization: `Bearer ${user.token}`
-        }
-      });
+      const success = await markNotificationAsRead(notificationId);
       
-      // Update the local state
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notification =>
-          notification.id === notificationId ? { ...notification, read: true } : notification
-        )
-      );
+      if (success) {
+        // Update the local state
+        setNotifications(prevNotifications =>
+          prevNotifications.map(notification =>
+            notification.id === notificationId ? { ...notification, read: true } : notification
+          )
+        );
+      }
     } catch (err) {
       console.error("Error marking notification as read:", err);
       setError("Failed to update notification status.");
@@ -93,15 +77,14 @@ const NotificationIcon = () => {
   // Mark all notifications as read
   const markAllAsRead = async () => {
     try {
-      await axios.put(`${API_BASE_URL}/notifications/read-all`, {}, {
-        headers: {
-          Authorization: `Bearer ${user.token}`
-        }
-      });
+      const success = await markAllNotificationsAsRead();
       
-      setNotifications(prevNotifications =>
-        prevNotifications.map(notification => ({ ...notification, read: true }))
-      );
+      if (success) {
+        setNotifications(prevNotifications =>
+          prevNotifications.map(notification => ({ ...notification, read: true }))
+        );
+        setUnreadCount(0);
+      }
     } catch (err) {
       console.error("Error marking all notifications as read:", err);
       setError("Failed to mark all notifications as read.");
@@ -136,22 +119,59 @@ const NotificationIcon = () => {
     }
   };
 
-  // Handler to navigate based on notification (simplified for your data model)
+  // Parse username from notification for profile navigation
+  const parseUsernameFromNotification = (message: string): string | null => {
+    // Common patterns in notifications
+    const repostPattern = /^(\w+) reposted your post/;
+    const commentPattern = /^(\w+) commented on your post/;
+    const likePattern = /^(\w+) liked your post/;
+    const followPattern = /^(\w+) started following you/;
+    
+    // Try each pattern
+    for (const pattern of [repostPattern, commentPattern, likePattern, followPattern]) {
+      const match = message.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  };
+
+  // Handler to navigate based on notification content
   const handleNotificationClick = (notification: Notification) => {
     markAsRead(notification.id);
     
-    // You can add custom navigation logic based on notification content here
-    // For now, just close the popover
+    // Try to extract information from the notification message
+    const username = parseUsernameFromNotification(notification.message);
+    
+    if (username) {
+      // If username found, navigate to their profile
+      router.push(`/profile/${username}`);
+    } else if (notification.message.includes("post")) {
+      // Try to extract post ID - this requires a more specific pattern in your notifications
+      // Example: "Someone commented on your post #123"
+      const postIdMatch = notification.message.match(/post #(\d+)/);
+      if (postIdMatch && postIdMatch[1]) {
+        router.push(`/post/${postIdMatch[1]}`);
+      }
+    }
+    
+    // Close the popover regardless
     closePopover();
   };
 
   return (
     <Popover onOpenChange={handlePopoverOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="View notifications">
-          <Bell className="h-5 w-5 relative" />
+        <Button variant="ghost" size="icon" aria-label="View notifications" className="relative">
+          <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <CircleDot className="absolute top-1 right-1 h-2 w-2 text-destructive" />
+            <div className="absolute -top-1 -right-1 flex items-center justify-center">
+              <div className="w-5 h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-medium">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            </div>
           )}
         </Button>
       </PopoverTrigger>
@@ -178,7 +198,7 @@ const NotificationIcon = () => {
                   {timeAgo(notification.createdAt)}
                 </p>
                 {!notification.read && (
-                  <CircleDot className="absolute top-2 right-2 h-2 w-2 text-blue-500" />
+                  <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-blue-500"></div>
                 )}
               </div>
             ))}
