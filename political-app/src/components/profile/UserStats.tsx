@@ -1,6 +1,7 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// src/components/profile/UserStats.tsx
-import { useState } from 'react';
+// In src/components/profile/UserStats.tsx
+// Make sure the component is correctly receiving and displaying postsCount
+
+import { useState, useEffect } from 'react';
 import { MessagesSquare, Users, User as UserIcon } from 'lucide-react';
 import FollowListModal from '@/components/profile/FollowListModal';
 
@@ -22,6 +23,38 @@ const UserStats = ({
   onFollowChange
 }: UserStatsProps) => {
   const [activeModal, setActiveModal] = useState<'followers' | 'following' | null>(null);
+  const [currentPostsCount, setCurrentPostsCount] = useState(postsCount);
+  
+  // Listen for post count updates from localStorage or events
+  useEffect(() => {
+    // Initialize from props
+    setCurrentPostsCount(postsCount);
+    
+    // Also check localStorage for a potentially more up-to-date value
+    const savedPostCount = localStorage.getItem('userPostsCount');
+    if (savedPostCount) {
+      setCurrentPostsCount(parseInt(savedPostCount, 10));
+    }
+    
+    // Listen for updates
+    const handlePostCountUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail && customEvent.detail.count !== undefined) {
+        setCurrentPostsCount(customEvent.detail.count);
+      }
+    };
+    
+    window.addEventListener('userPostsCountUpdated', handlePostCountUpdate);
+    
+    return () => {
+      window.removeEventListener('userPostsCountUpdated', handlePostCountUpdate);
+    };
+  }, [postsCount]);
+  
+  // Update when props change
+  useEffect(() => {
+    setCurrentPostsCount(postsCount);
+  }, [postsCount]);
   
   // Update counts when follows change within modal
   const handleFollowUpdate = (isFollowing: boolean, newFollowersCount: number, newFollowingCount: number) => {
@@ -35,7 +68,7 @@ const UserStats = ({
       {/* Posts Count */}
       <div className="flex items-center">
         <MessagesSquare className="h-4 w-4 mr-1 text-muted-foreground" />
-        <span><strong>{postsCount}</strong> Posts</span>
+        <span><strong>{currentPostsCount}</strong> Posts</span>
       </div>
       
       {/* Followers Count (Clickable) */}

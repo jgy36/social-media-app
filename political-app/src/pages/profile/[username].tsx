@@ -112,12 +112,22 @@ const UserProfilePage = () => {
         setProfile(userProfile);
         setLastFetchTime(Date.now());
 
-        // Fetch user posts
+        // Fetch user posts with improved error handling
         try {
           const userPosts = await getPostsByUsername(username);
-          setPosts(userPosts);
+          
+          // Ensure that userPosts is an array before setting the state
+          if (Array.isArray(userPosts)) {
+            setPosts(userPosts);
+          } else if (userPosts && typeof userPosts === 'object' && Array.isArray(userPosts.data)) {
+            // Handle case where API returns { data: [...posts] }
+            setPosts(userPosts.data);
+          } else {
+            console.warn("Posts response is not an array:", userPosts);
+            setPosts([]);
+          }
         } catch (postsError) {
-          console.warn("Could not fetch posts, using empty array:", postsError);
+          console.error("Could not fetch posts:", postsError);
           setPosts([]);
         }
       } catch (err) {
@@ -381,7 +391,7 @@ const UserProfilePage = () => {
               </Card>
             )}
 
-            {isAuthenticated && posts.length > 0 ? (
+            {isAuthenticated && Array.isArray(posts) && posts.length > 0 ? (
               <div className="space-y-4">
                 {posts.map((post) => (
                   <Post key={post.id} post={post} />
