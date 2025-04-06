@@ -28,6 +28,7 @@ const ProfileHeader = () => {
   // State to store the image URL with cache-busting
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
 
+  // Initial load of data including posts count
   useEffect(() => {
     if (user?.id && token) {
       setLoading(true);
@@ -37,10 +38,15 @@ const ProfileHeader = () => {
         try {
           if (typeof user.id === "number") {
             const followStatus = await getFollowStatus(user.id);
+            
+            // Get post count from localStorage if available
+            const savedPostCount = localStorage.getItem('userPostsCount');
+            const postCount = savedPostCount ? parseInt(savedPostCount, 10) : 0;
+            
             setStats({
               followersCount: followStatus.followersCount || 0,
               followingCount: followStatus.followingCount || 0,
-              postCount: 0, // We'll set this from the API response if available
+              postCount: postCount, // Use saved post count or default to 0
             });
           }
           setLoading(false);
@@ -54,6 +60,29 @@ const ProfileHeader = () => {
       fetchStats();
     }
   }, [user?.id, token]);
+
+  // Listen for post count updates
+  useEffect(() => {
+    // Function to handle post count updates
+    const handlePostCountUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail && customEvent.detail.count !== undefined) {
+        console.log("Posts count updated:", customEvent.detail.count);
+        setStats(prevStats => ({
+          ...prevStats,
+          postCount: customEvent.detail.count
+        }));
+      }
+    };
+
+    // Add event listener for post count updates
+    window.addEventListener('userPostsCountUpdated', handlePostCountUpdate);
+    
+    // Cleanup event listener on unmount
+    return () => {
+      window.removeEventListener('userPostsCountUpdated', handlePostCountUpdate);
+    };
+  }, []);
 
   // Initialize profile image on component mount
   useEffect(() => {

@@ -6,8 +6,9 @@ import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import { getPostsByUsername } from "@/api/users";
 import { PostType } from "@/types/post";
+import { apiClient } from "@/api/apiClient";
 
-// Import the post component directly (don't wrap it)
+// Import the post component directly
 import Post from "@/components/feed/Post";
 
 const ProfilePosts = () => {
@@ -26,9 +27,21 @@ const ProfilePosts = () => {
 
       try {
         // Get posts using the API
-        const userPosts = await getPostsByUsername(user.username);
+        const userPostsResponse = await getPostsByUsername(user.username);
+        
+        // Ensure userPosts is an array before proceeding
+        let userPosts: any[] = [];
+        
+        if (Array.isArray(userPostsResponse)) {
+          userPosts = userPostsResponse;
+        } else if (userPostsResponse && typeof userPostsResponse === 'object' && Array.isArray(userPostsResponse.data)) {
+          userPosts = userPostsResponse.data;
+        } else {
+          console.warn("Posts response is not an array:", userPostsResponse);
+          userPosts = [];
+        }
 
-        // Ensure posts have the right format for hashtags
+        // Process the posts as before
         const formattedPosts = userPosts.map(post => {
           // Make sure hashtags is an array of strings or undefined
           if (post.hashtags && !Array.isArray(post.hashtags)) {
@@ -51,6 +64,19 @@ const ProfilePosts = () => {
         });
         
         setPosts(sortedPosts);
+        
+        // Update post count in localStorage and notify other components
+        if (userPosts.length > 0) {
+          // Store the post count in localStorage
+          localStorage.setItem('userPostsCount', String(userPosts.length));
+          
+          // Dispatch a custom event that ProfileHeader can listen for
+          window.dispatchEvent(new CustomEvent('userPostsCountUpdated', { 
+            detail: { count: userPosts.length } 
+          }));
+          
+          console.log("User posts count updated:", userPosts.length);
+        }
       } catch (err) {
         console.error("Error fetching user posts:", err);
         setError("Failed to load your posts");
