@@ -15,6 +15,9 @@ import AuthorAvatar from "@/components/shared/AuthorAvatar";
 import React from "react";
 import { toast } from "@/hooks/use-toast";
 import { apiClient } from "@/api/apiClient";
+import SaveButton from "@/components/feed/SaveButton";
+import ShareButton from "@/components/feed/ShareButton";
+import RepostButton from "@/components/feed/RepostButton";
 
 const PostDetail = () => {
   const router = useRouter();
@@ -271,21 +274,33 @@ const PostDetail = () => {
               </div>
             )}
 
-            {/* Modified: Username is now clickable and @ symbol is removed */}
-            <h3 className="font-semibold text-lg flex items-center gap-2">
-              <AuthorAvatar 
-                username={post.author} 
-                size={24} 
-                className="cursor-pointer"
-                onClick={() => navigateToUserProfile(post.author)}
-              />
-              <span 
-                className="cursor-pointer hover:underline"
-                onClick={() => navigateToUserProfile(post.author)}
-              >
-                {post.author}
+            {/* Modified: Username is now clickable and @ symbol is removed, added date */}
+            <div className="flex flex-col">
+              <h3 className="font-semibold text-lg flex items-center gap-2">
+                <AuthorAvatar 
+                  username={post.author} 
+                  size={24} 
+                  className="cursor-pointer"
+                  onClick={() => navigateToUserProfile(post.author)}
+                />
+                <span 
+                  className="cursor-pointer hover:underline"
+                  onClick={() => navigateToUserProfile(post.author)}
+                >
+                  {post.author}
+                </span>
+              </h3>
+              {/* Added date to post */}
+              <span className="text-xs text-muted-foreground mt-1 ml-9">
+                {new Date(post.createdAt).toLocaleString(undefined, {
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
               </span>
-            </h3>
+            </div>
 
             <p className="mt-2 text-md text-foreground">{post.content}</p>
 
@@ -355,72 +370,92 @@ const PostDetail = () => {
               <MessageCircle className="h-4 w-4" />
               {comments.length} Comments
             </Button>
+            
+            {/* Added SaveButton */}
+            <SaveButton 
+              postId={post.id} 
+              isSaved={post.isSaved ?? false} 
+            />
+            
+            {/* Added RepostButton */}
+            <RepostButton
+              postId={post.id}
+              author={post.author}
+              content={post.content}
+              repostsCount={post.repostsCount || post.repostCount || 0}
+            />
+            
+            {/* Added ShareButton */}
+            <ShareButton 
+              postId={post.id} 
+              sharesCount={post.sharesCount ?? 0} 
+            />
           </div>
         </Card>
 
         <h2 className="text-xl font-semibold mt-6">Comments</h2>
-        <div className="space-y-4">
+        <div className="space-y-3">
           {comments.length > 0 ? (
             comments.map((comment) => (
               <Card
                 key={comment.id}
-                className="p-4 shadow-md border border-border rounded-lg"
+                className="p-3 shadow-md border border-border rounded-lg"
               >
-                <CardHeader className="p-0 pb-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-start">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     <AuthorAvatar
                       username={comment.user?.username || "Anonymous"}
-                      size={24}
+                      size={20}
                       className="cursor-pointer"
                       onClick={() => comment.user && navigateToUserProfile(comment.user.username)}
                     />
                     {/* Modified: Username is now clickable */}
-                    <CardTitle 
+                    <span 
                       className="text-sm font-medium cursor-pointer hover:underline"
                       onClick={() => comment.user && navigateToUserProfile(comment.user.username)}
                     >
                       {comment.user?.username || "Anonymous"}
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <p className="text-sm mt-1">{comment.content}</p>
-                  
-                  {/* Comment action buttons */}
-                  <div className="mt-2 flex items-center text-xs text-muted-foreground">
-                    {/* Like button */}
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className={`h-7 px-2 text-xs rounded-full ${likedComments[comment.id] ? "text-red-500" : ""}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCommentLike(comment.id);
-                      }}
-                    >
-                      <Heart className={`h-3 w-3 mr-1 ${likedComments[comment.id] ? "fill-current" : ""}`} />
-                      {commentLikes[comment.id] || 0}
-                    </Button>
-                    
-                    {/* Reply button */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-xs rounded-full ml-2"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleReply(comment.user?.username || "Anonymous");
-                      }}
-                    >
-                      <Reply className="h-3 w-3 mr-1" />
-                      Reply
-                    </Button>
-                    
-                    <span className="text-xs text-muted-foreground ml-auto">
-                      {new Date(comment.createdAt).toLocaleDateString()}
                     </span>
                   </div>
-                </CardContent>
+                  <div className="ml-2 flex-1">
+                    <p className="text-sm">{comment.content}</p>
+                  </div>
+                </div>
+                  
+                {/* Comment action buttons */}
+                <div className="mt-2 flex items-center text-xs text-muted-foreground">
+                  {/* Like button */}
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className={`h-6 px-2 text-xs rounded-full ${likedComments[comment.id] ? "text-red-500" : ""}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCommentLike(comment.id);
+                    }}
+                  >
+                    <Heart className={`h-3 w-3 mr-1 ${likedComments[comment.id] ? "fill-current" : ""}`} />
+                    {commentLikes[comment.id] || 0}
+                  </Button>
+                  
+                  {/* Reply button */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs rounded-full ml-2"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReply(comment.user?.username || "Anonymous");
+                    }}
+                  >
+                    <Reply className="h-3 w-3 mr-1" />
+                    Reply
+                  </Button>
+                  
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {new Date(comment.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
               </Card>
             ))
           ) : (
