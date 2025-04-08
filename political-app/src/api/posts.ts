@@ -324,3 +324,12 @@ export const likeComment = async (
     return response.data;
   }, `Liking comment ${commentId}`);
 };
+
+/**
+ * Delete a post by ID
+ */
+export const deletePost = async (postId: number): Promise<void> => {
+  return safeApiCall(async () => {
+    await apiClient.delete(`/posts/${postId}`);
+  }, `Deleting post ${postId}`);
+};
