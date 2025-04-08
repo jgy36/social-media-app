@@ -1,13 +1,18 @@
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.entity.Community;
+import com.jgy36.PoliticalApp.entity.CommunityUserPreference;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.exception.ResourceNotFoundException;
 import com.jgy36.PoliticalApp.repository.CommunityRepository;
+import com.jgy36.PoliticalApp.repository.CommunityUserPreferenceRepository;
 import com.jgy36.PoliticalApp.repository.PostRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
+import com.jgy36.PoliticalApp.utils.SecurityUtils;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -24,6 +29,9 @@ public class CommunityService {
     private final CommunityRepository communityRepository;
     private final UserRepository userRepository;
     private final PostRepository postRepository;
+
+    @Autowired
+    private CommunityUserPreferenceRepository communityUserPreferenceRepository;
 
     @Autowired
     public CommunityService(CommunityRepository communityRepository,
@@ -353,5 +361,40 @@ public class CommunityService {
 
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new NoSuchElementException("User not found with email: " + email));
+    }
+
+    /**
+     * Toggle notification preferences for a community
+     *
+     * @param slug The community slug
+     * @return The new notification state (true = on, false = off)
+     */
+    public boolean toggleCommunityNotifications(String slug) {
+        // Get the current user
+        User currentUser = userRepository.findByUsername(SecurityUtils.getCurrentUsername())
+                .orElseThrow(() -> new RuntimeException("User not authenticated"));
+
+        // Get the community
+        Community community = communityRepository.findBySlug(slug)
+                .orElseThrow(() -> new ResourceNotFoundException("Community not found: " + slug));
+
+        // Check if user is a member of the community
+        if (!community.isMember(currentUser)) {
+            throw new AccessDeniedException("You must be a member of this community to manage notifications");
+        }
+
+        // Get or create user preferences for this community
+        CommunityUserPreference preference = communityUserPreferenceRepository
+                .findByUserAndCommunity(currentUser, community)
+                .orElseGet(() -> new CommunityUserPreference(currentUser, community));
+
+        // Toggle notification state
+        boolean newState = !preference.isNotificationsEnabled();
+        preference.setNotificationsEnabled(newState);
+
+        // Save the preference
+        communityUserPreferenceRepository.save(preference);
+
+        return newState;
     }
 }
