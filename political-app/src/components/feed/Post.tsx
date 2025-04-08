@@ -1,7 +1,7 @@
 // Import the separate NestedOriginalPost component
 import { useState, useEffect } from "react";
 import { PostType } from "@/types/post";
-import { likePost } from "@/api/posts";
+import { likePost, deletePost } from "@/api/posts";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,8 @@ import RepostButton from "@/components/feed/RepostButton";
 import { PostProps } from "@/types/componentProps";
 import AuthorAvatar from "@/components/shared/AuthorAvatar";
 import NestedOriginalPost from "@/components/feed/NestedOriginalPost";
+import MoreOptionsMenu from "@/components/feed/MoreOptionsMenu";
+import { toast } from "@/hooks/use-toast";
 import React from "react";
 
 // Function to safely render content with clickable hashtags
@@ -109,21 +111,7 @@ const Post: React.FC<PostProps> = ({
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
-
-  // Add debug logging for repost data
-  useEffect(() => {
-    // Enhanced debug logging for repost data
-    if (post.isRepost) {
-      console.log(`[Repost Debug] Post ID ${post.id} repost data:`, {
-        isRepost: post.isRepost,
-        originalPostId: post.originalPostId,
-        originalAuthor: post.originalAuthor,
-        originalPostContent: post.originalPostContent ? "present" : "missing",
-        content: post.content?.substring(0, 30) + "...",
-      });
-    }
-  }, [post]);
-
+  
   // Make sure post.author and post.content are strings, not objects
   const authorName =
     typeof post.author === "string"
@@ -133,6 +121,17 @@ const Post: React.FC<PostProps> = ({
         "username" in (post.author as any)
       ? String((post.author as any).username)
       : "Unknown User";
+  
+  // Check if current user is the author
+  const isCurrentUserPost = user.username === authorName;
+
+  // Add debug logging for repost data
+  useEffect(() => {
+    // Enhanced debug logging for repost data
+    if (post.isRepost) {
+      console.log("This is a repost:", post);
+    }
+  }, [post.isRepost, post]);
 
   const postContent =
     typeof post.content === "string"
@@ -140,6 +139,34 @@ const Post: React.FC<PostProps> = ({
       : post.content
       ? JSON.stringify(post.content)
       : "";
+
+  const handleDeletePost = async (postId: number) => {
+    try {
+      await deletePost(postId);
+      
+      // Show success toast
+      toast({
+        title: "Post deleted",
+        description: "Your post has been successfully deleted.",
+        duration: 3000,
+      });
+      
+      // Trigger feed refresh
+      window.dispatchEvent(new CustomEvent("refreshFeed"));
+      
+      // If we're on the post detail page, navigate back to the feed
+      if (window.location.pathname.includes(`/post/${postId}`)) {
+        router.push("/feed");
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the post. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   // Function to handle hashtag click
   const handleHashtagClick = (hashtag: string) => {
@@ -200,18 +227,24 @@ const Post: React.FC<PostProps> = ({
           </h3>
         </div>
 
-        {post.communityName && (
-          <Badge
-            variant="outline"
-            className="hover:bg-primary/10 cursor-pointer transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/community/${post.communityId}`);
-            }}
-          >
-            {post.communityName}
-          </Badge>
-        )}
+        <div className="flex items-center space-x-2">
+          {isCurrentUserPost && (
+            <MoreOptionsMenu postId={post.id} onDelete={handleDeletePost} />
+          )}
+          
+          {post.communityName && (
+            <Badge
+              variant="outline"
+              className="hover:bg-primary/10 cursor-pointer transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/community/${post.communityId}`);
+              }}
+            >
+              {post.communityName}
+            </Badge>
+          )}
+        </div>
       </div>
 
       {/* Post Content - Clickable to view full post */}

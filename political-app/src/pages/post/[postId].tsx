@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { getPostComments, getPostById, likePost } from "@/api/posts"; // Update import
+import { getPostComments, getPostById, likePost } from "@/api/posts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import CommentModal from "@/components/comments/CommentModal";
@@ -203,6 +203,13 @@ const PostDetail = () => {
     // Open the comment modal
     setIsCommentModalOpen(true);
   };
+  
+  // Handle navigation to a user's profile
+  const navigateToUserProfile = (username: string) => {
+    if (username && username !== "Anonymous") {
+      router.push(`/profile/${username}`);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -259,13 +266,25 @@ const PostDetail = () => {
                 <span className="inline-flex items-center">
                   <Repeat className="h-3 w-3 mr-1" />
                   Reposted
-                  {post.originalAuthor ? ` from @${post.originalAuthor}` : ""}
+                  {post.originalAuthor ? ` from ${post.originalAuthor}` : ""}
                 </span>
               </div>
             )}
 
+            {/* Modified: Username is now clickable and @ symbol is removed */}
             <h3 className="font-semibold text-lg flex items-center gap-2">
-              <AuthorAvatar username={post.author} size={24} />@{post.author}
+              <AuthorAvatar 
+                username={post.author} 
+                size={24} 
+                className="cursor-pointer"
+                onClick={() => navigateToUserProfile(post.author)}
+              />
+              <span 
+                className="cursor-pointer hover:underline"
+                onClick={() => navigateToUserProfile(post.author)}
+              >
+                {post.author}
+              </span>
             </h3>
 
             <p className="mt-2 text-md text-foreground">{post.content}</p>
@@ -286,22 +305,21 @@ const PostDetail = () => {
                           className="cursor-pointer"
                           onClick={() =>
                             post.originalAuthor &&
-                            router.push(`/profile/${post.originalAuthor}`)
+                            navigateToUserProfile(post.originalAuthor)
                           }
                         />
+                        {/* Modified: Username is now clickable and @ symbol is removed */}
                         <span
                           className="font-medium cursor-pointer hover:underline"
                           onClick={() =>
                             post.originalAuthor &&
-                            router.push(`/profile/${post.originalAuthor}`)
+                            navigateToUserProfile(post.originalAuthor)
                           }
                         >
-                          @{post.originalAuthor || "Unknown"}
+                          {post.originalAuthor || "Unknown"}
                         </span>
                       </div>
-                      <p className="text-foreground">
-                        {post.originalPostContent}
-                      </p>
+                      <p className="text-foreground">{post.originalPostContent}</p>
                     </div>
                   ) : (
                     <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
@@ -354,9 +372,13 @@ const PostDetail = () => {
                       username={comment.user?.username || "Anonymous"}
                       size={24}
                       className="cursor-pointer"
-                      onClick={() => comment.user && router.push(`/profile/${comment.user.username}`)}
+                      onClick={() => comment.user && navigateToUserProfile(comment.user.username)}
                     />
-                    <CardTitle className="text-sm font-medium">
+                    {/* Modified: Username is now clickable */}
+                    <CardTitle 
+                      className="text-sm font-medium cursor-pointer hover:underline"
+                      onClick={() => comment.user && navigateToUserProfile(comment.user.username)}
+                    >
                       {comment.user?.username || "Anonymous"}
                     </CardTitle>
                   </div>
