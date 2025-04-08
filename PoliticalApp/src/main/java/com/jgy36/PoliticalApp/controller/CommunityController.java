@@ -5,7 +5,11 @@ import com.jgy36.PoliticalApp.dto.CommunityPostRequest;
 import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.entity.Community;
 import com.jgy36.PoliticalApp.entity.Post;
+import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.repository.CommunityUserPreferenceRepository;
+import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.service.CommunityService;
+import com.jgy36.PoliticalApp.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @RestController
@@ -23,6 +28,12 @@ import java.util.stream.Collectors;
 public class CommunityController {
 
     private final CommunityService communityService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private CommunityUserPreferenceRepository communityUserPreferenceRepository;
 
     @Autowired
     public CommunityController(CommunityService communityService) {
@@ -171,12 +182,55 @@ public class CommunityController {
 
         // Add moderator usernames
         List<String> moderators = community.getModerators().stream()
-                .map(user -> user.getUsername())
+                .map(User::getUsername) // Fixed: Using method reference
                 .collect(Collectors.toList());
         dto.setModerators(moderators);
+
+        // Check if current user is authenticated
+        Optional<User> currentUser = Optional.empty();
+        try {
+            String username = SecurityUtils.getCurrentUsername();
+            if (username != null) {
+                currentUser = userRepository.findByUsername(username);
+            }
+        } catch (Exception e) {
+            // User not authenticated, ignore
+        }
+
+        // Set joined status
+        if (currentUser.isPresent()) {
+            dto.setJoined(community.isMember(currentUser.get()));
+
+            // Check notification status
+            communityUserPreferenceRepository
+                    .findByUserAndCommunity(currentUser.get(), community)
+                    .ifPresentOrElse(
+                            pref -> dto.setNotificationsOn(pref.isNotificationsEnabled()),
+                            () -> dto.setNotificationsOn(false)
+                    );
+        } else {
+            dto.setJoined(false);
+            dto.setNotificationsOn(false);
+        }
 
         return dto;
     }
 
+    /**
+     * Toggle notifications for a community
+     */
+    @PostMapping("/{slug}/notifications/toggle")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> toggleCommunityNotifications(@PathVariable String slug) {
+        boolean isNotificationsOn = communityService.toggleCommunityNotifications(slug);
 
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("isNotificationsOn", isNotificationsOn);
+        response.put("message", isNotificationsOn ?
+                "Notifications turned on for this community" :
+                "Notifications turned off for this community");
+
+        return ResponseEntity.ok(response);
+    }
 }
