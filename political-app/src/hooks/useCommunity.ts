@@ -12,7 +12,8 @@ import {
   getCommunityPosts, 
   joinCommunity, 
   leaveCommunity,
-  createCommunityPost 
+  createCommunityPost,
+  toggleCommunityNotifications
 } from "@/api/communities";
 import useSWR from "swr";
 import axios from "axios";
@@ -28,7 +29,7 @@ type UseCommunityReturn = {
   isNotificationsOn: boolean;
   memberCount: number;
   handleToggleMembership: () => Promise<void>;
-  handleToggleNotifications: () => void;
+  handleToggleNotifications: () => Promise<void>;
   handlePostCreated: () => Promise<void>;
 };
 
@@ -254,11 +255,30 @@ export const useCommunity = (
   };
 
   // Toggle notifications
-  const handleToggleNotifications = () => {
+  const handleToggleNotifications = async () => {
+    if (!isAuthenticated || !community) return;
+    
+    // Optimistically update UI
     setIsNotificationsOn(!isNotificationsOn);
     
-    // In a real app, you'd make an API call here to update notification preferences
-    // For now, we'll just toggle the state locally
+    try {
+      // Call the API to toggle notifications
+      const response = await toggleCommunityNotifications(community.id);
+      
+      if (!response.success) {
+        // Revert if API call failed
+        setIsNotificationsOn(isNotificationsOn);
+        console.error('Failed to toggle notifications:', response.message);
+      } else if (response.isNotificationsOn !== undefined) {
+        // If the API provides the new state, use that (to ensure consistency)
+        setIsNotificationsOn(response.isNotificationsOn);
+      }
+    } catch (error) {
+      console.error("Error toggling community notifications:", error);
+      
+      // Revert UI state on error
+      setIsNotificationsOn(isNotificationsOn);
+    }
   };
 
   // Refresh posts after creating a new one

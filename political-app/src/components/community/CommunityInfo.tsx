@@ -44,6 +44,7 @@ const CommunityInfo = ({ community, memberCount, onJoin }: CommunityInfoProps) =
             </div>
           </div>
 
+          {/* Only show Join button if user has not joined the community */}
           {!isJoined && (
             <Button className="w-full" onClick={onJoin}>
               Join Community

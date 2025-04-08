@@ -249,3 +249,26 @@ export const checkCommunityMembership = async (slug: string): Promise<boolean> =
     return false;
   }
 };
+
+/**
+ * Toggle notification settings for a community
+ */
+export const toggleCommunityNotifications = async (slug: string): Promise<{success: boolean; isNotificationsOn?: boolean; message?: string}> => {
+  try {
+    const response = await apiClient.post<{success: boolean; isNotificationsOn: boolean; message?: string}>(
+      `/communities/${slug}/notifications/toggle`, 
+      {}, 
+      { withCredentials: true }
+    );
+    
+    return { 
+      ...response.data,
+      // Set success to true if not defined in response
+      ...(response.data.success === undefined ? { success: true } : {})
+    };
+  } catch (error) {
+    console.error(`Error toggling notifications for community ${slug}:`, error);
+    return { success: false, message: getErrorMessage(error) };
+  }
+};
+
