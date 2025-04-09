@@ -73,38 +73,41 @@ const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError 
   }
 
   // Loading state
- if (isLoading) {
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Navbar />
-      <div className="max-w-5xl mx-auto p-6">
-        <LoadingState message="Loading community..." />
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Navbar />
+        <div className="max-w-5xl mx-auto p-6">
+          <LoadingState message="Loading community..." />
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-if (error) {
-  const handleRetry = (): void => {
-    // Either refresh the page
-    router.reload();
-    // Or we could implement a manual refetch if the useCommunity hook provides such functionality
-    // For example: refetchCommunity(id as string);
-  };
+  if (error) {
+    const handleRetry = (): void => {
+      // Either refresh the page
+      router.reload();
+      // Or we could implement a manual refetch if the useCommunity hook provides such functionality
+      // For example: refetchCommunity(id as string);
+    };
 
-  return (
-    <div className="min-h-screen bg-background text-foreground">
-      <Navbar />
-      <div className="max-w-5xl mx-auto p-6">
-        <BackButton fallbackUrl="/community" className="mb-4" />
-        <ErrorState message={error || "Community not found"} onRetry={handleRetry} />
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Navbar />
+        <div className="max-w-5xl mx-auto p-6">
+          <BackButton fallbackUrl="/community" className="mb-4" />
+          <ErrorState message={error || "Community not found"} onRetry={handleRetry} />
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div 
+      key={`community-${id}`} // Add this key prop to force re-renders between communities
+      className="min-h-screen bg-background text-foreground"
+    >
       <Navbar />
 
       {/* Community Banner */}
@@ -174,8 +177,17 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     console.log(`[SSR] Fetching data for community: ${id}`);
     const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
     
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    
     // Fetch community data
-    const communityResponse = await axios.get(`${API_BASE_URL}/communities/${id}`);
+    const communityResponse = await axios.get(`${API_BASE_URL}/communities/${id}?t=${timestamp}`, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
     const communityData = communityResponse.data as Community;
     
     // Transform API response to CommunityData
