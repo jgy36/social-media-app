@@ -16,6 +16,14 @@ public class SecurityUtils {
                 "anonymousUser".equals(authentication.getPrincipal())) {
             return null;
         }
-        return authentication.getName();
+
+        // Get the principal name (likely an email)
+        String principalName = authentication.getName();
+        System.out.println("🔑 Principal name: " + principalName);
+
+        // Return the principal name (even if it's an email)
+        return principalName;
     }
+
+
 }

@@ -18,10 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class CommunityService {
@@ -370,9 +367,23 @@ public class CommunityService {
      * @return The new notification state (true = on, false = off)
      */
     public boolean toggleCommunityNotifications(String slug) {
-        // Get the current user
-        User currentUser = userRepository.findByUsername(SecurityUtils.getCurrentUsername())
-                .orElseThrow(() -> new RuntimeException("User not authenticated"));
+        // Get the current user's principal name (might be email)
+        String principalName = SecurityUtils.getCurrentUsername();
+        if (principalName == null) {
+            throw new RuntimeException("User not authenticated");
+        }
+
+        // Try to find by username first
+        Optional<User> userOpt = userRepository.findByUsername(principalName);
+
+        // If not found by username, try by email
+        if (userOpt.isEmpty()) {
+            userOpt = userRepository.findByEmail(principalName);
+        }
+
+        User currentUser = userOpt.orElseThrow(() ->
+                new RuntimeException("User not found with identifier: " + principalName));
+
 
         // Get the community
         Community community = communityRepository.findBySlug(slug)
