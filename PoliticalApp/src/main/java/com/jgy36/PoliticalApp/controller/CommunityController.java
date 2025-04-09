@@ -14,12 +14,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -222,15 +221,32 @@ public class CommunityController {
     @PostMapping("/{slug}/notifications/toggle")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> toggleCommunityNotifications(@PathVariable String slug) {
-        boolean isNotificationsOn = communityService.toggleCommunityNotifications(slug);
+// Debug authentication state
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        System.out.println("🔍 Authentication object: " + auth);
+        System.out.println("🔍 Authentication name: " + (auth != null ? auth.getName() : "null"));
+        System.out.println("🔍 Authentication principal: " + (auth != null ? auth.getPrincipal() : "null"));
+        System.out.println("🔍 Is authenticated: " + (auth != null && auth.isAuthenticated()));
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("isNotificationsOn", isNotificationsOn);
-        response.put("message", isNotificationsOn ?
-                "Notifications turned on for this community" :
-                "Notifications turned off for this community");
+        try {
+            boolean isNotificationsOn = communityService.toggleCommunityNotifications(slug);
 
-        return ResponseEntity.ok(response);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("isNotificationsOn", isNotificationsOn);
+            response.put("message", isNotificationsOn ?
+                    "Notifications turned on for this community" :
+                    "Notifications turned off for this community");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.out.println("❌ Error in toggle: " + e.getMessage());
+            System.out.println("❌ Stack trace: " + Arrays.toString(e.getStackTrace()));
+            throw e;
+
+
+        }
     }
 }
+
+
