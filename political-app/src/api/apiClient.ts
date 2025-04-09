@@ -1,4 +1,4 @@
-// src/api/apiClient.ts - Fixed TypeScript errors
+// src/api/apiClient.ts - Enhanced with better token validation and logging
 import axios from "axios";
 import { getToken, isAuthenticated } from "@/utils/tokenUtils";
 import {
@@ -7,6 +7,7 @@ import {
   hasResponseProperty,
   isNetworkError,
 } from "@/utils/apiErrorHandler";
+import { store } from "@/redux/store"; // Import store for state access
 
 // API configuration
 export const API_BASE_URL =
@@ -61,6 +62,24 @@ const processQueue = (error: Error | null, value: unknown = null) => {
 };
 
 /**
+ * Validate authentication state - checks if token exists and matches Redux state
+ * @returns {boolean} Whether authentication is valid
+ */
+export const validateAuthState = (): boolean => {
+  const token = getToken();
+  const isAuthInRedux = store.getState().user.isAuthenticated;
+  
+  // Log mismatch for debugging
+  if (isAuthInRedux && !token) {
+    console.warn('Authentication state mismatch: Redux shows authenticated but token is missing');
+    // Consider dispatching an action to fix Redux state if needed
+    // store.dispatch(forceAuthenticated(false));
+  }
+  
+  return !!token;
+};
+
+/**
  * Create a configured axios instance for API requests
  */
 export const createApiClient = (options: ApiClientOptions = {}) => {
@@ -85,13 +104,26 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
     }
   });
 
-  // Request interceptor - add auth token if available
+  // Request interceptor - add auth token if available with enhanced logging
   instance.interceptors.request.use(
     (config) => {
       const token = getToken();
+      
+      // Enhanced logging for problematic endpoints
+      if (config.url?.includes('notifications/toggle')) {
+        console.log('Making notifications toggle request:');
+        console.log('- Token exists:', !!token);
+        console.log('- Auth headers:', config.headers?.Authorization ? 'present' : 'missing');
+        console.log('- Redux auth state:', store.getState().user.isAuthenticated);
+      }
+      
       if (token) {
         config.headers = config.headers || {};
         config.headers["Authorization"] = `Bearer ${token}`;
+      } else if (config.url?.includes('notifications/toggle') || 
+                 config.url?.includes('/communities/') && config.method?.toUpperCase() === 'POST') {
+        // For critical authenticated endpoints, log warning when token is missing
+        console.warn(`Making authenticated request to ${config.url} without token`);
       }
       
       // Add cache busting headers
@@ -104,7 +136,7 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
     (error) => Promise.reject(error)
   );
 
-  // Response interceptor - handle token refresh
+  // Response interceptor - handle token refresh and auth errors
   if (config.autoRefreshToken) {
     instance.interceptors.response.use(
       (response) => response,
@@ -112,6 +144,20 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
         // Check if error has a response
         const errorWithResponse = hasResponseProperty(error) && error.response;
         const originalRequest = error.config as ExtendedRequestConfig;
+
+        // Log authentication errors for sensitive endpoints to help debugging
+        if (
+          errorWithResponse && 
+          error.response?.status === 401 &&
+          (originalRequest.url?.includes('notifications/toggle') ||
+           originalRequest.url?.includes('/communities/') && originalRequest.method?.toUpperCase() === 'POST')
+        ) {
+          console.error(`Authentication failed for ${originalRequest.url}`, {
+            hasToken: !!getToken(),
+            isAuthenticated: isAuthenticated(),
+            reduxAuthState: store.getState().user.isAuthenticated
+          });
+        }
 
         // Only attempt refresh on 401 errors with a config and no _retry flag
         if (
@@ -140,8 +186,9 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
           isRefreshing = true;
 
           try {
+            console.log('Attempting to refresh token...');
             // Try to refresh the token (cookie-based)
-            await axios.post(
+            const refreshResponse = await axios.post<TokenRefreshResponse>(
               `${API_BASE_URL}/auth/refresh`,
               {},
               { 
@@ -153,12 +200,26 @@ export const createApiClient = (options: ApiClientOptions = {}) => {
               }
             );
 
-            // Process queued requests - no need to pass token as the cookie is set
+            // Check if we got a new token in the response
+            if (refreshResponse.data && refreshResponse.data.token) {
+              console.log('Token refresh successful - updating token');
+              // Update the token in storage
+              const newToken = refreshResponse.data.token;
+              const tokenUtil = await import("@/utils/tokenUtils");
+              tokenUtil.setToken(newToken);
+              
+              // Update the Authorization header for the original request
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+            }
+
+            // Process queued requests
             processQueue(null);
 
             // Retry the original request
             return instance(originalRequest);
           } catch (refreshError) {
+            console.error('Token refresh failed:', refreshError);
             processQueue(
               refreshError instanceof Error
                 ? refreshError
@@ -218,6 +279,37 @@ export const resilientApiClient = createApiClient({
   maxRetries: 2,
 });
 
+// Explicitly validate tokens before making authenticated requests
+export const ensureAuthenticatedRequest = async (
+  endpoint: string,
+  method = "GET",
+  body?: unknown
+) => {
+  // Validate token exists
+  const token = getToken();
+  if (!token) {
+    throw new ApiError("Authentication required. Please log in again.");
+  }
+  
+  // Make the request with explicit token
+  const config: ExtendedRequestConfig = {
+    method,
+    url: endpoint,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache'
+    },
+    withCredentials: true
+  };
+
+  if (body) {
+    config.data = body;
+  }
+
+  return apiClient(config);
+};
+
 // Simplified fetch with token function
 export const fetchWithToken = async (
   endpoint: string,
@@ -226,10 +318,16 @@ export const fetchWithToken = async (
   expectTextResponse = false
 ) => {
   try {
+    const token = getToken();
     const config: ExtendedRequestConfig = {
       method,
       url: endpoint,
-      withCredentials: true // Always use credentials
+      withCredentials: true, // Always use credentials
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
     };
 
     if (body) {
@@ -243,3 +341,4 @@ export const fetchWithToken = async (
     throw new ApiError(getErrorMessage(error));
   }
 };
+

@@ -3,22 +3,23 @@
 import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
-import { 
-  joinCommunity as joinCommunityAction, 
-  leaveCommunity as leaveCommunityAction 
+import {
+  joinCommunity as joinCommunityAction,
+  leaveCommunity as leaveCommunityAction,
 } from "@/redux/slices/communitySlice";
-import { 
-  getCommunityBySlug, 
-  getCommunityPosts, 
-  joinCommunity, 
+import {
+  getCommunityBySlug,
+  getCommunityPosts,
+  joinCommunity,
   leaveCommunity,
   createCommunityPost,
-  toggleCommunityNotifications
+  toggleCommunityNotifications,
 } from "@/api/communities";
 import useSWR from "swr";
 import axios from "axios";
 import { CommunityData, CommunityMembershipResponse } from "@/types/community";
 import { PostType } from "@/types/post";
+import { getToken } from "@/utils/tokenUtils";
 
 type UseCommunityReturn = {
   community: CommunityData | null;
@@ -33,7 +34,8 @@ type UseCommunityReturn = {
   handlePostCreated: () => Promise<void>;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
 // SWR fetcher function for community data
 const fetchCommunity = async (url: string): Promise<CommunityData> => {
@@ -63,7 +65,7 @@ const fetchCommunity = async (url: string): Promise<CommunityData> => {
       banner: data.banner,
       color: data.color,
       isJoined: data.isJoined,
-      isNotificationsOn: data.isNotificationsOn || false
+      isNotificationsOn: data.isNotificationsOn || false,
     };
   } catch (error) {
     console.error(`Error fetching community:`, error);
@@ -89,27 +91,39 @@ export const useCommunity = (
   serverError?: string
 ): UseCommunityReturn => {
   // Component state
-  const [community, setCommunity] = useState<CommunityData | null>(initialCommunityData || null);
+  const [community, setCommunity] = useState<CommunityData | null>(
+    initialCommunityData || null
+  );
   const [posts, setPosts] = useState<PostType[]>(initialPosts || []);
   const [isLoading, setIsLoading] = useState(!initialCommunityData);
   const [error, setError] = useState<string | null>(serverError || null);
-  const [isJoined, setIsJoined] = useState(initialCommunityData?.isJoined || false);
-  const [isNotificationsOn, setIsNotificationsOn] = useState(initialCommunityData?.isNotificationsOn || false);
-  const [memberCount, setMemberCount] = useState(initialCommunityData?.members || 0);
+  const [isJoined, setIsJoined] = useState(
+    initialCommunityData?.isJoined || false
+  );
+  const [isNotificationsOn, setIsNotificationsOn] = useState(
+    initialCommunityData?.isNotificationsOn || false
+  );
+  const [memberCount, setMemberCount] = useState(
+    initialCommunityData?.members || 0
+  );
 
   // Redux hooks
   const dispatch = useDispatch<AppDispatch>();
   const currentUser = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!currentUser.token;
-  const joinedCommunityIds = useSelector((state: RootState) => state.communities.joinedCommunities);
+  const joinedCommunityIds = useSelector(
+    (state: RootState) => state.communities.joinedCommunities
+  );
 
   // SWR data fetching (only if communityId exists)
-  const { data: swrCommunityData, error: swrError } = useSWR<CommunityData>(
+  const { data: swrCommunityData, error: swrError, mutate: mutateCommunity } = useSWR<CommunityData>(
     communityId ? `${API_BASE_URL}/communities/${communityId}` : null,
     communityId ? fetchCommunity : null,
     {
       fallbackData: initialCommunityData,
-      revalidateOnFocus: false,
+      revalidateOnFocus: true,  // Revalidate when tab gets focus
+      revalidateOnMount: true,  // Always revalidate when component mounts
+      dedupingInterval: 0,      // Disable deduping
     }
   );
 
@@ -123,20 +137,56 @@ export const useCommunity = (
     }
   );
 
+  // Add this effect to force refresh when the community ID changes
+  useEffect(() => {
+    // Force refresh community data when navigating between communities
+    if (communityId) {
+      const refreshCommunityData = async () => {
+        try {
+          // Explicitly bypass cache by fetching fresh data
+          const freshData = await getCommunityBySlug(communityId);
+          if (freshData) {
+            // Transform to match CommunityData type with proper defaults
+            const typedData: CommunityData = {
+              ...freshData,
+              rules: freshData.rules || [], // Ensure rules is always an array
+              moderators: freshData.moderators || [],
+              isNotificationsOn: freshData.isNotificationsOn || false
+            };
+            setCommunity(typedData);
+            setIsJoined(joinedCommunityIds.includes(communityId));
+            setIsNotificationsOn(freshData.isNotificationsOn || false);
+            setMemberCount(freshData.members);
+            
+            // Also update SWR cache
+            if (mutateCommunity) {
+              // Use the already created typedData that matches CommunityData type
+              mutateCommunity(typedData, false);
+            }
+          }
+        } catch (error) {
+          console.error('Error refreshing community data:', error);
+        }
+      };
+      
+      refreshCommunityData();
+    }
+  }, [communityId, joinedCommunityIds, mutateCommunity]);
+
   // Update state from SWR data when it changes
   useEffect(() => {
     if (swrCommunityData) {
       setCommunity(swrCommunityData);
-      // Use Redux state as source of truth for joined status 
+      // Use Redux state as source of truth for joined status
       setIsJoined(joinedCommunityIds.includes(swrCommunityData.id));
       setIsNotificationsOn(swrCommunityData.isNotificationsOn || false);
       setMemberCount(swrCommunityData.members || 0);
     }
-    
+
     if (swrError) {
       setError("Failed to load community data");
     }
-    
+
     setIsLoading(false);
   }, [swrCommunityData, swrError, joinedCommunityIds]);
 
@@ -153,22 +203,22 @@ export const useCommunity = (
     if (!communityId || initialCommunityData) {
       return;
     }
-    
+
     const loadCommunity = async () => {
       setIsLoading(true);
       setError(null);
-      
+
       try {
         // Check if this community is in our joined list from Redux
         const isInJoinedList = joinedCommunityIds.includes(communityId);
-        
+
         // Fetch community details
         const communityData = await getCommunityBySlug(communityId);
-        
+
         if (!communityData) {
           throw new Error("Community not found");
         }
-        
+
         // Convert to CommunityData type with defaults for optional fields
         const typedCommunity: CommunityData = {
           id: communityData.id,
@@ -181,14 +231,14 @@ export const useCommunity = (
           banner: communityData.banner,
           color: communityData.color,
           isJoined: isInJoinedList,
-          isNotificationsOn: communityData.isNotificationsOn || false
+          isNotificationsOn: communityData.isNotificationsOn || false,
         };
-        
+
         setCommunity(typedCommunity);
         setIsJoined(isInJoinedList);
         setIsNotificationsOn(typedCommunity.isNotificationsOn);
         setMemberCount(typedCommunity.members);
-        
+
         // Fetch posts for this community
         try {
           const postsData = await getCommunityPosts(communityId);
@@ -197,7 +247,6 @@ export const useCommunity = (
           console.warn("Error fetching posts, using empty array:", postsErr);
           setPosts([]);
         }
-        
       } catch (err) {
         console.error("Error loading community:", err);
         setError("Failed to load community data");
@@ -205,27 +254,27 @@ export const useCommunity = (
         setIsLoading(false);
       }
     };
-    
+
     loadCommunity();
   }, [communityId, joinedCommunityIds, initialCommunityData]);
 
   // Handle joining/leaving the community
   const handleToggleMembership = async () => {
     if (!isAuthenticated || !community) return;
-    
+
     // Optimistically update UI
     setIsJoined(!isJoined);
-    
+
     // Update member count
-    setMemberCount(prevCount => isJoined ? prevCount - 1 : prevCount + 1);
-    
+    setMemberCount((prevCount) => (isJoined ? prevCount - 1 : prevCount + 1));
+
     try {
       let response: CommunityMembershipResponse;
-      
+
       if (isJoined) {
         // Leave community
         response = await leaveCommunity(community.id);
-        
+
         // Update Redux store if operation was successful
         if (response.success) {
           dispatch(leaveCommunityAction(community.id));
@@ -233,50 +282,72 @@ export const useCommunity = (
       } else {
         // Join community
         response = await joinCommunity(community.id);
-        
+
         // Update Redux store if operation was successful
         if (response.success) {
           dispatch(joinCommunityAction(community.id));
         }
       }
-      
+
       if (!response.success) {
         // Revert if API call failed
         setIsJoined(!isJoined);
-        setMemberCount(prevCount => isJoined ? prevCount + 1 : prevCount - 1);
+        setMemberCount((prevCount) =>
+          isJoined ? prevCount + 1 : prevCount - 1
+        );
       }
     } catch (error) {
       console.error("Error toggling community membership:", error);
-      
+
       // Revert UI state on error
       setIsJoined(!isJoined);
-      setMemberCount(prevCount => isJoined ? prevCount + 1 : prevCount - 1);
+      setMemberCount((prevCount) => (isJoined ? prevCount + 1 : prevCount - 1));
     }
   };
 
-  // Toggle notifications
   const handleToggleNotifications = async () => {
     if (!isAuthenticated || !community) return;
-    
+
     // Optimistically update UI
     setIsNotificationsOn(!isNotificationsOn);
-    
+
     try {
       // Call the API to toggle notifications
       const response = await toggleCommunityNotifications(community.id);
-      
+      console.log("Notification toggle response:", response);
+
       if (!response.success) {
         // Revert if API call failed
         setIsNotificationsOn(isNotificationsOn);
-        console.error('Failed to toggle notifications:', response.message);
-      } else if (response.isNotificationsOn !== undefined) {
-        // If the API provides the new state, use that (to ensure consistency)
-        setIsNotificationsOn(response.isNotificationsOn);
+        console.error("Failed to toggle notifications:", response.message);
+      } else {
+        // Important: Use the server's returned value rather than just toggling
+        // This ensures we're in sync with the server state
+        if (response.isNotificationsOn !== undefined) {
+          setIsNotificationsOn(response.isNotificationsOn);
+
+          // Force update the community object to include the new notification state
+          // This ensures the state persists if the component re-renders
+          setCommunity((prevCommunity) => {
+            if (!prevCommunity) return null;
+            return {
+              ...prevCommunity,
+              isNotificationsOn: response.isNotificationsOn ?? false,
+            };
+          });
+          
+          // Also update SWR cache
+          if (mutateCommunity && community) {
+            const updatedCommunity = {
+              ...community,
+              isNotificationsOn: response.isNotificationsOn
+            };
+            mutateCommunity(updatedCommunity, false);
+          }
+        }
       }
     } catch (error) {
       console.error("Error toggling community notifications:", error);
-      
-      // Revert UI state on error
       setIsNotificationsOn(isNotificationsOn);
     }
   };
@@ -284,12 +355,12 @@ export const useCommunity = (
   // Refresh posts after creating a new one
   const handlePostCreated = async () => {
     if (!communityId) return;
-    
+
     try {
       // Fetch the latest posts
       const freshPosts = await getCommunityPosts(communityId);
       setPosts(freshPosts);
-      
+
       // Update SWR cache
       if (mutatePosts) {
         mutatePosts(freshPosts);
@@ -309,6 +380,6 @@ export const useCommunity = (
     memberCount,
     handleToggleMembership,
     handleToggleNotifications,
-    handlePostCreated
+    handlePostCreated,
   };
 };

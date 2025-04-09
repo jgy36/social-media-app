@@ -18,23 +18,57 @@ const BIO_KEY = 'bio';
 const PROFILE_IMAGE_KEY = 'profileImageUrl';
 const IS_AUTHENTICATED_KEY = 'isAuthenticated'; // New key for auth status
 
-// Store token in session-specific storage
+// In tokenUtils.ts, modify setToken and getToken
+
+// Store token in both session and local storage for redundancy
 export const setToken = (token: string) => {
-  if (!isBrowser) return; // Skip if not in browser
+  if (!isBrowser) return;
   
   try {
+    // Store in session storage (regular behavior)
     setSessionItem(TOKEN_KEY, token);
+    
+    // Also store in localStorage with expiration info
+    const tokenData = {
+      token,
+      expiry: Date.now() + (24 * 60 * 60 * 1000) // 24-hour fallback expiry
+    };
+    localStorage.setItem('auth_token_backup', JSON.stringify(tokenData));
   } catch (error) {
     console.error('Error storing token:', error);
   }
 };
 
-// Get token from session-specific storage
+// Get token with fallback to localStorage backup
 export const getToken = (): string | null => {
-  if (!isBrowser) return null; // Return null if not in browser
+  if (!isBrowser) return null;
   
   try {
-    return getSessionItem(TOKEN_KEY);
+    // First try session storage (primary storage)
+    const sessionToken = getSessionItem(TOKEN_KEY);
+    if (sessionToken) return sessionToken;
+    
+    // If not in session storage, try localStorage backup
+    const tokenDataStr = localStorage.getItem('auth_token_backup');
+    if (tokenDataStr) {
+      try {
+        const tokenData = JSON.parse(tokenDataStr);
+        // Check if backup token is still valid (not expired)
+        if (tokenData.expiry > Date.now()) {
+          console.log('Using backup token from localStorage');
+          // Restore to session storage for future requests
+          setSessionItem(TOKEN_KEY, tokenData.token);
+          return tokenData.token;
+        } else {
+          // Token expired, clean up
+          localStorage.removeItem('auth_token_backup');
+        }
+      } catch (e) {
+        console.error('Error parsing backup token:', e);
+      }
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error retrieving token:', error);
     return null;
@@ -418,3 +452,4 @@ export const clearUserData = () => {
   // Clear current user ID
   sessionStorage.removeItem('currentUserId');
 };
+

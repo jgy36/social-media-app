@@ -1,24 +1,42 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/communities.ts - Updated with more robust error handling
-import { apiClient, getErrorMessage } from './apiClient';
+import { apiClient, getErrorMessage, API_BASE_URL } from "./apiClient";
 import { 
   Community, 
   CreateCommunityRequest, 
   CommunityMembershipResponse, 
   PostResponse, 
   CreatePostRequest 
-} from './types';
+} from "./types";
+import { getToken } from "@/utils/tokenUtils";
+
+
+// Helper type guard for error responses
+const isErrorWithResponse = (error: unknown): error is { 
+  response?: { 
+    status?: number; 
+    data?: unknown;
+  } 
+} => {
+  return (
+    typeof error === 'object' && 
+    error !== null && 
+    'response' in (error as Record<string, unknown>) && 
+    typeof (error as any).response === 'object'
+  );
+};
 
 /**
  * Get all communities
  */
 export const getAllCommunities = async (): Promise<Community[]> => {
   try {
-    const response = await apiClient.get<Community[]>('/communities', {
-      withCredentials: true
+    const response = await apiClient.get<Community[]>("/communities", {
+      withCredentials: true,
     });
     return response.data;
   } catch (error) {
-    console.error('Error fetching communities:', error);
+    console.error("Error fetching communities:", error);
     return [];
   }
 };
@@ -26,11 +44,25 @@ export const getAllCommunities = async (): Promise<Community[]> => {
 /**
  * Get a community by slug/id
  */
-export const getCommunityBySlug = async (slug: string): Promise<Community | null> => {
+// In communities.ts - modify your existing getCommunityBySlug function
+export const getCommunityBySlug = async (
+  slug: string
+): Promise<Community | null> => {
   try {
-    const response = await apiClient.get<Community>(`/communities/${slug}`, {
-      withCredentials: true
-    });
+    // Add cache busting timestamp parameter
+    const timestamp = new Date().getTime();
+    const response = await apiClient.get<Community>(
+      `/communities/${slug}?t=${timestamp}`,
+      {
+        withCredentials: true,
+        headers: {
+          // Add cache busting headers
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      }
+    );
     return response.data;
   } catch (error) {
     console.error(`Error fetching community ${slug}:`, error);
@@ -41,14 +73,19 @@ export const getCommunityBySlug = async (slug: string): Promise<Community | null
 /**
  * Get popular communities
  */
-export const getPopularCommunities = async (limit: number = 5): Promise<Community[]> => {
+export const getPopularCommunities = async (
+  limit: number = 5
+): Promise<Community[]> => {
   try {
-    const response = await apiClient.get<Community[]>(`/communities/popular?limit=${limit}`, {
-      withCredentials: true
-    });
+    const response = await apiClient.get<Community[]>(
+      `/communities/popular?limit=${limit}`,
+      {
+        withCredentials: true,
+      }
+    );
     return response.data;
   } catch (error) {
-    console.error('Error fetching popular communities:', error);
+    console.error("Error fetching popular communities:", error);
     return [];
   }
 };
@@ -56,14 +93,16 @@ export const getPopularCommunities = async (limit: number = 5): Promise<Communit
 /**
  * Create a new community
  */
-export const createCommunity = async (data: CreateCommunityRequest): Promise<Community> => {
+export const createCommunity = async (
+  data: CreateCommunityRequest
+): Promise<Community> => {
   try {
-    const response = await apiClient.post<Community>('/communities', data, {
-      withCredentials: true
+    const response = await apiClient.post<Community>("/communities", data, {
+      withCredentials: true,
     });
     return response.data;
   } catch (error) {
-    console.error('Error creating community:', error);
+    console.error("Error creating community:", error);
     throw new Error(getErrorMessage(error));
   }
 };
@@ -71,35 +110,51 @@ export const createCommunity = async (data: CreateCommunityRequest): Promise<Com
 /**
  * Join a community
  */
-export const joinCommunity = async (slug: string): Promise<CommunityMembershipResponse> => {
+export const joinCommunity = async (
+  slug: string
+): Promise<CommunityMembershipResponse> => {
   try {
-    const response = await apiClient.post<CommunityMembershipResponse>(`/communities/${slug}/join`, {}, {
-      withCredentials: true
-    });
-    
+    const response = await apiClient.post<CommunityMembershipResponse>(
+      `/communities/${slug}/join`,
+      {},
+      {
+        withCredentials: true,
+      }
+    );
+
     // Save to local storage for persistence
     try {
-      const currentUserId = localStorage.getItem('currentUserId');
+      const currentUserId = localStorage.getItem("currentUserId");
       if (currentUserId) {
         // Get existing joined communities
-        const joinedCommunitiesJson = localStorage.getItem(`user_${currentUserId}_joinedCommunities`);
-        const joinedCommunities = joinedCommunitiesJson ? JSON.parse(joinedCommunitiesJson) : [];
-        
+        const joinedCommunitiesJson = localStorage.getItem(
+          `user_${currentUserId}_joinedCommunities`
+        );
+        const joinedCommunities = joinedCommunitiesJson
+          ? JSON.parse(joinedCommunitiesJson)
+          : [];
+
         // Add this community if not already present
         if (!joinedCommunities.includes(slug)) {
           joinedCommunities.push(slug);
-          localStorage.setItem(`user_${currentUserId}_joinedCommunities`, JSON.stringify(joinedCommunities));
+          localStorage.setItem(
+            `user_${currentUserId}_joinedCommunities`,
+            JSON.stringify(joinedCommunities)
+          );
         }
       }
     } catch (storageError) {
-      console.error('Error updating local storage after joining community:', storageError);
+      console.error(
+        "Error updating local storage after joining community:",
+        storageError
+      );
     }
-    
+
     // Spread the response data and add success property if not already present
-    return { 
+    return {
       ...response.data,
       // Only set success to true if it's not already defined in response.data
-      ...(response.data.success === undefined ? { success: true } : {})
+      ...(response.data.success === undefined ? { success: true } : {}),
     };
   } catch (error) {
     console.error(`Error joining community ${slug}:`, error);
@@ -110,43 +165,65 @@ export const joinCommunity = async (slug: string): Promise<CommunityMembershipRe
 /**
  * Leave a community
  */
-export const leaveCommunity = async (slug: string): Promise<CommunityMembershipResponse> => {
+export const leaveCommunity = async (
+  slug: string
+): Promise<CommunityMembershipResponse> => {
   try {
-    const response = await apiClient.delete<CommunityMembershipResponse>(`/communities/${slug}/leave`, {
-      withCredentials: true
-    });
-    
+    const response = await apiClient.delete<CommunityMembershipResponse>(
+      `/communities/${slug}/leave`,
+      {
+        withCredentials: true,
+      }
+    );
+
     // Update local storage
     try {
-      const currentUserId = localStorage.getItem('currentUserId');
+      const currentUserId = localStorage.getItem("currentUserId");
       if (currentUserId) {
         // Get existing joined communities
-        const joinedCommunitiesJson = localStorage.getItem(`user_${currentUserId}_joinedCommunities`);
+        const joinedCommunitiesJson = localStorage.getItem(
+          `user_${currentUserId}_joinedCommunities`
+        );
         if (joinedCommunitiesJson) {
           const joinedCommunities = JSON.parse(joinedCommunitiesJson);
-          
+
           // Remove this community
-          const updatedCommunities = joinedCommunities.filter((id: string) => id !== slug);
-          localStorage.setItem(`user_${currentUserId}_joinedCommunities`, JSON.stringify(updatedCommunities));
-          
+          const updatedCommunities = joinedCommunities.filter(
+            (id: string) => id !== slug
+          );
+          localStorage.setItem(
+            `user_${currentUserId}_joinedCommunities`,
+            JSON.stringify(updatedCommunities)
+          );
+
           // Also update featured communities if needed
-          const featuredCommunitiesJson = localStorage.getItem(`user_${currentUserId}_featuredCommunities`);
+          const featuredCommunitiesJson = localStorage.getItem(
+            `user_${currentUserId}_featuredCommunities`
+          );
           if (featuredCommunitiesJson) {
             const featuredCommunities = JSON.parse(featuredCommunitiesJson);
-            const updatedFeatured = featuredCommunities.filter((id: string) => id !== slug);
-            localStorage.setItem(`user_${currentUserId}_featuredCommunities`, JSON.stringify(updatedFeatured));
+            const updatedFeatured = featuredCommunities.filter(
+              (id: string) => id !== slug
+            );
+            localStorage.setItem(
+              `user_${currentUserId}_featuredCommunities`,
+              JSON.stringify(updatedFeatured)
+            );
           }
         }
       }
     } catch (storageError) {
-      console.error('Error updating local storage after leaving community:', storageError);
+      console.error(
+        "Error updating local storage after leaving community:",
+        storageError
+      );
     }
-    
+
     // Spread the response data and add success property if not already present
-    return { 
+    return {
       ...response.data,
       // Only set success to true if it's not already defined in response.data
-      ...(response.data.success === undefined ? { success: true } : {})
+      ...(response.data.success === undefined ? { success: true } : {}),
     };
   } catch (error) {
     console.error(`Error leaving community ${slug}:`, error);
@@ -157,11 +234,16 @@ export const leaveCommunity = async (slug: string): Promise<CommunityMembershipR
 /**
  * Get posts for a community
  */
-export const getCommunityPosts = async (slug: string): Promise<PostResponse[]> => {
+export const getCommunityPosts = async (
+  slug: string
+): Promise<PostResponse[]> => {
   try {
-    const response = await apiClient.get<PostResponse[]>(`/communities/${slug}/posts`, {
-      withCredentials: true
-    });
+    const response = await apiClient.get<PostResponse[]>(
+      `/communities/${slug}/posts`,
+      {
+        withCredentials: true,
+      }
+    );
     return response.data;
   } catch (error) {
     console.error(`Error fetching posts for community ${slug}:`, error);
@@ -172,12 +254,19 @@ export const getCommunityPosts = async (slug: string): Promise<PostResponse[]> =
 /**
  * Create a post in a community
  */
-export const createCommunityPost = async (slug: string, content: string): Promise<PostResponse> => {
+export const createCommunityPost = async (
+  slug: string,
+  content: string
+): Promise<PostResponse> => {
   try {
     const postData: CreatePostRequest = { content, communityId: slug };
-    const response = await apiClient.post<PostResponse>(`/communities/${slug}/posts`, postData, {
-      withCredentials: true
-    });
+    const response = await apiClient.post<PostResponse>(
+      `/communities/${slug}/posts`,
+      postData,
+      {
+        withCredentials: true,
+      }
+    );
     return response.data;
   } catch (error) {
     console.error(`Error creating post in community ${slug}:`, error);
@@ -188,11 +277,16 @@ export const createCommunityPost = async (slug: string, content: string): Promis
 /**
  * Search communities
  */
-export const searchCommunities = async (query: string): Promise<Community[]> => {
+export const searchCommunities = async (
+  query: string
+): Promise<Community[]> => {
   try {
-    const response = await apiClient.get<Community[]>(`/communities/search?query=${encodeURIComponent(query)}`, {
-      withCredentials: true
-    });
+    const response = await apiClient.get<Community[]>(
+      `/communities/search?query=${encodeURIComponent(query)}`,
+      {
+        withCredentials: true,
+      }
+    );
     return response.data;
   } catch (error) {
     console.error(`Error searching communities with query ${query}:`, error);
@@ -205,29 +299,40 @@ export const searchCommunities = async (query: string): Promise<Community[]> => 
  */
 export const getUserCommunities = async (): Promise<Community[]> => {
   try {
-    const response = await apiClient.get<Community[]>('/communities/user', {
-      withCredentials: true
+    const response = await apiClient.get<Community[]>("/communities/user", {
+      withCredentials: true,
     });
-    
+
     // Save to local storage for persistence
     try {
-      const currentUserId = localStorage.getItem('currentUserId');
+      const currentUserId = localStorage.getItem("currentUserId");
       if (currentUserId && response.data.length > 0) {
         // Extract just the community IDs/slugs
-        const communityIds = response.data.map(community => community.id);
-        localStorage.setItem(`user_${currentUserId}_joinedCommunities`, JSON.stringify(communityIds));
-        
+        const communityIds = response.data.map((community) => community.id);
+        localStorage.setItem(
+          `user_${currentUserId}_joinedCommunities`,
+          JSON.stringify(communityIds)
+        );
+
         // Also update featured communities if we don't have any yet
-        const featuredCommunitiesJson = localStorage.getItem(`user_${currentUserId}_featuredCommunities`);
-        if (!featuredCommunitiesJson || featuredCommunitiesJson === '[]') {
+        const featuredCommunitiesJson = localStorage.getItem(
+          `user_${currentUserId}_featuredCommunities`
+        );
+        if (!featuredCommunitiesJson || featuredCommunitiesJson === "[]") {
           const featuredIds = communityIds.slice(0, 5); // Take up to 5
-          localStorage.setItem(`user_${currentUserId}_featuredCommunities`, JSON.stringify(featuredIds));
+          localStorage.setItem(
+            `user_${currentUserId}_featuredCommunities`,
+            JSON.stringify(featuredIds)
+          );
         }
       }
     } catch (storageError) {
-      console.error('Error updating local storage after fetching user communities:', storageError);
+      console.error(
+        "Error updating local storage after fetching user communities:",
+        storageError
+      );
     }
-    
+
     return response.data;
   } catch (error) {
     console.error(`Error fetching user communities:`, error);
@@ -238,11 +343,16 @@ export const getUserCommunities = async (): Promise<Community[]> => {
 /**
  * Check if user is a member of a community
  */
-export const checkCommunityMembership = async (slug: string): Promise<boolean> => {
+export const checkCommunityMembership = async (
+  slug: string
+): Promise<boolean> => {
   try {
-    const response = await apiClient.get<{isMember: boolean}>(`/communities/${slug}/membership`, {
-      withCredentials: true
-    });
+    const response = await apiClient.get<{ isMember: boolean }>(
+      `/communities/${slug}/membership`,
+      {
+        withCredentials: true,
+      }
+    );
     return response.data.isMember;
   } catch (error) {
     console.error(`Error checking membership for community ${slug}:`, error);
@@ -253,22 +363,54 @@ export const checkCommunityMembership = async (slug: string): Promise<boolean> =
 /**
  * Toggle notification settings for a community
  */
-export const toggleCommunityNotifications = async (slug: string): Promise<{success: boolean; isNotificationsOn?: boolean; message?: string}> => {
+export const toggleCommunityNotifications = async (
+  slug: string
+): Promise<{
+  success: boolean;
+  isNotificationsOn?: boolean;
+  message?: string;
+}> => {
   try {
-    const response = await apiClient.post<{success: boolean; isNotificationsOn: boolean; message?: string}>(
-      `/communities/${slug}/notifications/toggle`, 
-      {}, 
-      { withCredentials: true }
+    const token = getToken();
+    console.log(`Toggling notifications with token: ${token ? "Present" : "Missing"}`);
+
+    // Use apiClient instead of axios directly
+    const response = await apiClient.post<{
+      success?: boolean;
+      isNotificationsOn?: boolean;
+      message?: string;
+    }>(
+      `/communities/${slug}/notifications/toggle`,
+      {},
+      {
+        headers: {
+          Authorization: `Bearer ${token || ''}`,
+          "Cache-Control": "no-cache",
+          "Pragma": "no-cache",
+        },
+        withCredentials: true,
+      }
     );
+
+    console.log("Notification toggle response:", response.data);
     
-    return { 
-      ...response.data,
-      // Set success to true if not defined in response
-      ...(response.data.success === undefined ? { success: true } : {})
+    // Return with definite success and the server's reported state
+    return {
+      success: response.data.success !== false, // Default to true if not specified
+      isNotificationsOn: response.data.isNotificationsOn,
+      message: response.data.message
     };
-  } catch (error) {
+  } catch (error: unknown) {
     console.error(`Error toggling notifications for community ${slug}:`, error);
+
+    // Enhanced error logging with type guard
+    if (isErrorWithResponse(error) && error.response) {
+      console.error(
+        `Status: ${error.response.status || 'unknown'}, Data:`,
+        error.response.data || 'No data'
+      );
+    }
+
     return { success: false, message: getErrorMessage(error) };
   }
 };
-
