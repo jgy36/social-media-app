@@ -1,9 +1,17 @@
-// src/components/community/CommunityHeader.tsx
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+// Updated CommunityHeader.tsx with explicit boolean checks
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Users, Bell, BellOff } from "lucide-react";
 import { CommunityData } from "@/types/community";
+import { Calendar } from "lucide-react";
+
 
 interface CommunityHeaderProps {
   community: CommunityData;
@@ -20,8 +28,13 @@ const CommunityHeader = ({
   isNotificationsOn,
   memberCount,
   onToggleMembership,
-  onToggleNotifications
+  onToggleNotifications,
 }: CommunityHeaderProps) => {
+  // Log the actual prop value to verify it's correct
+  console.log(
+    `CommunityHeader rendering with isNotificationsOn=${isNotificationsOn}`
+  );
+
   return (
     <Card className="shadow-lg border border-border mb-6">
       <CardHeader className="pb-4">
@@ -44,9 +57,7 @@ const CommunityHeader = ({
           <div className="flex space-x-2">
             <Button
               variant={isJoined ? "outline" : "default"}
-              className={`${
-                isJoined ? "border-primary/50 text-primary" : ""
-              }`}
+              className={`${isJoined ? "border-primary/50 text-primary" : ""}`}
               onClick={onToggleMembership}
             >
               <Users className="h-4 w-4 mr-2" />
@@ -57,11 +68,12 @@ const CommunityHeader = ({
               <Button
                 variant="outline"
                 className={`${
-                  isNotificationsOn ? "border-primary/50" : ""
+                  isNotificationsOn === true ? "border-primary/50" : ""
                 }`}
                 onClick={onToggleNotifications}
+                data-notifications={isNotificationsOn === true ? "on" : "off"}
               >
-                {isNotificationsOn ? (
+                {isNotificationsOn === true ? (
                   <Bell className="h-4 w-4 text-primary" />
                 ) : (
                   <BellOff className="h-4 w-4" />
@@ -84,6 +96,5 @@ const CommunityHeader = ({
 };
 
 // Import missing Calendar component
-import { Calendar } from "lucide-react";
 
 export default CommunityHeader;
