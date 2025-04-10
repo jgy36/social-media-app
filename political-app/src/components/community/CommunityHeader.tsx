@@ -1,40 +1,24 @@
-// Updated CommunityHeader.tsx with explicit boolean checks
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+// src/components/community/CommunityHeader.tsx
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Users, Bell, BellOff } from "lucide-react";
+import { Users, Calendar } from "lucide-react";
 import { CommunityData } from "@/types/community";
-import { Calendar } from "lucide-react";
-
+import NotificationToggle from "./NotificationToggle";
 
 interface CommunityHeaderProps {
   community: CommunityData;
   isJoined: boolean;
-  isNotificationsOn: boolean;
   memberCount: number;
   onToggleMembership: () => void;
-  onToggleNotifications: () => void;
 }
 
 const CommunityHeader = ({
   community,
   isJoined,
-  isNotificationsOn,
   memberCount,
-  onToggleMembership,
-  onToggleNotifications,
+  onToggleMembership
 }: CommunityHeaderProps) => {
-  // Log the actual prop value to verify it's correct
-  console.log(
-    `CommunityHeader rendering with isNotificationsOn=${isNotificationsOn}`
-  );
-
   return (
     <Card className="shadow-lg border border-border mb-6">
       <CardHeader className="pb-4">
@@ -57,28 +41,21 @@ const CommunityHeader = ({
           <div className="flex space-x-2">
             <Button
               variant={isJoined ? "outline" : "default"}
-              className={`${isJoined ? "border-primary/50 text-primary" : ""}`}
+              className={`${
+                isJoined ? "border-primary/50 text-primary" : ""
+              }`}
               onClick={onToggleMembership}
             >
               <Users className="h-4 w-4 mr-2" />
               {isJoined ? "Joined" : "Join"}
             </Button>
 
+            {/* Only show notification toggle if joined */}
             {isJoined && (
-              <Button
-                variant="outline"
-                className={`${
-                  isNotificationsOn === true ? "border-primary/50" : ""
-                }`}
-                onClick={onToggleNotifications}
-                data-notifications={isNotificationsOn === true ? "on" : "off"}
-              >
-                {isNotificationsOn === true ? (
-                  <Bell className="h-4 w-4 text-primary" />
-                ) : (
-                  <BellOff className="h-4 w-4" />
-                )}
-              </Button>
+              <NotificationToggle 
+                communityId={community.id} 
+                initialState={community.isNotificationsOn}
+              />
             )}
           </div>
         </div>
@@ -94,7 +71,5 @@ const CommunityHeader = ({
     </Card>
   );
 };
-
-// Import missing Calendar component
 
 export default CommunityHeader;
