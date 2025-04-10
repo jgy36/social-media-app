@@ -1,5 +1,5 @@
 // src/hooks/useCommunity.ts
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import {
@@ -13,7 +13,10 @@ import {
   leaveCommunity,
   createCommunityPost,
 } from "@/api/communities";
-import { setNotificationPreference } from "@/redux/slices/notificationPreferencesSlice";
+import { 
+  setNotificationPreference,
+  updatePreferenceFromServer
+} from "@/redux/slices/notificationPreferencesSlice";
 import useSWR from "swr";
 import axios from "axios";
 import { CommunityData, CommunityMembershipResponse } from "@/types/community";
@@ -108,6 +111,12 @@ export const useCommunity = (
     (state: RootState) => state.communities.joinedCommunities
   );
   
+  // Get notification state from Redux
+  const notificationState = useSelector(
+    (state: RootState) => 
+      communityId ? state.notificationPreferences.communityPreferences[communityId] : undefined
+  );
+  
   // Check if user is joined based on Redux state
   const isJoined = communityId ? joinedCommunityIds.includes(communityId) : false;
 
@@ -123,6 +132,7 @@ export const useCommunity = (
       fallbackData: initialCommunityData,
       revalidateOnFocus: false,  // Don't revalidate on focus
       dedupingInterval: 5000,    // 5 second deduping interval
+      revalidateOnMount: true,   // Always revalidate when component mounts
     }
   );
 
@@ -136,19 +146,25 @@ export const useCommunity = (
     }
   );
 
-  // Update state from SWR data
+  // Update state from SWR data - focus on keeping notification state in sync
   useEffect(() => {
     if (swrCommunityData) {
       console.log("Updating community state from SWR data:", swrCommunityData);
       setCommunity(swrCommunityData);
       setMemberCount(swrCommunityData.members || 0);
       
-      // Update Redux with notification preference from server
+      // Handle notification state updates from server - always sync with server
       if (communityId && swrCommunityData.isNotificationsOn !== undefined) {
-        dispatch(setNotificationPreference({
+        const serverNotificationState = Boolean(swrCommunityData.isNotificationsOn);
+        
+        // Always update the Redux store with the server state
+        // Using updatePreferenceFromServer which will only update if different
+        dispatch(updatePreferenceFromServer({
           communityId,
-          enabled: swrCommunityData.isNotificationsOn
+          enabled: serverNotificationState
         }));
+        
+        console.log(`Synced notification state from server: ${communityId} => ${serverNotificationState}`);
       }
     }
 

@@ -361,9 +361,7 @@ export const checkCommunityMembership = async (
   }
 };
 
-/**
- * Toggle notification settings for a community
- */
+
 // In communities.ts - Fixed API function
 export const toggleCommunityNotifications = async (
   slug: string
@@ -374,9 +372,10 @@ export const toggleCommunityNotifications = async (
 }> => {
   try {
     const token = getToken();
-    console.log(
-      `Toggling notifications with token: ${token ? "Present" : "Missing"}`
-    );
+    console.log(`Making notifications toggle request:`);
+    console.log(`- Token exists: ${!!token}`);
+    console.log(`- Auth headers: ${token ? 'present' : 'missing'}`);
+    console.log(`- Redux auth state: ${!!token}`);
 
     // Explicitly add cache prevention
     const timestamp = Date.now();
@@ -405,17 +404,20 @@ export const toggleCommunityNotifications = async (
 
     // Add more detailed logging
     if (response.data.isNotificationsOn !== undefined) {
-      console.log(
-        `Server returned notification state: ${response.data.isNotificationsOn}`
-      );
+      console.log(`Server returned notification state: ${response.data.isNotificationsOn}`);
     } else {
       console.warn("Server did not return isNotificationsOn value!");
     }
 
+    // Convert the isNotificationsOn to a proper boolean
+    const notificationsOn = response.data.isNotificationsOn !== undefined
+      ? Boolean(response.data.isNotificationsOn)
+      : undefined;
+
     // Return with definite success and the server's reported state
     return {
       success: response.data.success !== false, // Default to true if not specified
-      isNotificationsOn: Boolean(response.data.isNotificationsOn),
+      isNotificationsOn: notificationsOn,
       message: response.data.message,
     };
   } catch (error: unknown) {
@@ -431,7 +433,7 @@ export const toggleCommunityNotifications = async (
 
     return {
       success: false,
-      isNotificationsOn: false,
+      isNotificationsOn: undefined,
       message: getErrorMessage(error),
     };
   }

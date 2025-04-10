@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Calendar } from "lucide-react";
 import { CommunityData } from "@/types/community";
 import NotificationToggle from "./NotificationToggle";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { useEffect } from "react";
 
 interface CommunityHeaderProps {
   community: CommunityData;
@@ -19,6 +22,24 @@ const CommunityHeader = ({
   memberCount,
   onToggleMembership
 }: CommunityHeaderProps) => {
+  // Get the latest notification state from Redux
+  const notificationState = useSelector(
+    (state: RootState) => 
+      state.notificationPreferences.communityPreferences[community.id]
+  );
+
+  // For debugging
+  useEffect(() => {
+    console.log(`CommunityHeader: Community ${community.id} notification state`);
+    console.log(`- Redux state: ${notificationState !== undefined ? notificationState : 'undefined'}`);
+    console.log(`- Server state: ${community.isNotificationsOn}`);
+  }, [community.id, community.isNotificationsOn, notificationState]);
+
+  // Use Redux state if available, fallback to community data
+  const isNotificationsOn = notificationState !== undefined 
+    ? notificationState
+    : community.isNotificationsOn;
+
   return (
     <Card className="shadow-lg border border-border mb-6">
       <CardHeader className="pb-4">
@@ -54,7 +75,8 @@ const CommunityHeader = ({
             {isJoined && (
               <NotificationToggle 
                 communityId={community.id} 
-                initialState={community.isNotificationsOn}
+                initialState={isNotificationsOn}
+                key={`notification-toggle-${community.id}-${isNotificationsOn}`}
               />
             )}
           </div>
