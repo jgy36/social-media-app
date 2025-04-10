@@ -22,7 +22,8 @@ public class CommunityUserPreference {
     @JoinColumn(name = "community_id", nullable = false)
     private Community community;
 
-    private boolean notificationsEnabled = true;
+    // Change the default to false (OFF)
+    private boolean notificationsEnabled = false;
 
     // Default constructor required by JPA
     public CommunityUserPreference() {
@@ -31,7 +32,7 @@ public class CommunityUserPreference {
     public CommunityUserPreference(User user, Community community) {
         this.user = user;
         this.community = community;
-        this.notificationsEnabled = true;
+        this.notificationsEnabled = false; // Explicitly set to false
     }
 
     public Long getId() {
