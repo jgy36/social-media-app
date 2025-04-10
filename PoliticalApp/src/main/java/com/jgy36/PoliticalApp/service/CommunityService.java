@@ -398,7 +398,12 @@ public class CommunityService {
         // Get or create user preferences for this community
         CommunityUserPreference preference = communityUserPreferenceRepository
                 .findByUserAndCommunity(currentUser, community)
-                .orElseGet(() -> new CommunityUserPreference(currentUser, community));
+                .orElseGet(() -> {
+                    // Create new preference - SET TO FALSE BY DEFAULT
+                    CommunityUserPreference newPref = new CommunityUserPreference(currentUser, community);
+                    newPref.setNotificationsEnabled(false); // Set initial state to false (off)
+                    return newPref;
+                });
 
         // Get current state BEFORE toggling
         boolean currentState = preference.isNotificationsEnabled();
