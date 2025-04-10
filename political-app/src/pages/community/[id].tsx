@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// src/pages/community/[id].tsx - Refactored version
+// src/pages/community/[id].tsx
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Card } from "@/components/ui/card";
@@ -16,7 +15,7 @@ import CommunityInfo from "@/components/community/CommunityInfo";
 
 // Import types and hooks
 import { Community } from "@/api/types";
-import { CommunityData, CommunityMembershipResponse } from "@/types/community";
+import { CommunityData } from "@/types/community";
 import { PostType } from "@/types/post";
 import { useCommunity } from "@/hooks/useCommunity";
 import { LoadingState } from "@/components/ui/LoadingState";
@@ -41,10 +40,8 @@ const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError 
     error,
     isLoading,
     isJoined,
-    isNotificationsOn,
     memberCount,
     handleToggleMembership,
-    handleToggleNotifications,
     handlePostCreated
   } = useCommunity(id as string, initialCommunityData, initialPosts, serverError);
 
@@ -84,28 +81,9 @@ const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError 
     );
   }
 
-  if (error) {
-    const handleRetry = (): void => {
-      // Either refresh the page
-      router.reload();
-      // Or we could implement a manual refetch if the useCommunity hook provides such functionality
-      // For example: refetchCommunity(id as string);
-    };
-
-    return (
-      <div className="min-h-screen bg-background text-foreground">
-        <Navbar />
-        <div className="max-w-5xl mx-auto p-6">
-          <BackButton fallbackUrl="/community" className="mb-4" />
-          <ErrorState message={error || "Community not found"} onRetry={handleRetry} />
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div 
-      key={`community-${id}`} // Add this key prop to force re-renders between communities
+      key={`community-${id}`} // Force re-renders between communities
       className="min-h-screen bg-background text-foreground"
     >
       <Navbar />
@@ -126,14 +104,12 @@ const CommunityPage = ({ initialCommunityData, initialPosts, error: serverError 
       <div className="max-w-5xl mx-auto px-4 -mt-16 relative z-10">
         <BackButton fallbackUrl="/community" className="mb-4 bg-background/80 backdrop-blur-sm" />
         
-        {/* Community Header Component */}
+        {/* Community Header Component - Simplified props */}
         <CommunityHeader 
           community={community}
           isJoined={isJoined}
-          isNotificationsOn={isNotificationsOn}
           memberCount={memberCount}
           onToggleMembership={handleToggleMembership}
-          onToggleNotifications={handleToggleNotifications}
         />
 
         {/* Main Content Area */}
@@ -197,7 +173,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       description: communityData.description,
       members: communityData.members,
       created: communityData.created,
-      rules: communityData.rules || [], // Ensure rules is always an array
+      rules: communityData.rules || [],
       moderators: communityData.moderators || [],
       banner: communityData.banner,
       color: communityData.color,

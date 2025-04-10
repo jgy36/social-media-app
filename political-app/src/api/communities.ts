@@ -1,28 +1,29 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/communities.ts - Updated with more robust error handling
 import { apiClient, getErrorMessage, API_BASE_URL } from "./apiClient";
-import { 
-  Community, 
-  CreateCommunityRequest, 
-  CommunityMembershipResponse, 
-  PostResponse, 
-  CreatePostRequest 
+import {
+  Community,
+  CreateCommunityRequest,
+  CommunityMembershipResponse,
+  PostResponse,
+  CreatePostRequest,
 } from "./types";
 import { getToken } from "@/utils/tokenUtils";
 
-
 // Helper type guard for error responses
-const isErrorWithResponse = (error: unknown): error is { 
-  response?: { 
-    status?: number; 
+const isErrorWithResponse = (
+  error: unknown
+): error is {
+  response?: {
+    status?: number;
     data?: unknown;
-  } 
+  };
 } => {
   return (
-    typeof error === 'object' && 
-    error !== null && 
-    'response' in (error as Record<string, unknown>) && 
-    typeof (error as any).response === 'object'
+    typeof error === "object" &&
+    error !== null &&
+    "response" in (error as Record<string, unknown>) &&
+    typeof (error as any).response === "object"
   );
 };
 
@@ -57,10 +58,10 @@ export const getCommunityBySlug = async (
         withCredentials: true,
         headers: {
           // Add cache busting headers
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
       }
     );
     return response.data;
@@ -373,7 +374,9 @@ export const toggleCommunityNotifications = async (
 }> => {
   try {
     const token = getToken();
-    console.log(`Toggling notifications with token: ${token ? "Present" : "Missing"}`);
+    console.log(
+      `Toggling notifications with token: ${token ? "Present" : "Missing"}`
+    );
 
     // Explicitly add cache prevention
     const timestamp = Date.now();
@@ -389,29 +392,31 @@ export const toggleCommunityNotifications = async (
       {},
       {
         headers: {
-          Authorization: `Bearer ${token || ''}`,
+          Authorization: `Bearer ${token || ""}`,
           "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Pragma": "no-cache",
-          "Expires": "0",
+          Pragma: "no-cache",
+          Expires: "0",
         },
         withCredentials: true,
       }
     );
 
     console.log("Notification toggle response:", response.data);
-    
+
     // Add more detailed logging
     if (response.data.isNotificationsOn !== undefined) {
-      console.log(`Server returned notification state: ${response.data.isNotificationsOn}`);
+      console.log(
+        `Server returned notification state: ${response.data.isNotificationsOn}`
+      );
     } else {
       console.warn("Server did not return isNotificationsOn value!");
     }
-    
+
     // Return with definite success and the server's reported state
     return {
       success: response.data.success !== false, // Default to true if not specified
-      isNotificationsOn: response.data.isNotificationsOn,
-      message: response.data.message
+      isNotificationsOn: Boolean(response.data.isNotificationsOn),
+      message: response.data.message,
     };
   } catch (error: unknown) {
     console.error(`Error toggling notifications for community ${slug}:`, error);
@@ -419,12 +424,15 @@ export const toggleCommunityNotifications = async (
     // Enhanced error logging with type guard
     if (isErrorWithResponse(error) && error.response) {
       console.error(
-        `Status: ${error.response.status || 'unknown'}, Data:`,
-        error.response.data || 'No data'
+        `Status: ${error.response.status || "unknown"}, Data:`,
+        error.response.data || "No data"
       );
     }
 
-    return { success: false, message: getErrorMessage(error) };
+    return {
+      success: false,
+      isNotificationsOn: false,
+      message: getErrorMessage(error),
+    };
   }
 };
-
