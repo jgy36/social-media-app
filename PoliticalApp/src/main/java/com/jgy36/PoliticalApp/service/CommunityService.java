@@ -366,6 +366,8 @@ public class CommunityService {
      * @param slug The community slug
      * @return The new notification state (true = on, false = off)
      */
+    // In CommunityService.java - Fix to toggle method
+    @Transactional
     public boolean toggleCommunityNotifications(String slug) {
         // Get the current user's principal name (might be email)
         String principalName = SecurityUtils.getCurrentUsername();
@@ -384,7 +386,6 @@ public class CommunityService {
         User currentUser = userOpt.orElseThrow(() ->
                 new RuntimeException("User not found with identifier: " + principalName));
 
-
         // Get the community
         Community community = communityRepository.findBySlug(slug)
                 .orElseThrow(() -> new ResourceNotFoundException("Community not found: " + slug));
@@ -399,12 +400,18 @@ public class CommunityService {
                 .findByUserAndCommunity(currentUser, community)
                 .orElseGet(() -> new CommunityUserPreference(currentUser, community));
 
+        // Get current state BEFORE toggling
+        boolean currentState = preference.isNotificationsEnabled();
+        System.out.println("Current notification state before toggle: " + currentState);
+
         // Toggle notification state
-        boolean newState = !preference.isNotificationsEnabled();
+        boolean newState = !currentState;
         preference.setNotificationsEnabled(newState);
 
         // Save the preference
         communityUserPreferenceRepository.save(preference);
+
+        System.out.println("New notification state after toggle: " + newState);
 
         return newState;
     }
