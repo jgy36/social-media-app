@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/hooks/useCommunity.ts
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import {
@@ -15,7 +15,7 @@ import {
   createCommunityPost,
   toggleCommunityNotifications,
 } from "@/api/communities";
-import useSWR from "swr";
+import useSWR, { KeyedMutator } from "swr";
 import axios from "axios";
 import { CommunityData, CommunityMembershipResponse } from "@/types/community";
 import { PostType } from "@/types/post";
@@ -37,10 +37,24 @@ type UseCommunityReturn = {
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
-// SWR fetcher function for community data
+// SWR fetcher function for community data with cache busting
+// In useCommunity.ts - Fixed fetchCommunity function
 const fetchCommunity = async (url: string): Promise<CommunityData> => {
   try {
-    const response = await axios.get(url);
+    // Add cache-busting timestamp to the URL
+    const timestamp = Date.now();
+    const urlWithTimestamp = `${url}${
+      url.includes("?") ? "&" : "?"
+    }t=${timestamp}`;
+
+    const response = await axios.get(urlWithTimestamp, {
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    });
+
     const data = response.data as {
       id: string;
       name: string;
@@ -54,18 +68,50 @@ const fetchCommunity = async (url: string): Promise<CommunityData> => {
       isJoined: boolean;
       isNotificationsOn?: boolean;
     };
+
+    // Check local storage for override value
+    let notificationState = data.isNotificationsOn;
+    try {
+      const savedState = localStorage.getItem(
+        `community_${data.id}_notifications`
+      );
+      if (savedState !== null) {
+        // Use saved value as override but log the difference if any
+        const savedBool = savedState === "true";
+        if (
+          notificationState !== undefined &&
+          savedBool !== notificationState
+        ) {
+          console.log(
+            `Warning: Server state (${notificationState}) differs from saved state (${savedBool})`
+          );
+        }
+        notificationState = savedBool;
+        console.log(
+          `Using saved notification state from localStorage: ${savedBool}`
+        );
+      }
+    } catch (storageError) {
+      console.warn("Error reading from localStorage:", storageError);
+    }
+
+    console.log(
+      `Community data loaded - isNotificationsOn: ${notificationState}`
+    );
+
     return {
       id: data.id,
       name: data.name,
       description: data.description,
       members: data.members,
       created: data.created,
-      rules: data.rules || [], // Ensure rules is always an array
+      rules: data.rules || [],
       moderators: data.moderators || [],
       banner: data.banner,
       color: data.color,
       isJoined: data.isJoined,
-      isNotificationsOn: data.isNotificationsOn || false,
+      // Use the possibly overridden notification state
+      isNotificationsOn: notificationState === true,
     };
   } catch (error) {
     console.error(`Error fetching community:`, error);
@@ -116,14 +162,18 @@ export const useCommunity = (
   );
 
   // SWR data fetching (only if communityId exists)
-  const { data: swrCommunityData, error: swrError, mutate: mutateCommunity } = useSWR<CommunityData>(
+  const {
+    data: swrCommunityData,
+    error: swrError,
+    mutate: mutateCommunity,
+  } = useSWR<CommunityData>(
     communityId ? `${API_BASE_URL}/communities/${communityId}` : null,
     communityId ? fetchCommunity : null,
     {
       fallbackData: initialCommunityData,
-      revalidateOnFocus: true,  // Revalidate when tab gets focus
-      revalidateOnMount: true,  // Always revalidate when component mounts
-      dedupingInterval: 0,      // Disable deduping
+      revalidateOnFocus: true, // Revalidate when tab gets focus
+      revalidateOnMount: true, // Always revalidate when component mounts
+      dedupingInterval: 0, // Disable deduping
     }
   );
 
@@ -151,13 +201,13 @@ export const useCommunity = (
               ...freshData,
               rules: freshData.rules || [], // Ensure rules is always an array
               moderators: freshData.moderators || [],
-              isNotificationsOn: freshData.isNotificationsOn || false
+              isNotificationsOn: freshData.isNotificationsOn || false,
             };
             setCommunity(typedData);
             setIsJoined(joinedCommunityIds.includes(communityId));
             setIsNotificationsOn(freshData.isNotificationsOn || false);
             setMemberCount(freshData.members);
-            
+
             // Also update SWR cache
             if (mutateCommunity) {
               // Use the already created typedData that matches CommunityData type
@@ -165,10 +215,10 @@ export const useCommunity = (
             }
           }
         } catch (error) {
-          console.error('Error refreshing community data:', error);
+          console.error("Error refreshing community data:", error);
         }
       };
-      
+
       refreshCommunityData();
     }
   }, [communityId, joinedCommunityIds, mutateCommunity]);
@@ -305,52 +355,73 @@ export const useCommunity = (
     }
   };
 
-  const handleToggleNotifications = async () => {
+  // In useCommunity.ts - Fixed handleToggleNotifications function
+  const handleToggleNotifications = useCallback(async () => {
     if (!isAuthenticated || !community) return;
 
-    // Optimistically update UI
-    setIsNotificationsOn(!isNotificationsOn);
+    // Log current state before toggle
+    console.log(
+      `Current notification state before toggle: ${isNotificationsOn}`
+    );
 
     try {
+      // Get a fresh token just to be sure
+      const token = getToken();
+      console.log(`Using token for toggle: ${token ? "Present" : "Missing"}`);
+
       // Call the API to toggle notifications
       const response = await toggleCommunityNotifications(community.id);
       console.log("Notification toggle response:", response);
 
       if (!response.success) {
-        // Revert if API call failed
-        setIsNotificationsOn(isNotificationsOn);
         console.error("Failed to toggle notifications:", response.message);
-      } else {
-        // Important: Use the server's returned value rather than just toggling
-        // This ensures we're in sync with the server state
-        if (response.isNotificationsOn !== undefined) {
-          setIsNotificationsOn(response.isNotificationsOn);
+        return; // Don't update state if the API call failed
+      }
 
-          // Force update the community object to include the new notification state
-          // This ensures the state persists if the component re-renders
-          setCommunity((prevCommunity) => {
-            if (!prevCommunity) return null;
-            return {
-              ...prevCommunity,
-              isNotificationsOn: response.isNotificationsOn ?? false,
-            };
-          });
-          
-          // Also update SWR cache
-          if (mutateCommunity && community) {
-            const updatedCommunity = {
-              ...community,
-              isNotificationsOn: response.isNotificationsOn
-            };
-            mutateCommunity(updatedCommunity, false);
-          }
+      // IMPORTANT: Use the server's returned value rather than just toggling locally
+      if (response.isNotificationsOn !== undefined) {
+        // Update local state with the server's state
+        setIsNotificationsOn(response.isNotificationsOn);
+        console.log(
+          `Updated notification state from server: ${response.isNotificationsOn}`
+        );
+
+        // Update the community object in state
+        setCommunity((prevCommunity) => {
+          if (!prevCommunity) return null;
+          return {
+            ...prevCommunity,
+            isNotificationsOn: response.isNotificationsOn === true,
+          };
+        });
+
+        // Also update SWR cache
+        if (mutateCommunity && community) {
+          const updatedCommunity = {
+            ...community,
+            isNotificationsOn: response.isNotificationsOn,
+          };
+          mutateCommunity(updatedCommunity, false);
+          console.log("Updated SWR cache with new notification state");
+        }
+
+        // Store in localStorage for extra persistence
+        try {
+          localStorage.setItem(
+            `community_${community.id}_notifications`,
+            response.isNotificationsOn ? "true" : "false"
+          );
+          console.log(
+            `Saved notification state to localStorage: ${response.isNotificationsOn}`
+          );
+        } catch (storageError) {
+          console.warn("Error saving to localStorage:", storageError);
         }
       }
     } catch (error) {
       console.error("Error toggling community notifications:", error);
-      setIsNotificationsOn(isNotificationsOn);
     }
-  };
+  }, [community, isAuthenticated, isNotificationsOn, mutateCommunity]);
 
   // Refresh posts after creating a new one
   const handlePostCreated = async () => {

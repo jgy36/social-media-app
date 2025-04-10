@@ -363,6 +363,7 @@ export const checkCommunityMembership = async (
 /**
  * Toggle notification settings for a community
  */
+// In communities.ts - Fixed API function
 export const toggleCommunityNotifications = async (
   slug: string
 ): Promise<{
@@ -374,25 +375,37 @@ export const toggleCommunityNotifications = async (
     const token = getToken();
     console.log(`Toggling notifications with token: ${token ? "Present" : "Missing"}`);
 
+    // Explicitly add cache prevention
+    const timestamp = Date.now();
+    const url = `${API_BASE_URL}/communities/${slug}/notifications/toggle?t=${timestamp}`;
+
     // Use apiClient instead of axios directly
     const response = await apiClient.post<{
       success?: boolean;
       isNotificationsOn?: boolean;
       message?: string;
     }>(
-      `/communities/${slug}/notifications/toggle`,
+      url,
       {},
       {
         headers: {
           Authorization: `Bearer ${token || ''}`,
-          "Cache-Control": "no-cache",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
           "Pragma": "no-cache",
+          "Expires": "0",
         },
         withCredentials: true,
       }
     );
 
     console.log("Notification toggle response:", response.data);
+    
+    // Add more detailed logging
+    if (response.data.isNotificationsOn !== undefined) {
+      console.log(`Server returned notification state: ${response.data.isNotificationsOn}`);
+    } else {
+      console.warn("Server did not return isNotificationsOn value!");
+    }
     
     // Return with definite success and the server's reported state
     return {
@@ -414,3 +427,4 @@ export const toggleCommunityNotifications = async (
     return { success: false, message: getErrorMessage(error) };
   }
 };
+
