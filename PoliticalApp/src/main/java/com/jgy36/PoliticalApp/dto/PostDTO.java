@@ -25,6 +25,7 @@ public class PostDTO {
     private boolean isLiked;
     private boolean isSaved;
     private LocalDateTime updatedAt;
+    private String communityColor;
 
 
     // Repost-related fields
@@ -90,6 +91,8 @@ public class PostDTO {
         if (post.getCommunity() != null) {
             this.communityId = post.getCommunity().getSlug();
             this.communityName = post.getCommunity().getName();
+            this.communityColor = post.getCommunity().getColor(); // Add this line
+
         }
 
         // Check if current authenticated user has liked or saved the post
@@ -203,5 +206,10 @@ public class PostDTO {
     // Add getter:
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    // Add a getter for the community color
+    public String getCommunityColor() {
+        return communityColor;
     }
 }
