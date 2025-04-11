@@ -256,4 +256,30 @@ public class PostController {
                     .body(Map.of("isSaved", false));
         }
     }
+
+    @PutMapping("/{postId}")
+    @PreAuthorize("isAuthenticated()") // Requires authentication
+    public ResponseEntity<PostDTO> updatePost(
+            @PathVariable Long postId,
+            @RequestBody Map<String, String> request) {
+
+        String content = request.get("content");
+
+        if (content == null || content.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        try {
+            Post updatedPost = postService.updatePost(postId, content);
+            PostDTO dto = new PostDTO(updatedPost);
+            return ResponseEntity.ok(dto);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
 }

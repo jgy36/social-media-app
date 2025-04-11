@@ -24,6 +24,8 @@ public class PostDTO {
     private int commentsCount;
     private boolean isLiked;
     private boolean isSaved;
+    private LocalDateTime updatedAt;
+
 
     // Repost-related fields
     private boolean isRepost;
@@ -41,6 +43,8 @@ public class PostDTO {
         this.createdAt = post.getCreatedAt();
         this.likes = post.getLikedUsers().size();
         this.commentsCount = post.getComments().size();
+        this.updatedAt = post.getUpdatedAt();
+
 
         // Enhanced logging for repost information
         System.out.println("Creating PostDTO for post ID: " + post.getId());
@@ -115,6 +119,7 @@ public class PostDTO {
             }
         }
     }
+
 
     // Getters and Setters
     public Long getId() {
@@ -193,5 +198,10 @@ public class PostDTO {
 
     public String getOriginalPostContent() {
         return originalPostContent;
+    }
+
+    // Add getter:
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
     }
 }
