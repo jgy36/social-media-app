@@ -257,6 +257,15 @@ const Post: React.FC<PostProps> = ({
             <Badge
               variant="outline"
               className="hover:bg-primary/10 cursor-pointer transition-colors"
+              style={{
+                borderColor: post.communityColor
+                  ? `${post.communityColor}50`
+                  : undefined, // 50 is for 30% opacity
+                color: post.communityColor || "var(--primary)",
+                backgroundColor: post.communityColor
+                  ? `${post.communityColor}10`
+                  : undefined, // 10 is for 6% opacity
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 router.push(`/community/${post.communityId}`);

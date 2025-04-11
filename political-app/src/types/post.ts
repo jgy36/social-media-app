@@ -14,10 +14,11 @@ export interface PostType {
   hashtags?: string[];
   communityId?: string;
   communityName?: string;
-  
+  communityColor?: string; // Add community color field
+
   // Repost-related fields - support both property names
   isRepost?: boolean;
-  repost?: boolean;  // Add this for backward compatibility
+  repost?: boolean; // Add this for backward compatibility
   originalPostId?: number;
   originalAuthor?: string;
   originalPostContent?: string;
