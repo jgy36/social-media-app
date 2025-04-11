@@ -28,6 +28,9 @@ public class CommunityService {
     private final PostRepository postRepository;
 
     @Autowired
+    private NotificationService notificationService;
+
+    @Autowired
     private CommunityUserPreferenceRepository communityUserPreferenceRepository;
 
     @Autowired
@@ -347,8 +350,33 @@ public class CommunityService {
 
         Post post = new Post(content, currentUser);
         post.setCommunity(community);
+        Post savedPost = postRepository.save(post);
 
-        return postRepository.save(post);
+        // Create notifications for users who have enabled notifications for this community
+        createNotificationsForNewPost(community, currentUser, post);
+
+        return savedPost;
+    }
+
+    // Add this new method
+    private void createNotificationsForNewPost(Community community, User postAuthor, Post post) {
+        // Get all user preferences for this community where notifications are enabled
+        Iterable<CommunityUserPreference> preferences = communityUserPreferenceRepository.findAllByCommunity(community);
+
+        for (CommunityUserPreference preference : preferences) {
+            User user = preference.getUser();
+
+            // Skip notification for the post author
+            if (user.getId().equals(postAuthor.getId())) {
+                continue;
+            }
+
+            // Only create notification if user has enabled notifications
+            if (preference.isNotificationsEnabled()) {
+                // Create notification with proper reference data
+                notificationService.createPostNotification(user, postAuthor, post);
+            }
+        }
     }
 
     // Helper method to get the current authenticated user

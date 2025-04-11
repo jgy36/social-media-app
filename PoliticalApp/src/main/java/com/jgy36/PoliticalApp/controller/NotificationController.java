@@ -40,4 +40,6 @@ public class NotificationController {
         notificationService.markAllAsRead();
         return ResponseEntity.ok("All notifications marked as read.");
     }
+
+    
 }
