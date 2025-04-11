@@ -333,3 +333,17 @@ export const deletePost = async (postId: number): Promise<void> => {
     await apiClient.delete(`/posts/${postId}`);
   }, `Deleting post ${postId}`);
 };
+
+export const updatePost = async (
+  postId: number,
+  content: string
+): Promise<PostResponse> => {
+  return safeApiCall(async () => {
+    const response = await apiClient.put<PostResponse>(`/posts/${postId}`, { content });
+    
+    // Log debug information
+    console.log(`Post ${postId} updated successfully`, response.data);
+    
+    return response.data;
+  }, `Updating post ${postId}`);
+};
