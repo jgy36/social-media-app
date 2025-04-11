@@ -84,6 +84,8 @@ public class Post {
     @OneToMany(mappedBy = "originalPost")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Set<Post> reposts = new HashSet<>();
+    @Column(nullable = true)
+    private LocalDateTime updatedAt;
 
     public Post(String content, User author) {
         this.content = content;
@@ -115,6 +117,15 @@ public class Post {
         if (hashtag.getPosts().contains(this)) {
             hashtag.getPosts().remove(this);
         }
+    }
+
+    // Add a getter/setter for the new field:
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
 }

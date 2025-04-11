@@ -389,6 +389,49 @@ public class PostService {
     public List<Post> getRepostsOfPost(Long postId) {
         return postRepository.findRepostsOfPost(postId);
     }
+
+    @Transactional
+    public Post updatePost(Long postId, String content) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = auth.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
+
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new NoSuchElementException("Post not found"));
+
+        // Check if the user is the author of the post
+        if (!post.getAuthor().equals(user)) {
+            throw new SecurityException("You are not allowed to edit this post.");
+        }
+
+        // Update the content
+        post.setContent(content);
+
+        // Set the updatedAt timestamp
+        post.setUpdatedAt(LocalDateTime.now());
+
+        // Extract and update hashtags
+        Set<Hashtag> oldHashtags = new HashSet<>(post.getHashtags());
+
+        // Remove old hashtags
+        for (Hashtag hashtag : oldHashtags) {
+            post.removeHashtag(hashtag);
+            // Update hashtag count
+            if (hashtag.getCount() > 0) {
+                hashtag.setCount(hashtag.getCount() - 1);
+                hashtagRepository.save(hashtag);
+            }
+        }
+
+        // Extract and save new hashtags
+        Set<Hashtag> newHashtags = extractHashtags(content);
+        for (Hashtag hashtag : newHashtags) {
+            post.addHashtag(hashtag);
+        }
+
+        return postRepository.save(post);
+    }
 }
 
 
