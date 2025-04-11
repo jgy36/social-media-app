@@ -1,6 +1,5 @@
 // src/components/community/CommunityInfo.tsx
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Info, Shield, Users, User, Calendar } from "lucide-react";
 import { CommunityData } from "@/types/community";
@@ -44,12 +43,7 @@ const CommunityInfo = ({ community, memberCount, onJoin }: CommunityInfoProps) =
             </div>
           </div>
 
-          {/* Only show Join button if user has not joined the community */}
-          {!isJoined && (
-            <Button className="w-full" onClick={onJoin}>
-              Join Community
-            </Button>
-          )}
+          {/* Removed the redundant Join Community button */}
         </CardContent>
       </Card>
 
