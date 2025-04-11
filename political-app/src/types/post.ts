@@ -10,6 +10,7 @@ export interface PostType {
   repostCount?: number;
   commentsCount?: number;
   createdAt: string;
+  updatedAt?: string; // New field for tracking when a post was edited
   hashtags?: string[];
   communityId?: string;
   communityName?: string;

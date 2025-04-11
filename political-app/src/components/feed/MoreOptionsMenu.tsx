@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoreVertical, Trash2 } from "lucide-react";
+import { MoreVertical, Trash2, PencilLine } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,10 +20,17 @@ import {
 
 interface MoreOptionsMenuProps {
   postId: number;
+  postContent: string;
   onDelete: (postId: number) => Promise<void>;
+  onEdit: () => void;
 }
 
-const MoreOptionsMenu = ({ postId, onDelete }: MoreOptionsMenuProps) => {
+const MoreOptionsMenu = ({ 
+  postId, 
+  postContent, 
+  onDelete, 
+  onEdit 
+}: MoreOptionsMenuProps) => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -53,6 +60,16 @@ const MoreOptionsMenu = ({ postId, onDelete }: MoreOptionsMenuProps) => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          <DropdownMenuItem
+            className="cursor-pointer focus:bg-muted"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit();
+            }}
+          >
+            <PencilLine className="h-4 w-4 mr-2" />
+            Edit Post
+          </DropdownMenuItem>
           <DropdownMenuItem
             className="text-destructive focus:text-destructive cursor-pointer"
             onClick={(e) => {

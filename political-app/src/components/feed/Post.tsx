@@ -19,6 +19,15 @@ import NestedOriginalPost from "@/components/feed/NestedOriginalPost";
 import MoreOptionsMenu from "@/components/feed/MoreOptionsMenu";
 import { toast } from "@/hooks/use-toast";
 import React from "react";
+import EditPostModal from "./EditPostModal";
+
+// In the Post component, add this state variable
+
+// Add this function to handle post updates
+const handlePostUpdated = () => {
+  // Trigger feed refresh
+  window.dispatchEvent(new CustomEvent("refreshFeed"));
+};
 
 // Function to safely render content with clickable hashtags
 const renderContentWithHashtags = (
@@ -111,7 +120,8 @@ const Post: React.FC<PostProps> = ({
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isLiking, setIsLiking] = useState(false);
   const [isCommentModalOpen, setCommentModalOpen] = useState(false);
-  
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
   // Make sure post.author and post.content are strings, not objects
   const authorName =
     typeof post.author === "string"
@@ -121,7 +131,7 @@ const Post: React.FC<PostProps> = ({
         "username" in (post.author as any)
       ? String((post.author as any).username)
       : "Unknown User";
-  
+
   // Check if current user is the author
   const isCurrentUserPost = user.username === authorName;
 
@@ -143,17 +153,17 @@ const Post: React.FC<PostProps> = ({
   const handleDeletePost = async (postId: number) => {
     try {
       await deletePost(postId);
-      
+
       // Show success toast
       toast({
         title: "Post deleted",
         description: "Your post has been successfully deleted.",
         duration: 3000,
       });
-      
+
       // Trigger feed refresh
       window.dispatchEvent(new CustomEvent("refreshFeed"));
-      
+
       // If we're on the post detail page, navigate back to the feed
       if (window.location.pathname.includes(`/post/${postId}`)) {
         router.push("/feed");
@@ -204,6 +214,12 @@ const Post: React.FC<PostProps> = ({
     router.push(`/profile/${post.author}`);
   };
 
+  // ADD THE NEW HANDLER FUNCTION HERE
+  const handlePostUpdated = () => {
+    // Trigger feed refresh
+    window.dispatchEvent(new CustomEvent("refreshFeed"));
+  };
+
   // Safely get hashtags as an array of strings
   const safeHashtags = safeGetHashtags(post);
 
@@ -229,9 +245,14 @@ const Post: React.FC<PostProps> = ({
 
         <div className="flex items-center space-x-2">
           {isCurrentUserPost && (
-            <MoreOptionsMenu postId={post.id} onDelete={handleDeletePost} />
+            <MoreOptionsMenu
+              postId={post.id}
+              postContent={postContent}
+              onDelete={handleDeletePost}
+              onEdit={() => setIsEditModalOpen(true)}
+            />
           )}
-          
+
           {post.communityName && (
             <Badge
               variant="outline"
@@ -268,35 +289,52 @@ const Post: React.FC<PostProps> = ({
           {renderContentWithHashtags(postContent, handleHashtagClick)}
         </p>
 
-        {/* Display nested original post if this is a repost - FIXED SECTION */}
-        {((post.isRepost === true || post.repost === true) && post.originalPostId) && (
-          <React.Fragment>
-            <div className="mb-2 mt-2 border-t border-border/10 pt-2">
-              <div className="text-xs text-muted-foreground mb-1">
-                Original post:
-              </div>
-              {/* If originalPostContent is available, display it directly */}
-              {post.originalPostContent ? (
-                <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AuthorAvatar
-                      username={post.originalAuthor || "Unknown"}
-                      size={20}
-                      className="cursor-pointer"
-                    />
-                    <span className="font-medium">
-                      @{post.originalAuthor || "Unknown"}
-                    </span>
-                  </div>
-                  <p className="text-foreground">{post.originalPostContent}</p>
-                </div>
-              ) : (
-                /* Fall back to fetching the post if content isn't directly available */
-                <NestedOriginalPost postId={post.originalPostId} />
-              )}
-            </div>
-          </React.Fragment>
+        {/* Add this "edited" indicator here */}
+        {post.updatedAt && post.updatedAt !== post.createdAt && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Edited{" "}
+            {new Date(post.updatedAt).toLocaleString(undefined, {
+              year: "numeric",
+              month: "short",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
         )}
+
+        {/* Display nested original post if this is a repost - FIXED SECTION */}
+        {(post.isRepost === true || post.repost === true) &&
+          post.originalPostId && (
+            <React.Fragment>
+              <div className="mb-2 mt-2 border-t border-border/10 pt-2">
+                <div className="text-xs text-muted-foreground mb-1">
+                  Original post:
+                </div>
+                {/* If originalPostContent is available, display it directly */}
+                {post.originalPostContent ? (
+                  <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AuthorAvatar
+                        username={post.originalAuthor || "Unknown"}
+                        size={20}
+                        className="cursor-pointer"
+                      />
+                      <span className="font-medium">
+                        @{post.originalAuthor || "Unknown"}
+                      </span>
+                    </div>
+                    <p className="text-foreground">
+                      {post.originalPostContent}
+                    </p>
+                  </div>
+                ) : (
+                  /* Fall back to fetching the post if content isn't directly available */
+                  <NestedOriginalPost postId={post.originalPostId} />
+                )}
+              </div>
+            </React.Fragment>
+          )}
 
         {/* Display hashtags as badges */}
         {safeHashtags.length > 0 && (
@@ -372,6 +410,17 @@ const Post: React.FC<PostProps> = ({
         isOpen={isCommentModalOpen}
         onClose={() => setCommentModalOpen(false)}
       />
+
+      {/* Add the EditPostModal here */}
+      {isCurrentUserPost && (
+        <EditPostModal
+          postId={post.id}
+          initialContent={postContent}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onPostUpdated={handlePostUpdated}
+        />
+      )}
     </Card>
   );
 };
