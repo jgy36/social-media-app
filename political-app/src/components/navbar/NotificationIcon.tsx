@@ -139,27 +139,53 @@ const NotificationIcon = () => {
   };
 
   // Handler to navigate based on notification content
-  const handleNotificationClick = (notification: Notification) => {
-    markAsRead(notification.id);
-    
-    // Try to extract information from the notification message
-    const username = parseUsernameFromNotification(notification.message);
-    
-    if (username) {
-      // If username found, navigate to their profile
-      router.push(`/profile/${username}`);
-    } else if (notification.message.includes("post")) {
-      // Try to extract post ID - this requires a more specific pattern in your notifications
-      // Example: "Someone commented on your post #123"
-      const postIdMatch = notification.message.match(/post #(\d+)/);
-      if (postIdMatch && postIdMatch[1]) {
-        router.push(`/post/${postIdMatch[1]}`);
+  // src/components/navbar/NotificationIcon.tsx
+// src/components/navbar/NotificationIcon.tsx
+const handleNotificationClick = (notification: Notification) => {
+  markAsRead(notification.id);
+  
+  // Use the notification type and reference IDs for navigation
+  switch (notification.notificationType) {
+    case 'post_created':
+      router.push(`/post/${notification.referenceId}`);
+      break;
+      
+    case 'comment_created':
+      router.push(`/post/${notification.secondaryReferenceId}#comment-${notification.referenceId}`);
+      break;
+      
+    case 'like_post':
+      router.push(`/post/${notification.referenceId}`);
+      break;
+      
+    case 'like_comment':
+      router.push(`/post/${notification.secondaryReferenceId}#comment-${notification.referenceId}`);
+      break;
+      
+    case 'follow':
+      // referenceId contains the user ID of who followed you
+      const actorUsername = notification.actorUsername; // Changed variable name
+      if (actorUsername) {
+        router.push(`/profile/${actorUsername}`);
       }
-    }
-    
-    // Close the popover regardless
-    closePopover();
-  };
+      break;
+      
+    case 'community_invitation':
+      router.push(`/community/${notification.communityId}`);
+      break;
+      
+    default:
+      // Fallback to existing message parsing logic
+      const parsedUsername = parseUsernameFromNotification(notification.message); // Changed variable name
+      if (parsedUsername) {
+        router.push(`/profile/${parsedUsername}`);
+      } 
+      break;
+  }
+  
+  // Close the popover
+  closePopover();
+};
 
   return (
     <Popover onOpenChange={handlePopoverOpenChange}>
