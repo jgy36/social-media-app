@@ -1,6 +1,7 @@
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.entity.Notification;
+import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.NotificationRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
@@ -63,5 +64,25 @@ public class NotificationService {
 
         // Save all updated notifications
         notificationRepository.saveAll(unreadNotifications);
+    }
+
+    // New method with support for reference data
+    public void createNotification(User recipient, String message, String notificationType,
+                                   Long referenceId, Long secondaryReferenceId, String communityId) {
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setMessage(message);
+        notification.setNotificationType(notificationType);
+        notification.setReferenceId(referenceId);
+        notification.setSecondaryReferenceId(secondaryReferenceId);
+        notification.setCommunityId(communityId);
+        notificationRepository.save(notification);
+    }
+
+    // Simplified overload for common cases
+    public void createPostNotification(User recipient, User actor, Post post) {
+        String message = actor.getUsername() + " posted in " + post.getCommunity().getName();
+        createNotification(recipient, message, "post_created", post.getId(), null,
+                post.getCommunity().getSlug());
     }
 }
