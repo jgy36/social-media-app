@@ -7,7 +7,6 @@ import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Set;
 
 @Entity
@@ -52,13 +51,12 @@ public class Community {
     private String color;
     private String bannerImage;
 
-    // Remove the @ElementCollection approach
-    @Transient
+    // Keep only this approach for storing rules
+    @ElementCollection
+    @CollectionTable(name = "community_rules", joinColumns = @JoinColumn(name = "community_id"))
+    @Column(name = "rule")
     private Set<String> rules = new HashSet<>();
 
-    // Add a string field to store the rules as JSON
-    @Column(name = "rules_json", columnDefinition = "text")
-    private String rulesJson;
     @ManyToMany
     @JoinTable(
             name = "community_moderators",
@@ -85,50 +83,7 @@ public class Community {
         this.moderators.add(creator);
     }
 
-    // Add lifecycle hooks to convert between JSON and Set
-    @PostLoad
-    protected void onLoad() {
-        this.rules = deserializeRules(this.rulesJson);
-    }
-
-    @PrePersist
-    @PreUpdate
-    protected void onSave() {
-        this.rulesJson = serializeRules(this.rules);
-    }
-
-    // Helper methods for serialization/deserialization
-    private String serializeRules(Set<String> rules) {
-        if (rules == null || rules.isEmpty()) return "[]";
-
-        StringBuilder json = new StringBuilder("[");
-        Iterator<String> iterator = rules.iterator();
-        while (iterator.hasNext()) {
-            json.append("\"").append(iterator.next().replace("\"", "\\\"")).append("\"");
-            if (iterator.hasNext()) json.append(",");
-        }
-        json.append("]");
-        return json.toString();
-    }
-
-    private Set<String> deserializeRules(String json) {
-        Set<String> result = new HashSet<>();
-        if (json == null || json.isEmpty() || "[]".equals(json)) return result;
-
-        String content = json.substring(1, json.length() - 1);
-        if (content.isEmpty()) return result;
-
-        for (String item : content.split(",")) {
-            String clean = item.trim();
-            if (clean.startsWith("\"") && clean.endsWith("\"")) {
-                clean = clean.substring(1, clean.length() - 1);
-            }
-            // Unescape any quotes within the string
-            clean = clean.replace("\\\"", "\"");
-            result.add(clean);
-        }
-        return result;
-    }
+    // Helper methods - REMOVED the lifecycle hooks and JSON serialization methods
 
     // Helper methods
     public int getMemberCount() {
