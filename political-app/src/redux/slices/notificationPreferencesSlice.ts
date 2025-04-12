@@ -1,133 +1,92 @@
 // src/redux/slices/notificationPreferencesSlice.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { apiClient } from '@/api/apiClient';
-import { getToken, getUserId } from '@/utils/tokenUtils';
+import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
+import { apiClient } from "@/api/apiClient";
+import { getUserId } from "@/utils/tokenUtils";
 
-// Define response type for the API
-interface NotificationToggleResponse {
-  success?: boolean;
-  isNotificationsOn?: boolean;
-  message?: string;
+// Define the notification preferences interface
+export interface NotificationPreferences {
+  emailNotifications: boolean;
+  newCommentNotifications: boolean;
+  mentionNotifications: boolean;
+  politicalUpdates: boolean;
+  communityUpdates: boolean;
+  directMessageNotifications: boolean;
+  followNotifications: boolean;
+  likeNotifications: boolean;
 }
 
-// Constants for localStorage
-const NOTIFICATION_PREFS_KEY = 'notificationPreferences';
-const isBrowser = typeof window !== 'undefined';
-
-// Define the state interface
+// State interface
 interface NotificationPreferencesState {
-  communityPreferences: Record<string, boolean>; // Map of communityId -> notification enabled
+  preferences: NotificationPreferences;
   isLoading: boolean;
   error: string | null;
 }
 
-// Helper to get saved preferences from localStorage
-const getSavedPreferences = (): Record<string, boolean> => {
-  if (!isBrowser) return {};
+// Default preferences
+const defaultPreferences: NotificationPreferences = {
+  emailNotifications: true,
+  newCommentNotifications: true,
+  mentionNotifications: true,
+  politicalUpdates: false,
+  communityUpdates: true,
+  directMessageNotifications: true,
+  followNotifications: true,
+  likeNotifications: true,
+};
+
+// Helper to load preferences from localStorage
+const loadSavedPreferences = (): NotificationPreferences => {
+  if (typeof window === 'undefined') return defaultPreferences;
   
   try {
     const userId = getUserId();
-    if (!userId) return {};
+    if (!userId) return defaultPreferences;
     
-    const savedPrefs = localStorage.getItem(`user_${userId}_${NOTIFICATION_PREFS_KEY}`);
+    const savedPrefs = localStorage.getItem(`user_${userId}_notificationPreferences`);
     if (savedPrefs) {
-      const parsed = JSON.parse(savedPrefs);
-      console.log(`Loaded notification preferences from localStorage:`, parsed);
-      return parsed;
+      return JSON.parse(savedPrefs);
     }
-  } catch (err) {
-    console.error('Error loading notification preferences from storage:', err);
+  } catch (error) {
+    console.error('Error loading notification preferences:', error);
   }
   
-  return {};
+  return defaultPreferences;
 };
 
-// Helper to save preferences to localStorage
-const savePreferences = (preferences: Record<string, boolean>) => {
-  if (!isBrowser) return;
-  
-  try {
-    const userId = getUserId();
-    if (!userId) return;
-    
-    console.log(`Saving notification preferences to localStorage:`, preferences);
-    localStorage.setItem(
-      `user_${userId}_${NOTIFICATION_PREFS_KEY}`, 
-      JSON.stringify(preferences)
-    );
-  } catch (err) {
-    console.error('Error saving notification preferences to storage:', err);
-  }
-};
-
-// Initial state with persistence
+// Initial state
 const initialState: NotificationPreferencesState = {
-  communityPreferences: getSavedPreferences(),
+  preferences: loadSavedPreferences(),
   isLoading: false,
-  error: null
+  error: null,
 };
 
-// Async thunk to toggle notification preference
-export const toggleNotificationPreference = createAsyncThunk(
-  'notificationPreferences/toggle',
-  async (communityId: string, { getState, rejectWithValue }) => {
+// Async thunk to fetch notification preferences
+export const fetchNotificationPreferences = createAsyncThunk(
+  'notificationPreferences/fetch',
+  async (_, { rejectWithValue }) => {
     try {
-      // Get current preferences from state
-      const state = getState() as { notificationPreferences: NotificationPreferencesState };
-      const currentValue = state.notificationPreferences.communityPreferences[communityId] ?? false;
-      
-      console.log(`Current notification state before API call: ${currentValue}`);
-      
-      // Make API call to toggle on server
-      const token = getToken();
-      const timestamp = Date.now(); // Add timestamp to prevent caching
-      const response = await apiClient.post<NotificationToggleResponse>(
-        `/communities/${communityId}/notifications/toggle?t=${timestamp}`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token || ''}`,
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-          },
-          withCredentials: true
-        }
-      );
+      const response = await apiClient.get<NotificationPreferences>('/users/notification-preferences');
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch notification preferences');
+    }
+  }
+);
 
-      console.log('API response:', response.data);
+// Async thunk to update notification preferences
+export const updateNotificationPreferences = createAsyncThunk(
+  'notificationPreferences/update',
+  async (preferences: NotificationPreferences, { rejectWithValue }) => {
+    try {
+      const response = await apiClient.put<{ success: boolean }>('/users/notification-preferences', preferences);
       
-      // If API call successful, return the new state
-      if (response.data && response.data.success !== false) {
-        // Use the server response value if available, otherwise just toggle the current value
-        const newValue = response.data.isNotificationsOn !== undefined 
-          ? Boolean(response.data.isNotificationsOn) 
-          : !currentValue;
-          
-        console.log(`New notification state after API call: ${newValue}`);
-        
-        // Immediately save to localStorage for extra persistence
-        const updatedPreferences = {
-          ...state.notificationPreferences.communityPreferences,
-          [communityId]: newValue
-        };
-        savePreferences(updatedPreferences);
-        
-        return { communityId, enabled: newValue };
+      if (response.data.success) {
+        return preferences;
+      } else {
+        return rejectWithValue('Failed to update notification preferences');
       }
-      
-      console.error('API call failed:', response.data?.message);
-      return rejectWithValue(response.data?.message || 'Failed to toggle notification preference');
-    } catch (error: unknown) {
-      console.error('Error in toggleNotificationPreference:', error);
-      
-      // Type-safe error handling
-      let errorMessage = 'Failed to toggle notification preference';
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      }
-      
-      return rejectWithValue(errorMessage);
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update notification preferences');
     }
   }
 );
@@ -137,98 +96,104 @@ const notificationPreferencesSlice = createSlice({
   name: 'notificationPreferences',
   initialState,
   reducers: {
-    // Directly set a notification preference (for initialization or sync)
-    setNotificationPreference: (
-      state, 
-      action: PayloadAction<{ communityId: string; enabled: boolean }>
-    ) => {
-      const { communityId, enabled } = action.payload;
-      // Convert to boolean to ensure consistency
-      const enabledBool = Boolean(enabled);
-      console.log(`Setting notification preference directly: ${communityId} => ${enabledBool}`);
-      state.communityPreferences[communityId] = enabledBool;
+    // Direct update for a single preference
+    togglePreference: (state, action: PayloadAction<{ key: keyof NotificationPreferences }>) => {
+      const { key } = action.payload;
+      state.preferences[key] = !state.preferences[key];
       
       // Save to localStorage
-      savePreferences(state.communityPreferences);
-    },
-    
-    // Initialize preferences from localStorage or server data
-    initializePreferences: (
-      state,
-      action: PayloadAction<Record<string, boolean>>
-    ) => {
-      console.log('Initializing notification preferences:', action.payload);
-      state.communityPreferences = action.payload;
-      
-      // Save to localStorage
-      savePreferences(action.payload);
-    },
-    
-    // Clear all preferences (e.g., on logout)
-    clearPreferences: (state) => {
-      console.log('Clearing all notification preferences');
-      state.communityPreferences = {};
-      
-      // Clear from localStorage
-      if (isBrowser) {
+      if (typeof window !== 'undefined') {
         const userId = getUserId();
         if (userId) {
-          localStorage.removeItem(`user_${userId}_${NOTIFICATION_PREFS_KEY}`);
+          localStorage.setItem(
+            `user_${userId}_notificationPreferences`, 
+            JSON.stringify(state.preferences)
+          );
         }
       }
     },
     
-    // Update a single preference from server data
-    updatePreferenceFromServer: (
-      state,
-      action: PayloadAction<{ communityId: string; enabled: boolean }>
-    ) => {
-      const { communityId, enabled } = action.payload;
-      const enabledBool = Boolean(enabled);
+    // Reset preferences to default
+    resetPreferences: (state) => {
+      state.preferences = defaultPreferences;
       
-      // Only update if we don't already have this preference saved
-      if (!(communityId in state.communityPreferences)) {
-        console.log(`Updating preference from server (initial load): ${communityId} => ${enabledBool}`);
-        state.communityPreferences[communityId] = enabledBool;
-        
-        // Save to localStorage
-        savePreferences(state.communityPreferences);
-      } else {
-        console.log(`Skipping server update for existing preference: ${communityId} => already set to ${state.communityPreferences[communityId]}`);
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        const userId = getUserId();
+        if (userId) {
+          localStorage.setItem(
+            `user_${userId}_notificationPreferences`, 
+            JSON.stringify(defaultPreferences)
+          );
+        }
       }
-    }
+    },
+    
+    // Clear error
+    clearError: (state) => {
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
-    // Handle async toggle operation
+    // Handle fetchNotificationPreferences
     builder
-      .addCase(toggleNotificationPreference.pending, (state) => {
+      .addCase(fetchNotificationPreferences.pending, (state) => {
         state.isLoading = true;
         state.error = null;
-        console.log('Toggle notification: PENDING');
       })
-      .addCase(toggleNotificationPreference.fulfilled, (state, action) => {
-        const { communityId, enabled } = action.payload;
-        console.log(`Toggle notification FULFILLED: ${communityId} => ${enabled}`);
-        state.communityPreferences[communityId] = enabled;
+      .addCase(fetchNotificationPreferences.fulfilled, (state, action) => {
         state.isLoading = false;
+        state.preferences = action.payload;
         
         // Save to localStorage
-        savePreferences(state.communityPreferences);
+        if (typeof window !== 'undefined') {
+          const userId = getUserId();
+          if (userId) {
+            localStorage.setItem(
+              `user_${userId}_notificationPreferences`, 
+              JSON.stringify(action.payload)
+            );
+          }
+        }
       })
-      .addCase(toggleNotificationPreference.rejected, (state, action) => {
+      .addCase(fetchNotificationPreferences.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
-        console.error('Toggle notification REJECTED:', action.payload);
       });
-  }
+    
+    // Handle updateNotificationPreferences
+    builder
+      .addCase(updateNotificationPreferences.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateNotificationPreferences.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.preferences = action.payload;
+        
+        // Save to localStorage
+        if (typeof window !== 'undefined') {
+          const userId = getUserId();
+          if (userId) {
+            localStorage.setItem(
+              `user_${userId}_notificationPreferences`, 
+              JSON.stringify(action.payload)
+            );
+          }
+        }
+      })
+      .addCase(updateNotificationPreferences.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      });
+  },
 });
 
 // Export actions and reducer
 export const { 
-  setNotificationPreference, 
-  initializePreferences,
-  clearPreferences,
-  updatePreferenceFromServer
+  togglePreference, 
+  resetPreferences,
+  clearError
 } = notificationPreferencesSlice.actions;
 
 export default notificationPreferencesSlice.reducer;
