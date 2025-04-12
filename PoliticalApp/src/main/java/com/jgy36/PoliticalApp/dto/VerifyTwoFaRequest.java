@@ -1,6 +1,9 @@
 package com.jgy36.PoliticalApp.dto;
 
+import lombok.Getter;
+
 // DTO for verifying 2FA code
+@Getter
 public class VerifyTwoFaRequest {
     private String code;
     private String secret;
@@ -13,16 +16,8 @@ public class VerifyTwoFaRequest {
         this.secret = secret;
     }
 
-    public String getCode() {
-        return code;
-    }
-
     public void setCode(String code) {
         this.code = code;
-    }
-
-    public String getSecret() {
-        return secret;
     }
 
     public void setSecret(String secret) {

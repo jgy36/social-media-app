@@ -1,10 +1,13 @@
 package com.jgy36.PoliticalApp.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
+@Getter
 @Entity
 @Table(name = "user_privacy_settings")
 public class UserPrivacySettings {
+    // Getters and Setters
     @Id
     private Long userId;
 
@@ -30,81 +33,40 @@ public class UserPrivacySettings {
         this.user = user;
     }
 
-    // Getters and Setters
-    public Long getUserId() {
-        return userId;
-    }
-
     public void setUserId(Long userId) {
         this.userId = userId;
-    }
-
-    public User getUser() {
-        return user;
     }
 
     public void setUser(User user) {
         this.user = user;
     }
 
-    public boolean isPublicProfile() {
-        return publicProfile;
-    }
-
     public void setPublicProfile(boolean publicProfile) {
         this.publicProfile = publicProfile;
-    }
-
-    public boolean isShowPoliticalAffiliation() {
-        return showPoliticalAffiliation;
     }
 
     public void setShowPoliticalAffiliation(boolean showPoliticalAffiliation) {
         this.showPoliticalAffiliation = showPoliticalAffiliation;
     }
 
-    public boolean isShowPostHistory() {
-        return showPostHistory;
-    }
-
     public void setShowPostHistory(boolean showPostHistory) {
         this.showPostHistory = showPostHistory;
-    }
-
-    public boolean isShowVotingRecord() {
-        return showVotingRecord;
     }
 
     public void setShowVotingRecord(boolean showVotingRecord) {
         this.showVotingRecord = showVotingRecord;
     }
 
-    public boolean isAllowDirectMessages() {
-        return allowDirectMessages;
-    }
-
     public void setAllowDirectMessages(boolean allowDirectMessages) {
         this.allowDirectMessages = allowDirectMessages;
-    }
-
-    public boolean isAllowFollowers() {
-        return allowFollowers;
     }
 
     public void setAllowFollowers(boolean allowFollowers) {
         this.allowFollowers = allowFollowers;
     }
 
-    public boolean isAllowSearchIndexing() {
-        return allowSearchIndexing;
-    }
-
     public void setAllowSearchIndexing(boolean allowSearchIndexing) {
         this.allowSearchIndexing = allowSearchIndexing;
-    }
-
-    public boolean isDataSharing() {
-        return dataSharing;
     }
 
     public void setDataSharing(boolean dataSharing) {
