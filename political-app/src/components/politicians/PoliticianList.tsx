@@ -158,7 +158,7 @@ export const PoliticianList: React.FC<PoliticianListProps> = ({
         </TabsContent>
         
         <TabsContent value="county" className="space-y-4">
-          <ScrollArea className="h-[400px] pr-4">
+          <ScrollArea className="h-[500px] pr-4">
             {countyPoliticians.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
                 {countyPoliticians.map((politician) => (
@@ -174,7 +174,7 @@ export const PoliticianList: React.FC<PoliticianListProps> = ({
         </TabsContent>
         
         <TabsContent value="state" className="space-y-4">
-          <ScrollArea className="h-[400px] pr-4">
+          <ScrollArea className="h-[500px] pr-4">
             {statePoliticians.length > 0 ? (
               <div className="grid grid-cols-1 gap-4">
                 {statePoliticians.map((politician) => (

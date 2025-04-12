@@ -9,6 +9,7 @@ import { getFollowStatus } from "@/api/users";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "lucide-react";
 import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
+import UserBadges from "./Userbadges";
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
@@ -175,6 +176,14 @@ const ProfileHeader = () => {
         <p className="text-muted-foreground">@{user.username || "unknown"}</p>
 
         {user.bio && <p className="mt-2">{user.bio}</p>}
+        
+        {/* User Badges */}
+        {user.id && (
+          <UserBadges 
+            userId={user.id}
+            isCurrentUser={true}
+          />
+        )}
 
         {/* User Stats - Now with clickable followers/following */}
         {user.id && (
