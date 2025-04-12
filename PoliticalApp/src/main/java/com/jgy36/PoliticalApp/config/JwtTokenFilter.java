@@ -32,6 +32,14 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
 
+        // Skip token validation for authentication endpoints
+        String requestURI = request.getRequestURI();
+        if (requestURI.startsWith("/api/auth/")) {
+            System.out.println("🔍 Auth endpoint detected: " + requestURI + " - Skipping token validation");
+            chain.doFilter(request, response);
+            return;
+        }
+
         final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         System.out.println("🔍 Received Authorization Header: " + header);
 
