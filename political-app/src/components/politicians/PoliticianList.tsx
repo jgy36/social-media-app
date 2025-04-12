@@ -132,7 +132,7 @@ export const PoliticianList: React.FC<PoliticianListProps> = ({
         </TabsList>
         
         <TabsContent value="all" className="space-y-4">
-          <ScrollArea className="h-[400px] pr-4">
+          <ScrollArea className="h-[500px] pr-4">
             <div className="grid grid-cols-1 gap-4">
               {countyPoliticians.length > 0 && (
                 <>
