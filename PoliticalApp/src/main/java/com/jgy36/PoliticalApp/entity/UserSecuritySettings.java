@@ -1,13 +1,14 @@
 package com.jgy36.PoliticalApp.entity;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
 @Entity
+@Getter
+@Setter
 @Table(name = "user_security_settings")
 public class UserSecuritySettings {
     @Id
@@ -22,5 +23,14 @@ public class UserSecuritySettings {
     private String twoFaSecret;
     private LocalDateTime lastPasswordChange;
 
-    // Getters, setters, etc.
+    // Constructors
+    public UserSecuritySettings() {
+    }
+
+    public UserSecuritySettings(User user, boolean twoFaEnabled, String twoFaSecret, LocalDateTime lastPasswordChange) {
+        this.user = user;
+        this.twoFaEnabled = twoFaEnabled;
+        this.twoFaSecret = twoFaSecret;
+        this.lastPasswordChange = lastPasswordChange;
+    }
 }
