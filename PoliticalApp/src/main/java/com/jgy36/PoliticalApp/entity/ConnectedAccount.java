@@ -1,12 +1,15 @@
 package com.jgy36.PoliticalApp.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
+@Getter
 @Entity
 @Table(name = "connected_accounts")
 public class ConnectedAccount {
+    // Getters and Setters
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -34,57 +37,28 @@ public class ConnectedAccount {
         this.expiresAt = expiresAt;
     }
 
-    // Getters and Setters
-    public Long getId() {
-        return id;
-    }
-
     public void setId(Long id) {
         this.id = id;
-    }
-
-    public User getUser() {
-        return user;
     }
 
     public void setUser(User user) {
         this.user = user;
     }
 
-    public String getProvider() {
-        return provider;
-    }
-
     public void setProvider(String provider) {
         this.provider = provider;
-    }
-
-    public String getProviderUserId() {
-        return providerUserId;
     }
 
     public void setProviderUserId(String providerUserId) {
         this.providerUserId = providerUserId;
     }
 
-    public String getAccessToken() {
-        return accessToken;
-    }
-
     public void setAccessToken(String accessToken) {
         this.accessToken = accessToken;
     }
 
-    public String getRefreshToken() {
-        return refreshToken;
-    }
-
     public void setRefreshToken(String refreshToken) {
         this.refreshToken = refreshToken;
-    }
-
-    public LocalDateTime getExpiresAt() {
-        return expiresAt;
     }
 
     public void setExpiresAt(LocalDateTime expiresAt) {

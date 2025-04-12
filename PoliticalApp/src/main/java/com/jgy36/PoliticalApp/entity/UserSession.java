@@ -1,12 +1,15 @@
 package com.jgy36.PoliticalApp.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
 
 import java.time.LocalDateTime;
 
+@Getter
 @Entity
 @Table(name = "user_sessions")
 public class UserSession {
+    // Getters and Setters
     @Id
     private String id;
 
@@ -36,65 +39,32 @@ public class UserSession {
         this.expiresAt = expiresAt;
     }
 
-    // Getters and Setters
-    public String getId() {
-        return id;
-    }
-
     public void setId(String id) {
         this.id = id;
-    }
-
-    public User getUser() {
-        return user;
     }
 
     public void setUser(User user) {
         this.user = user;
     }
 
-    public String getBrowser() {
-        return browser;
-    }
-
     public void setBrowser(String browser) {
         this.browser = browser;
-    }
-
-    public String getOs() {
-        return os;
     }
 
     public void setOs(String os) {
         this.os = os;
     }
 
-    public String getIpAddress() {
-        return ipAddress;
-    }
-
     public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
-    }
-
-    public String getLocation() {
-        return location;
     }
 
     public void setLocation(String location) {
         this.location = location;
     }
 
-    public LocalDateTime getLastActive() {
-        return lastActive;
-    }
-
     public void setLastActive(LocalDateTime lastActive) {
         this.lastActive = lastActive;
-    }
-
-    public LocalDateTime getExpiresAt() {
-        return expiresAt;
     }
 
     public void setExpiresAt(LocalDateTime expiresAt) {

@@ -1,6 +1,9 @@
 package com.jgy36.PoliticalApp.dto;
 
+import lombok.Getter;
+
 // DTO for notification preferences
+@Getter
 public class UserNotificationPreferencesDto {
     private boolean emailNotifications = true;
     private boolean newCommentNotifications = true;
@@ -14,64 +17,32 @@ public class UserNotificationPreferencesDto {
     public UserNotificationPreferencesDto() {
     }
 
-    public boolean isEmailNotifications() {
-        return emailNotifications;
-    }
-
     public void setEmailNotifications(boolean emailNotifications) {
         this.emailNotifications = emailNotifications;
-    }
-
-    public boolean isNewCommentNotifications() {
-        return newCommentNotifications;
     }
 
     public void setNewCommentNotifications(boolean newCommentNotifications) {
         this.newCommentNotifications = newCommentNotifications;
     }
 
-    public boolean isMentionNotifications() {
-        return mentionNotifications;
-    }
-
     public void setMentionNotifications(boolean mentionNotifications) {
         this.mentionNotifications = mentionNotifications;
-    }
-
-    public boolean isPoliticalUpdates() {
-        return politicalUpdates;
     }
 
     public void setPoliticalUpdates(boolean politicalUpdates) {
         this.politicalUpdates = politicalUpdates;
     }
 
-    public boolean isCommunityUpdates() {
-        return communityUpdates;
-    }
-
     public void setCommunityUpdates(boolean communityUpdates) {
         this.communityUpdates = communityUpdates;
-    }
-
-    public boolean isDirectMessageNotifications() {
-        return directMessageNotifications;
     }
 
     public void setDirectMessageNotifications(boolean directMessageNotifications) {
         this.directMessageNotifications = directMessageNotifications;
     }
 
-    public boolean isFollowNotifications() {
-        return followNotifications;
-    }
-
     public void setFollowNotifications(boolean followNotifications) {
         this.followNotifications = followNotifications;
-    }
-
-    public boolean isLikeNotifications() {
-        return likeNotifications;
     }
 
     public void setLikeNotifications(boolean likeNotifications) {
