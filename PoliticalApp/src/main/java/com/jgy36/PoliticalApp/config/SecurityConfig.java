@@ -104,6 +104,16 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/communities/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/communities/**").authenticated()
                         .requestMatchers("/api/messages/**").authenticated()
+                        // Add these to your existing security config
+                        .requestMatchers("/api/users/2fa/**").authenticated()
+                        .requestMatchers("/api/users/password").authenticated()
+                        .requestMatchers("/api/users/sessions/**").authenticated()
+                        .requestMatchers("/api/users/notification-preferences/**").authenticated()
+                        .requestMatchers("/api/users/privacy-settings/**").authenticated()
+                        .requestMatchers("/api/users/email/**").authenticated()
+                        .requestMatchers("/api/users/connected-accounts/**").authenticated()
+                        .requestMatchers("/api/users/data-export").authenticated()
+                        .requestMatchers("/api/users/account").authenticated()
 
                         // Admin Only
                         .requestMatchers("/api/admin/init-communities").permitAll()  // Temporarily public
