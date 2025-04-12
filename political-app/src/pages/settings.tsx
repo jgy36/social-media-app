@@ -1,57 +1,52 @@
-// political-app/src/pages/settings.tsx
-import React, { useState, useEffect } from "react";
+// src/pages/settings.tsx
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import MainLayout from "@/components/layout/MainLayout";
-import SettingsTabs from "@/components/settings/SettingsTabs";
-import ProfileSettings from "@/components/settings/ProfileSettings";
-import AccountSettings from "@/components/settings/AccountSettings";
-import PrivacySettings from "@/components/settings/PrivacySettings";
-import NotificationSettings from "@/components/settings/NotificationSettings";
-import SecuritySettings from "@/components/settings/SecuritySettings";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 
-const SettingsPage: React.FC = () => {
+import {
+  SettingsTabs,
+  ProfileSettings,
+  AccountSettings,
+  PrivacySettings,
+  NotificationSettings,
+  SecuritySettings,
+} from "@/components/settings";
+
+const Settings = () => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("profile");
-
-  // Set the active tab from URL query parameter (if present)
+  const { tab } = router.query;
+  const [activeTab, setActiveTab] = useState<string>("profile");
+  const user = useSelector((state: RootState) => state.user);
+  
+  // Set active tab from URL parameter
   useEffect(() => {
-    const { tab } = router.query;
     if (tab && typeof tab === "string") {
-      setActiveTab(tab);
+      // Only set if it's a valid tab
+      const validTabs = ["profile", "account", "privacy", "notifications", "security"];
+      if (validTabs.includes(tab)) {
+        setActiveTab(tab);
+      }
     }
-  }, [router.query]);
-
-  const handleBack = () => {
-    router.push("/profile");
-  };
-
-  // Handle tab change (update URL)
+  }, [tab]);
+  
+  // Handle tab change
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    router.push(
-      {
-        pathname: "/settings",
-        query: { tab: value },
-      },
-      undefined,
-      { shallow: true }
-    );
   };
-
+  
   return (
     <ProtectedRoute>
       <MainLayout>
-        <div className="max-w-3xl mx-auto p-6">
-          <Button onClick={handleBack} variant="ghost" className="mb-6">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Profile
-          </Button>
-
-          <h1 className="text-2xl font-bold mb-6">Account Settings</h1>
-
-          <SettingsTabs activeTab={activeTab} onTabChange={handleTabChange}>
+        <div className="container max-w-4xl mx-auto p-4 md:p-6">
+          <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Settings</h1>
+          
+          <SettingsTabs
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+          >
             <ProfileSettings />
             <AccountSettings />
             <PrivacySettings />
@@ -64,4 +59,4 @@ const SettingsPage: React.FC = () => {
   );
 };
 
-export default SettingsPage;
+export default Settings;

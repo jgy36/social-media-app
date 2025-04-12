@@ -1,7 +1,18 @@
 // src/components/settings/SettingsTabs.tsx
-import React, { ReactNode } from "react";
+import React, { ReactNode, useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { User, Eye, Bell, Shield, UserCog } from "lucide-react";
+import { User, Eye, Bell, Shield, UserCog, LucideIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Info } from "lucide-react";
+
+interface TabItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  disabled?: boolean;
+  disabledMessage?: string;
+}
 
 interface SettingsTabsProps {
   activeTab: string;
@@ -14,28 +25,96 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({
   onTabChange, 
   children 
 }) => {
+  const router = useRouter();
+  const [isClient, setIsClient] = useState(false);
+  
+  // Make sure we're running on the client (to avoid SSR issues)
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  // Define tabs with their accessibility states
+  const tabs: TabItem[] = [
+    { id: "profile", label: "Profile", icon: User },
+    { id: "account", label: "Account", icon: UserCog },
+    { id: "privacy", label: "Privacy", icon: Eye },
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "security", label: "Security", icon: Shield },
+  ];
+  
+  // When the route changes, update the active tab in URL
+  useEffect(() => {
+    // Only run on client
+    if (!isClient) return;
+    
+    const { tab } = router.query;
+    
+    // If tab is specified in URL and it's different from active tab
+    if (tab && typeof tab === 'string' && tabs.some(t => t.id === tab) && tab !== activeTab) {
+      onTabChange(tab);
+    }
+    // If no tab is specified in URL, update URL with the current active tab
+    else if (!tab && activeTab) {
+      router.replace(
+        {
+          pathname: router.pathname,
+          query: { ...router.query, tab: activeTab },
+        },
+        undefined,
+        { shallow: true }
+      );
+    }
+  }, [router.query, activeTab, isClient, onTabChange, router, tabs]);
+  
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    // Update URL
+    router.replace(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, tab: value },
+      },
+      undefined,
+      { shallow: true }
+    );
+    
+    // Trigger the callback
+    onTabChange(value);
+  };
+  
   // Ensure children is an array
   const childrenArray = React.Children.toArray(children);
-
+  
+  if (!isClient) {
+    // Return a placeholder while we wait for client-side hydration
+    return <div className="animate-pulse h-8 bg-muted rounded w-full mb-6"></div>;
+  }
+  
   return (
-    <Tabs value={activeTab} onValueChange={onTabChange}>
-      <TabsList className="mb-6">
-        <TabsTrigger value="profile" className="flex items-center gap-2">
-          <User className="h-4 w-4" /> Profile
-        </TabsTrigger>
-        <TabsTrigger value="account" className="flex items-center gap-2">
-          <UserCog className="h-4 w-4" /> Account
-        </TabsTrigger>
-        <TabsTrigger value="privacy" className="flex items-center gap-2">
-          <Eye className="h-4 w-4" /> Privacy
-        </TabsTrigger>
-        <TabsTrigger value="notifications" className="flex items-center gap-2">
-          <Bell className="h-4 w-4" /> Notifications
-        </TabsTrigger>
-        <TabsTrigger value="security" className="flex items-center gap-2">
-          <Shield className="h-4 w-4" /> Security
-        </TabsTrigger>
+    <Tabs value={activeTab} onValueChange={handleTabChange}>
+      <TabsList className="mb-6 grid grid-cols-2 md:grid-cols-5 md:flex md:w-full">
+        {tabs.map(tab => (
+          <TabsTrigger 
+            key={tab.id} 
+            value={tab.id} 
+            className="flex items-center gap-2"
+            disabled={tab.disabled}
+          >
+            <tab.icon className="h-4 w-4" /> 
+            <span className="hidden sm:inline">{tab.label}</span>
+          </TabsTrigger>
+        ))}
       </TabsList>
+      
+      {tabs.find(tab => tab.id === activeTab)?.disabled && (
+        <Alert variant="default" className="mb-4">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            {tabs.find(tab => tab.id === activeTab)?.disabledMessage || 
+             "This feature is currently unavailable."}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <TabsContent value="profile">
         {childrenArray[0]}
