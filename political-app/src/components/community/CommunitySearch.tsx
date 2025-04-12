@@ -4,6 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Plus } from "lucide-react";
 import { useRouter } from "next/router";
+import { useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { useToast } from "@/hooks/use-toast"; // Import the toast hook
 
 interface CommunitySearchProps {
   onSearch: (query: string) => void;
@@ -12,11 +15,31 @@ interface CommunitySearchProps {
 const CommunitySearch = ({ onSearch }: CommunitySearchProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const { toast } = useToast(); // Get the toast function
+  
+  // Get user role from Redux state
+  const user = useSelector((state: RootState) => state.user);
+  const isAdmin = user.role === "ADMIN";
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
     onSearch(query);
+  };
+
+  const handleCreateButtonClick = () => {
+    if (isAdmin) {
+      // If admin, navigate to create page
+      router.push("/community/create");
+    } else {
+      // If not admin, show toast notification
+      toast({
+        title: "Permission Denied",
+        description: "Only administrator accounts can create new communities.",
+        variant: "destructive", // Use destructive variant for errors/warnings
+        duration: 3000, // Show for 3 seconds
+      });
+    }
   };
 
   return (
@@ -34,7 +57,8 @@ const CommunitySearch = ({ onSearch }: CommunitySearchProps) => {
           />
         </div>
 
-        <Button size="sm" onClick={() => router.push("/community/create")}>
+        {/* Show button to everyone but handle clicks differently */}
+        <Button size="sm" onClick={handleCreateButtonClick}>
           <Plus className="h-4 w-4 mr-2" />
           <span className="hidden sm:inline">Create</span>
         </Button>

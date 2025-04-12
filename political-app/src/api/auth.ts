@@ -52,6 +52,7 @@ export const login = async (
         displayName: response.data.user.displayName || undefined,
         bio: response.data.user.bio || undefined,
         profileImageUrl: response.data.user.profileImageUrl || undefined,
+        role: response.data.user.role || "USER", // Ensure role is set
       });
     }
 

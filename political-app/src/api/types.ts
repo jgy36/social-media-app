@@ -30,6 +30,7 @@ export interface AuthResponse {
     displayName?: string;
     bio?: string;
     profileImageUrl?: string;
+    role?: "USER" | "ADMIN"; // Add role field to the user object
   };
 }
 
@@ -99,9 +100,9 @@ export interface PostResponse {
   isRepost?: boolean;
   originalPostId?: number;
   repostsCount?: number;
-  repostCount?: number;  // Add alias for compatibility
+  repostCount?: number; // Add alias for compatibility
   originalAuthor?: string;
-  originalPostContent?: string;  // Add this critical missing field
+  originalPostContent?: string; // Add this critical missing field
 }
 
 export interface SavePostResponse {

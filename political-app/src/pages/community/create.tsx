@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // pages/community/create.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Users, Check, Info } from "lucide-react";
 
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
@@ -37,6 +38,7 @@ const CreateCommunityPage = () => {
   const router = useRouter();
   const user = useSelector((state: RootState) => state.user);
   const isAuthenticated = !!user.token;
+  const isAdmin = user.role === "ADMIN";
 
   const [id, setId] = useState("");
   const [name, setName] = useState("");
@@ -46,6 +48,34 @@ const CreateCommunityPage = () => {
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isCreating, setIsCreating] = useState(false);
   const [showSuccessAlert, setShowSuccessAlert] = useState(false);
+  
+  // Redirect if not authenticated or not an admin
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!isAuthenticated) {
+        router.push("/login?redirect=" + encodeURIComponent("/community"));
+        return;
+      }
+      
+      if (!isAdmin) {
+        // Redirect non-admin users to the community listing page
+        router.push("/community");
+        return;
+      }
+    }
+  }, [isAuthenticated, isAdmin, router]);
+
+  // If not admin, show loading state until redirect happens
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <Navbar />
+        <div className="max-w-3xl mx-auto p-6 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    );
+  }
 
   // Redirect to login if not authenticated
   if (typeof window !== "undefined" && !isAuthenticated) {
