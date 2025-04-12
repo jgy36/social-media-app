@@ -1,6 +1,8 @@
 package com.jgy36.PoliticalApp.controller;
 
 import com.jgy36.PoliticalApp.dto.UserBadgeDto;
+import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.service.UserBadgeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -12,16 +14,19 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/users")
 public class UserBadgeController {
 
     private final UserBadgeService userBadgeService;
+    private final UserRepository userRepository;
 
     @Autowired
-    public UserBadgeController(UserBadgeService userBadgeService) {
+    public UserBadgeController(UserBadgeService userBadgeService, UserRepository userRepository) {
         this.userBadgeService = userBadgeService;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/{userId}/badges")
@@ -82,10 +87,12 @@ public class UserBadgeController {
     }
 
     // Helper method to extract user ID from authentication
-    // Modify this to match how your application identifies users
     private Long getUserIdFromAuth(Authentication auth) {
-        // This implementation will depend on your security setup
-        // This is just an example - adapt to your auth system
-        return ((YourUserDetails) auth.getPrincipal()).getId();
+        String email = auth.getName(); // Get the email from Authentication
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            throw new IllegalStateException("Authenticated user not found in database");
+        }
+        return userOpt.get().getId();
     }
 }
