@@ -1,13 +1,12 @@
 package com.jgy36.PoliticalApp.entity;
 
-import com.vladmihalcea.hibernate.type.json.JsonBinaryType;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
-import javax.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,7 +16,6 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@TypeDef(name = "jsonb", typeClass = JsonBinaryType.class)
 public class UserBadge {
 
     @Id
@@ -27,7 +25,7 @@ public class UserBadge {
     @Column(name = "user_id", nullable = false, unique = true)
     private Long userId;
 
-    @Type(type = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "badge_ids", columnDefinition = "jsonb")
     private List<String> badgeIds = new ArrayList<>();
 
