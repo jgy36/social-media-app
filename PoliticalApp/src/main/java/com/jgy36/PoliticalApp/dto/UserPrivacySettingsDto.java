@@ -1,18 +1,7 @@
-package com.jgy36.PoliticalApp.entity;
+package com.jgy36.PoliticalApp.dto;
 
-import jakarta.persistence.*;
-
-@Entity
-@Table(name = "user_privacy_settings")
-public class UserPrivacySettings {
-    @Id
-    private Long userId;
-
-    @OneToOne
-    @MapsId
-    @JoinColumn(name = "user_id")
-    private User user;
-
+// DTO for privacy settings
+public class UserPrivacySettingsDto {
     private boolean publicProfile = true;
     private boolean showPoliticalAffiliation = false;
     private boolean showPostHistory = true;
@@ -22,29 +11,7 @@ public class UserPrivacySettings {
     private boolean allowSearchIndexing = true;
     private boolean dataSharing = false;
 
-    // Constructors
-    public UserPrivacySettings() {
-    }
-
-    public UserPrivacySettings(User user) {
-        this.user = user;
-    }
-
-    // Getters and Setters
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
+    public UserPrivacySettingsDto() {
     }
 
     public boolean isPublicProfile() {

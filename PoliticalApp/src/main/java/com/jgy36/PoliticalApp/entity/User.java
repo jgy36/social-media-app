@@ -7,9 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Getter
@@ -41,6 +39,10 @@ public class User {
     @JsonIgnore
     private String verificationToken;
 
+    // Email verification token expiration (added for settings)
+    @JsonIgnore
+    private LocalDateTime verificationTokenExpiresAt;
+
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -58,20 +60,45 @@ public class User {
     @OneToMany(fetch = FetchType.LAZY)
     @JsonIgnore
     private Set<Post> savedPosts;
+
     // Profile display name
     @Column(nullable = true)
     private String displayName;
+
     // User bio/description
     @Column(columnDefinition = "TEXT", nullable = true)
     private String bio;
+
     // Path to profile image
     @Column(nullable = true)
     private String profileImageUrl;
 
+    // Settings relationships
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private UserSecuritySettings securitySettings;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private UserNotificationPreferences notificationPreferences;
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private UserPrivacySettings privacySettings;
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<ConnectedAccount> connectedAccounts = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore
+    private List<UserSession> sessions = new ArrayList<>();
+
     public User() {
         this.verificationToken = UUID.randomUUID().toString();
+        this.verificationTokenExpiresAt = LocalDateTime.now().plusDays(1);
     }
-    // Add these fields to your User.java entity class
 
     public User(String username, String email, String password, Role role) {
         this.username = username;
@@ -80,6 +107,7 @@ public class User {
         this.role = role;
         this.verified = false;
         this.verificationToken = UUID.randomUUID().toString();
+        this.verificationTokenExpiresAt = LocalDateTime.now().plusDays(1);
         this.createdAt = LocalDateTime.now();
     }
 
@@ -91,28 +119,61 @@ public class User {
         following.remove(user);
     }
 
-    // Getters and setters for new fields
-    public String getDisplayName() {
-        return displayName;
+    // For compatibility with new settings implementation
+    public boolean isEmailVerified() {
+        return verified;
     }
 
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
+    public void setEmailVerified(boolean emailVerified) {
+        this.verified = emailVerified;
     }
 
-    public String getBio() {
-        return bio;
+    // Getters and setters for new settings relationships
+    public UserSecuritySettings getSecuritySettings() {
+        return securitySettings;
     }
 
-    public void setBio(String bio) {
-        this.bio = bio;
+    public void setSecuritySettings(UserSecuritySettings securitySettings) {
+        this.securitySettings = securitySettings;
     }
 
-    public String getProfileImageUrl() {
-        return profileImageUrl;
+    public UserNotificationPreferences getNotificationPreferences() {
+        return notificationPreferences;
     }
 
-    public void setProfileImageUrl(String profileImageUrl) {
-        this.profileImageUrl = profileImageUrl;
+    public void setNotificationPreferences(UserNotificationPreferences notificationPreferences) {
+        this.notificationPreferences = notificationPreferences;
+    }
+
+    public UserPrivacySettings getPrivacySettings() {
+        return privacySettings;
+    }
+
+    public void setPrivacySettings(UserPrivacySettings privacySettings) {
+        this.privacySettings = privacySettings;
+    }
+
+    public List<ConnectedAccount> getConnectedAccounts() {
+        return connectedAccounts;
+    }
+
+    public void setConnectedAccounts(List<ConnectedAccount> connectedAccounts) {
+        this.connectedAccounts = connectedAccounts;
+    }
+
+    public List<UserSession> getSessions() {
+        return sessions;
+    }
+
+    public void setSessions(List<UserSession> sessions) {
+        this.sessions = sessions;
+    }
+
+    public LocalDateTime getVerificationTokenExpiresAt() {
+        return verificationTokenExpiresAt;
+    }
+
+    public void setVerificationTokenExpiresAt(LocalDateTime verificationTokenExpiresAt) {
+        this.verificationTokenExpiresAt = verificationTokenExpiresAt;
     }
 }

@@ -1,18 +1,7 @@
-package com.jgy36.PoliticalApp.entity;
+package com.jgy36.PoliticalApp.dto;
 
-import jakarta.persistence.*;
-
-@Entity
-@Table(name = "user_notification_preferences")
-public class UserNotificationPreferences {
-    @Id
-    private Long userId;
-
-    @OneToOne
-    @MapsId
-    @JoinColumn(name = "user_id")
-    private User user;
-
+// DTO for notification preferences
+public class UserNotificationPreferencesDto {
     private boolean emailNotifications = true;
     private boolean newCommentNotifications = true;
     private boolean mentionNotifications = true;
@@ -22,29 +11,7 @@ public class UserNotificationPreferences {
     private boolean followNotifications = true;
     private boolean likeNotifications = true;
 
-    // Constructors
-    public UserNotificationPreferences() {
-    }
-
-    public UserNotificationPreferences(User user) {
-        this.user = user;
-    }
-
-    // Getters and Setters
-    public Long getUserId() {
-        return userId;
-    }
-
-    public void setUserId(Long userId) {
-        this.userId = userId;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
+    public UserNotificationPreferencesDto() {
     }
 
     public boolean isEmailNotifications() {
