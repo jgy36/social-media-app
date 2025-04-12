@@ -282,17 +282,6 @@ const ElectionMap = ({ onCountySelected }: ElectionMapProps) => {
 
   return (
     <div className="relative">
-      <h1
-        style={{
-          fontSize: "24px",
-          fontWeight: "bold",
-          textAlign: "center",
-          marginTop: "10px",
-        }}
-      >
-        2020 U.S. Election Results by County
-      </h1>
-      
       {/* Loading indicator */}
       {loading && (
         <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-70 z-10">

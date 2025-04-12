@@ -1,10 +1,10 @@
 import dynamic from "next/dynamic";
 import { useState, useEffect, useCallback } from "react";
 import Navbar from "@/components/navbar/Navbar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { PoliticianList } from "@/components/politicians/PoliticianList";
 import { Politician } from "@/types/politician";
-import { getAllRelevantPoliticians } from "@/api/politicians"; // Update import
+import { getAllRelevantPoliticians } from "@/api/politicians";
 import { AlertCircle } from "lucide-react";
 
 // ✅ Dynamically Import ElectionMap to Disable SSR
@@ -85,11 +85,6 @@ const MapPage = () => {
           {/* Map Column - Takes 2/3 on large screens */}
           <div className="lg:col-span-2">
             <Card className="shadow-sm border border-border">
-              <CardHeader className="pb-0 pt-4">
-                <CardTitle className="text-xl">
-                  Interactive County Map
-                </CardTitle>
-              </CardHeader>
               <CardContent className="p-4">
                 <div className="w-full h-[600px] rounded-lg overflow-hidden">
                   <ElectionMap onCountySelected={handleCountySelected} />
@@ -104,13 +99,6 @@ const MapPage = () => {
           {/* Politicians Column - Takes 1/3 on large screens */}
           <div className="lg:col-span-1">
             <Card className="shadow-sm border border-border h-full">
-              <CardHeader className="pb-0 pt-4">
-                <CardTitle className="text-xl">
-                  {selectedCounty
-                    ? `${selectedCounty}, ${selectedState}`
-                    : "Representatives"}
-                </CardTitle>
-              </CardHeader>
               <CardContent className="p-4">
                 <PoliticianList
                   politicians={politicians}
