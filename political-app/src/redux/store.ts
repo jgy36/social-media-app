@@ -5,6 +5,7 @@ import userReducer from "./slices/userSlice";
 import postReducer from "./slices/postSlice";
 import communityReducer from "./slices/communitySlice";
 import notificationPreferencesReducer from "./slices/notificationPreferencesSlice";
+import badgeReducer from "./slices/badgeSlice";
 import storage from '../utils/createPersistedStorage';
 
 // Configure persistence for each reducer
@@ -26,17 +27,28 @@ const notificationsPersistConfig = {
   whitelist: ['communityPreferences']
 };
 
+const badgesPersistConfig = {
+  key: 'badges',
+  storage,
+  whitelist: ['badges']
+};
+
 // Create persisted reducers
 const persistedUserReducer = persistReducer(userPersistConfig, userReducer);
 const persistedCommunityReducer = persistReducer(communitiesPersistConfig, communityReducer);
 const persistedNotificationsReducer = persistReducer(notificationsPersistConfig, notificationPreferencesReducer);
+const persistedBadgeReducer = persistReducer(badgesPersistConfig, badgeReducer);
+
 
 export const store = configureStore({
   reducer: {
     user: persistedUserReducer,
     posts: postReducer,
     communities: persistedCommunityReducer,
-    notificationPreferences: persistedNotificationsReducer
+    notificationPreferences: persistedNotificationsReducer,
+    badges: persistedBadgeReducer
+
+    
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

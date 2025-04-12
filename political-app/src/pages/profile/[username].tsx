@@ -21,6 +21,7 @@ import UserStats from "@/components/profile/UserStats";
 import FollowButton from "@/components/profile/FollowButton";
 import { getFollowStatus, getPostsByUsername } from "@/api/users"; // Update import
 import MessageButton from "@/components/profile/MessageButton";
+import UserBadges from "@/components/profile/Userbadges";
 
 // Interface for the user profile response
 interface UserProfile {
@@ -115,11 +116,15 @@ const UserProfilePage = () => {
         // Fetch user posts with improved error handling
         try {
           const userPosts = await getPostsByUsername(username);
-          
+
           // Ensure that userPosts is an array before setting the state
           if (Array.isArray(userPosts)) {
             setPosts(userPosts);
-          } else if (userPosts && typeof userPosts === 'object' && Array.isArray(userPosts.data)) {
+          } else if (
+            userPosts &&
+            typeof userPosts === "object" &&
+            Array.isArray(userPosts.data)
+          ) {
             // Handle case where API returns { data: [...posts] }
             setPosts(userPosts.data);
           } else {
@@ -292,6 +297,12 @@ const UserProfilePage = () => {
                 <p className="text-muted-foreground">@{profile.username}</p>
 
                 {profile.bio && <p className="mt-2">{profile.bio}</p>}
+
+                {/* User Badges */}
+                <UserBadges
+                  userId={profile.id}
+                  isCurrentUser={isCurrentUserProfile}
+                />
 
                 {/* User Stats (Clickable for Following/Followers) */}
                 <UserStats
