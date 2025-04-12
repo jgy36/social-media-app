@@ -7,6 +7,7 @@ import { GetServerSideProps } from "next";
 import axios from "axios";
 import Navbar from "@/components/navbar/Navbar";
 
+
 // Import community-specific components
 import CommunityHeader from "@/components/community/CommunityHeader";
 import CommunityPostForm from "@/components/community/CommunityPostForm";

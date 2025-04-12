@@ -29,6 +29,7 @@ interface UserState {
   loading: boolean;
   error: string | null;
   isAuthenticated: boolean; // Add explicit authenticated flag
+  role: "USER" | "ADMIN" | null; // Add role field
 }
 
 const initialState: UserState = {
@@ -42,6 +43,7 @@ const initialState: UserState = {
   loading: false,
   error: null,
   isAuthenticated: false, // Initialize as not authenticated
+  role: null, // Initialize role as null
 };
 
 // Restore auth state from client-side storage
@@ -69,6 +71,7 @@ export const restoreAuthState = createAsyncThunk(
             bio: userData.bio,
             profileImageUrl: userData.profileImageUrl,
             isAuthenticated: true,
+            role: userData.role || "USER", // Add role with default value
           };
         }
       }
@@ -83,6 +86,7 @@ export const restoreAuthState = createAsyncThunk(
         bio: null,
         profileImageUrl: null,
         isAuthenticated: false,
+        role: null, // Add role as null for unauthenticated state
       };
     } catch (error) {
       console.error("Error restoring auth state:", error);
@@ -102,6 +106,7 @@ export const loginUser = createAsyncThunk<
     bio: string | null;
     profileImageUrl: string | null;
     isAuthenticated: boolean;
+    role: "USER" | "ADMIN" | null; // Add role to the return type
   },
   { email: string; password: string }
 >("user/login", async ({ email, password }, { dispatch, rejectWithValue }) => {
@@ -143,6 +148,7 @@ export const loginUser = createAsyncThunk<
       bio: response.user?.bio || null,
       profileImageUrl: response.user?.profileImageUrl || null,
       isAuthenticated: true,
+      role: response.user?.role || null, // Extract role from response
     };
   } catch (error) {
     console.error("Login error:", error);
@@ -399,6 +405,7 @@ const userSlice = createSlice({
       state.bio = action.payload.bio;
       state.profileImageUrl = action.payload.profileImageUrl;
       state.isAuthenticated = action.payload.isAuthenticated;
+      state.role = action.payload.role; // Add role from backend response
       state.loading = false;
       state.error = null;
     });
@@ -424,6 +431,7 @@ const userSlice = createSlice({
       state.bio = action.payload.bio;
       state.profileImageUrl = action.payload.profileImageUrl;
       state.isAuthenticated = action.payload.isAuthenticated;
+      state.role = action.payload.role; // Add role
       state.loading = false;
       state.error = null;
     });

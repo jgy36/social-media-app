@@ -13,6 +13,7 @@ import { Users, Plus, TrendingUp } from "lucide-react";
 import { joinCommunity, leaveCommunity } from "@/redux/slices/communitySlice";
 import SearchComponent from "@/components/search/SearchComponent";
 import { safeNavigate } from "@/utils/routerHistoryManager";
+import { useToast } from "@/hooks/use-toast";
 
 interface Community {
   id: string;
@@ -43,6 +44,26 @@ const CommunitiesPage = () => {
     (state: RootState) => state.communities.joinedCommunities
   );
   const isAuthenticated = !!currentUser.token;
+  const userRole = useSelector((state: RootState) => state.user.role);
+  const { toast } = useToast();
+  const user = useSelector((state: RootState) => state.user);
+  const isAdmin = userRole === "ADMIN";
+
+  // Add this function
+  const handleCreateButtonClick = () => {
+    if (isAdmin) {
+      // If admin, navigate to create page
+      router.push("/community/create");
+    } else {
+      // If not admin, show toast notification
+      toast({
+        title: "Permission Denied",
+        description: "Only administrator accounts can create new communities.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
 
   useEffect(() => {
     const fetchCommunities = async () => {
@@ -76,15 +97,15 @@ const CommunitiesPage = () => {
 
         // Use plain object access without AxiosError type
         const error = err as Error;
-        
+
         // Check if it's an axios error by looking for response property
-        if (err && typeof err === 'object' && 'response' in err) {
-          const responseError = err as { 
-            response?: { 
-              status?: number; 
+        if (err && typeof err === "object" && "response" in err) {
+          const responseError = err as {
+            response?: {
+              status?: number;
               statusText?: string;
               data?: any;
-            } 
+            };
           };
 
           if (responseError.response) {
@@ -101,10 +122,15 @@ const CommunitiesPage = () => {
                 `Failed to load communities. Error: ${responseError.response.status} ${responseError.response.statusText}`
               );
             }
-          } else if ('message' in error) {
+          } else if ("message" in error) {
             // Network error or timeout
-            if (error.message.includes('timeout') || error.message.includes('Network Error')) {
-              setError("Network error: Unable to reach the server. Please check your connection and try again.");
+            if (
+              error.message.includes("timeout") ||
+              error.message.includes("Network Error")
+            ) {
+              setError(
+                "Network error: Unable to reach the server. Please check your connection and try again."
+              );
             } else {
               setError(`Failed to load communities: ${error.message}`);
             }
@@ -352,10 +378,7 @@ const CommunitiesPage = () => {
               <p className="text-muted-foreground">
                 There are no communities matching your search
               </p>
-              <Button
-                onClick={() => router.push("/community/create")}
-                className="mt-4"
-              >
+              <Button onClick={handleCreateButtonClick} className="mt-4">
                 Create a Community
               </Button>
             </div>
