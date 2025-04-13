@@ -78,6 +78,28 @@ const AccountSettings: React.FC = () => {
     apple?: boolean;
   }>({});
 
+  // Add this function to your AccountSettings.tsx component
+  const fetchConnectedAccounts = async () => {
+    try {
+      // Optional: add loading state if you want to show a loading indicator
+      // setLoading(true);
+
+      const accountsResponse = await apiClient.get("/users/connected-accounts");
+      setConnectedAccounts(accountsResponse.data || {});
+    } catch (error) {
+      console.error("Error fetching connected accounts:", error);
+      toast({
+        title: "Error",
+        description: "Failed to refresh connected accounts",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      // If you added loading state, reset it here
+      // setLoading(false);
+    }
+  };
+
   // Fetch user data on component mount
   useEffect(() => {
     const fetchUserData = async () => {
@@ -268,41 +290,74 @@ const AccountSettings: React.FC = () => {
     }
   };
 
-  // Handle connecting a social account
+  // In AccountSettings.tsx
   const handleConnectAccount = async (provider: string) => {
-  try {
-    // Open in a new window/tab with credentials included
-    const popup = window.open(`/api/connect-account/${provider}`, "Connect Account", "width=600,height=700");
-    
-    // Add listener for popup close
-    const checkClosed = setInterval(() => {
-      if (popup?.closed) {
-        clearInterval(checkClosed);
-        
-        // Refresh connected accounts data
-        // Use your existing API call pattern
-        const fetchAccountsAfterConnect = async () => {
-          try {
-            const accountsResponse = await apiClient.get('/users/connected-accounts');
-            setConnectedAccounts(accountsResponse.data || {});
-          } catch (error) {
-            console.error('Error fetching connected accounts:', error);
-          }
-        };
-        
-        fetchAccountsAfterConnect();
-      }
-    }, 500);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  } catch (error) {
-    toast({
-      title: "Error",
-      description: `Failed to connect your ${provider} account`,
-      variant: "destructive",
-      duration: 3000,
-    });
-  }
-};
+    try {
+      // Create a function to fetch connected accounts
+      const refreshAccounts = async () => {
+        try {
+          const response = await apiClient.get("/users/connected-accounts");
+          setConnectedAccounts(response.data || {});
+        } catch (error) {
+          console.error("Error fetching connected accounts:", error);
+        }
+      };
+
+      // Open the popup window
+      const popup = window.open(
+        `/api/connect-account/${provider}`,
+        "Connect Account",
+        "width=600,height=700"
+      );
+
+      // Setup message listener for communication from popup
+      const messageHandler = (event: MessageEvent) => {
+        // Verify origin and message type
+        if (
+          event.origin === window.location.origin &&
+          event.data &&
+          event.data.type === "oauth-connect-success"
+        ) {
+          console.log("Received success message from popup", event.data);
+
+          // Remove event listener
+          window.removeEventListener("message", messageHandler);
+
+          // Refresh the connected accounts
+          refreshAccounts();
+
+          // Show success toast
+          toast({
+            title: "Account Connected",
+            description: `Your ${provider} account has been connected successfully.`,
+            duration: 3000,
+          });
+        }
+      };
+
+      // Add message listener
+      window.addEventListener("message", messageHandler);
+
+      // Also set a checker for when popup closes
+      const checkClosed = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener("message", messageHandler);
+
+          // Refresh connected accounts list
+          refreshAccounts();
+        }
+      }, 500);
+    } catch (error) {
+      console.error("Error connecting account:", error);
+      toast({
+        title: "Error",
+        description: `Failed to connect your ${provider} account.`,
+        variant: "destructive",
+        duration: 3000,
+      });
+    }
+  };
 
   // Handle disconnecting a social account
   const handleDisconnectAccount = async (provider: string) => {

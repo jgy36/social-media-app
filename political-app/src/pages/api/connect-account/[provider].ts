@@ -7,9 +7,8 @@ export default async function handler(
 ) {
   const { provider } = req.query;
   
-  // Extract the token from cookies or Authorization header
-  const authHeader = req.headers.authorization;
-  const token = req.cookies.jwt || (authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null);
+  // Extract the token from cookies
+  const token = req.cookies.jwt;
   
   if (!token) {
     res.redirect('/login?error=session_expired&returnTo=' + encodeURIComponent(`/settings?tab=account`));
@@ -19,28 +18,21 @@ export default async function handler(
   // Make sure provider is a string
   const providerStr = Array.isArray(provider) ? provider[0] : provider;
   
-  // Get the backend URL - note the corrected path without /api prefix
+  // Get the backend URL
   const backendUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:8080";
   
   try {
-    // Create the authorization URL without the /api prefix
+    // Set a cookie indicating this is a connect request - this is crucial
+    res.setHeader('Set-Cookie', [
+      // 5-minute connect intent cookie
+      `connect_intent=true; Path=/; HttpOnly; SameSite=Lax; Max-Age=300`,
+      // Token cookie for the backend to identify the user
+      `connect_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=300`
+    ]);
+    
+    // Redirect directly to the OAuth URL
     const authUrl = `${backendUrl}/oauth2/authorization/${providerStr}`;
-    
-    // Forward the token to your backend
-    // Option 1: Use a query parameter (not ideal for production)
-    res.redirect(`${authUrl}?access_token=${token}`);
-    
-    // Option 2 (better): Make a direct request first to create a session
-    /*
-    await fetch(`${backendUrl}/oauth2/prepare-connect/${providerStr}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      }
-    });
     res.redirect(authUrl);
-    */
   } catch (error) {
     console.error('OAuth connection error:', error);
     res.redirect(`/settings?tab=account&error=${encodeURIComponent('Failed to connect account')}`);
