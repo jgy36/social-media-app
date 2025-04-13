@@ -6,6 +6,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,69 +19,93 @@ import java.io.IOException;
 
 @Component
 public class JwtTokenFilter extends OncePerRequestFilter {
+    private static final Logger logger = LoggerFactory.getLogger(JwtTokenFilter.class);
 
     private final JwtTokenUtil jwtTokenUtil;
     private final TokenBlacklistService tokenBlacklistService;
     private final UserDetailsServiceImpl userDetailsService;
 
-    public JwtTokenFilter(JwtTokenUtil jwtTokenUtil, TokenBlacklistService tokenBlacklistService, UserDetailsServiceImpl userDetailsService) {
+    public JwtTokenFilter(
+            JwtTokenUtil jwtTokenUtil,
+            TokenBlacklistService tokenBlacklistService,
+            UserDetailsServiceImpl userDetailsService
+    ) {
         this.jwtTokenUtil = jwtTokenUtil;
         this.tokenBlacklistService = tokenBlacklistService;
         this.userDetailsService = userDetailsService;
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            FilterChain chain
+    ) throws ServletException, IOException {
+        // Log detailed request information
+        logger.info("🔍 Request Details: {} {}", request.getMethod(), request.getRequestURI());
 
-        // Skip token validation for authentication endpoints
+        // Skip token validation for specific endpoints
         String requestURI = request.getRequestURI();
-        if (requestURI.startsWith("/api/auth/")) {
-            System.out.println("🔍 Auth endpoint detected: " + requestURI + " - Skipping token validation");
-            chain.doFilter(request, response);
-            return;
+        String[] skipPaths = {
+                "/api/auth/register",
+                "/api/auth/login",
+                "/api/auth/refresh",
+                "/swagger-ui",
+                "/v3/api-docs"
+        };
+
+        for (String path : skipPaths) {
+            if (requestURI.startsWith(path)) {
+                logger.info("🔓 Skipping token validation for path: {}", requestURI);
+                chain.doFilter(request, response);
+                return;
+            }
         }
 
+        // Extract Authorization header
         final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        System.out.println("🔍 Received Authorization Header: " + header);
+        logger.debug("🔑 Authorization Header: {}", header);
 
         if (header == null || !header.startsWith("Bearer ")) {
-            System.out.println("❌ No valid Authorization header found, skipping authentication.");
+            logger.warn("❌ No valid Authorization header found");
             chain.doFilter(request, response);
             return;
         }
 
         final String token = header.substring(7);
-        System.out.println("✅ Extracted Token: " + token);
+        logger.debug("✅ Extracted Token: {}", token);
 
+        // Check if token is blacklisted
         if (tokenBlacklistService.isTokenBlacklisted(token)) {
-            System.out.println("❌ Token is blacklisted.");
+            logger.warn("🚫 Blacklisted token attempt: {}", token);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.getWriter().write("Token has been blacklisted");
             return;
         }
 
-        // ✅ Extract Username from Token
-        String username;
         try {
-            username = jwtTokenUtil.getUsernameFromToken(token);
-            System.out.println("✅ Extracted Username from Token: " + username);
+            // Extract and validate username from token
+            String username = jwtTokenUtil.getUsernameFromToken(token);
+            logger.info("✅ Extracted Username: {}", username);
+
+            // Load user details
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+            // Set authentication
+            UsernamePasswordAuthenticationToken authToken =
+                    new UsernamePasswordAuthenticationToken(
+                            userDetails,
+                            null,
+                            userDetails.getAuthorities()
+                    );
+            SecurityContextHolder.getContext().setAuthentication(authToken);
+            logger.info("🔐 User authenticated successfully: {}", username);
+
+            chain.doFilter(request, response);
         } catch (Exception e) {
-            System.out.println("❌ Invalid JWT Token: " + e.getMessage());
+            logger.error("❌ Token validation error", e);
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Invalid JWT Token");
-            return;
+            response.getWriter().write("Invalid token");
         }
-
-        // ✅ Load UserDetails from Database
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-        // ✅ Set Authentication in Security Context
-        UsernamePasswordAuthenticationToken authToken =
-                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        SecurityContextHolder.getContext().setAuthentication(authToken);
-        System.out.println("✅ User authenticated: " + username);
-
-        chain.doFilter(request, response);
     }
 }

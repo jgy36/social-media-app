@@ -11,6 +11,8 @@ import com.jgy36.PoliticalApp.service.UserService;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +43,7 @@ import java.util.UUID;
 )
 public class AuthController {
 
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenUtil jwtTokenUtil;
@@ -61,9 +64,78 @@ public class AuthController {
      * ✅ Register a new user.
      */
     @PostMapping("/register")
-    public ResponseEntity<String> register(@RequestBody RegisterRequest request) {
-        userService.registerUser(request.getUsername(), request.getEmail(), request.getPassword());
-        return ResponseEntity.ok("User registered. Please check your email for verification.");
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request, HttpServletResponse response) {
+        try {
+            // Register the user
+            User newUser = userService.registerUser(
+                    request.getUsername(),
+                    request.getEmail(),
+                    request.getPassword()
+            );
+
+            // Clear any existing authentication context
+            SecurityContextHolder.clearContext();
+
+            // Authenticate with the NEW user's credentials
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            );
+
+            // Set the new authentication
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // Generate JWT token specifically for the NEW user
+            String token = jwtTokenUtil.generateToken(request.getEmail());
+
+            // Set JWT in HTTP-only cookie
+            Cookie jwtCookie = new Cookie("jwt", token);
+            jwtCookie.setHttpOnly(true);
+            jwtCookie.setSecure(false); // Set to true in production with HTTPS
+            jwtCookie.setPath("/");
+            jwtCookie.setMaxAge(24 * 60 * 60); // 24 hours in seconds
+            response.addCookie(jwtCookie);
+
+            // Generate a new session ID
+            String sessionId = UUID.randomUUID().toString();
+            Cookie sessionCookie = new Cookie("session_id", sessionId);
+            sessionCookie.setPath("/");
+            sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
+            response.addCookie(sessionCookie);
+
+            // Set the token as Authorization header
+            response.setHeader("Authorization", "Bearer " + token);
+
+            // Prepare user response
+            Map<String, Object> userResponse = new HashMap<>();
+            userResponse.put("id", newUser.getId());
+            userResponse.put("username", newUser.getUsername());
+            userResponse.put("email", newUser.getEmail());
+            userResponse.put("displayName", newUser.getDisplayName());
+            userResponse.put("bio", newUser.getBio());
+            userResponse.put("profileImageUrl", newUser.getProfileImageUrl());
+            userResponse.put("role", newUser.getRole());
+
+            // Prepare full response
+            Map<String, Object> fullResponse = new HashMap<>();
+            fullResponse.put("token", token);
+            fullResponse.put("user", userResponse);
+            fullResponse.put("sessionId", sessionId);
+            fullResponse.put("success", true);
+            fullResponse.put("message", "User registered successfully");
+
+            return ResponseEntity.ok(fullResponse);
+        } catch (Exception e) {
+            // Log the error for debugging
+            System.err.println("Registration error: " + e.getMessage());
+            e.printStackTrace();
+
+            return ResponseEntity.badRequest().body(
+                    Map.of(
+                            "success", false,
+                            "message", "Registration failed: " + e.getMessage()
+                    )
+            );
+        }
     }
 
     /**

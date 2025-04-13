@@ -33,7 +33,7 @@ public class UserService {
     }
 
     @Transactional
-    public void registerUser(String username, String email, String password) {
+    public User registerUser(String username, String email, String password) {
         // ✅ Check if username already exists
         if (userRepository.existsByUsername(username)) {
             throw new IllegalArgumentException("Username already exists. Please choose another.");
@@ -61,7 +61,7 @@ public class UserService {
             settingsInitializer.initializeSettings(user);
 
             // Save again with settings
-            userRepository.save(user);
+            user = userRepository.save(user);
 
             // Send verification email
             try {
@@ -70,6 +70,9 @@ public class UserService {
                 // Log error but continue (non-blocking)
                 System.err.println("Failed to send verification email: " + e.getMessage());
             }
+
+            // Return the saved user
+            return user;
         } catch (DataIntegrityViolationException e) {
             throw new IllegalArgumentException("A user with this username or email already exists.");
         }
