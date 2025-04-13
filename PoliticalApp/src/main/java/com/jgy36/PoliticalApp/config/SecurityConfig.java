@@ -28,8 +28,11 @@ public class SecurityConfig {
     private final JwtTokenFilter jwtTokenFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
-    public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtTokenFilter jwtTokenFilter,
-                          JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
+    // Using constructor injection instead of @Autowired field injection
+    public SecurityConfig(
+            UserDetailsServiceImpl userDetailsService,
+            JwtTokenFilter jwtTokenFilter,
+            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
         this.userDetailsService = userDetailsService;
         this.jwtTokenFilter = jwtTokenFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
@@ -53,7 +56,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // FIX: Add explicit CORS configuration bean with additional headers
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -78,24 +80,28 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // FIX: Use corsConfigurationSource() instead of default cors()
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Allow access to static resources without authentication
+                        // Static Resources
                         .requestMatchers("/images/**", "/css/**", "/js/**").permitAll()
+
+                        // OAuth2 Authorization Endpoints
+                        .requestMatchers("/oauth2/authorization/**").permitAll()
+                        .requestMatchers("/oauth2/callback/**").permitAll()
+                        .requestMatchers("/login/oauth2/code/**").permitAll()
 
                         // Public Endpoints
                         .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
-                        .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll() // Public GET Posts
-                        .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()  // Public GET Comments
-                        .requestMatchers(HttpMethod.GET, "/api/communities/**").permitAll() // Public Communities
-                        .requestMatchers(HttpMethod.GET, "/api/users/profile/**").permitAll() // Public user profiles
-                        .requestMatchers(HttpMethod.GET, "/api/users/search").permitAll() // Public user search
-                        .requestMatchers(HttpMethod.GET, "/politicians/**").permitAll()  // Public GET Politicians
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Allow CORS Preflight
-                        .requestMatchers("/uploads/**").permitAll() // Make uploads directory public
+                        .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/communities/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/profile/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/users/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/politicians/**").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
 
                         // PROTECTED Endpoints (Require JWT Token)
                         .requestMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
@@ -104,7 +110,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/communities/**").authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/communities/**").authenticated()
                         .requestMatchers("/api/messages/**").authenticated()
-                        // Add these to your existing security config
                         .requestMatchers("/api/users/2fa/**").authenticated()
                         .requestMatchers("/api/users/password").authenticated()
                         .requestMatchers("/api/users/sessions/**").authenticated()

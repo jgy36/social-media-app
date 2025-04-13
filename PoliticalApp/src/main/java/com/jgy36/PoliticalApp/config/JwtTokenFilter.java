@@ -25,11 +25,11 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     private final TokenBlacklistService tokenBlacklistService;
     private final UserDetailsServiceImpl userDetailsService;
 
+    // Using constructor injection instead of @Autowired field injection
     public JwtTokenFilter(
             JwtTokenUtil jwtTokenUtil,
             TokenBlacklistService tokenBlacklistService,
-            UserDetailsServiceImpl userDetailsService
-    ) {
+            UserDetailsServiceImpl userDetailsService) {
         this.jwtTokenUtil = jwtTokenUtil;
         this.tokenBlacklistService = tokenBlacklistService;
         this.userDetailsService = userDetailsService;
