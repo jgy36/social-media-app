@@ -1,4 +1,4 @@
-// src/redux/slices/badgeSlice.ts
+// src/redux/slices/badgeSlice.ts - Improved user isolation
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { getUserId } from "@/utils/tokenUtils";
 
@@ -12,7 +12,7 @@ interface BadgeState {
   badges: string[]; // Array of badge IDs
 }
 
-// Helper to load badges from localStorage
+// Helper to load badges from localStorage with proper user isolation
 const loadUserBadges = (): string[] => {
   if (!isBrowser) return [];
   
@@ -40,12 +40,30 @@ const saveUserBadges = (badges: string[]) => {
     const userId = getUserId();
     if (!userId) return;
     
+    // Log the save operation for debugging
+    console.log(`Saving badges for user ${userId}:`, badges);
+    
     localStorage.setItem(
       `user_${userId}_${USER_BADGES_KEY}`, 
       JSON.stringify(badges)
     );
   } catch (err) {
     console.error('Error saving user badges:', err);
+  }
+};
+
+// Helper to clear badges from localStorage
+const clearUserBadgesFromStorage = () => {
+  if (!isBrowser) return;
+  
+  try {
+    const userId = getUserId();
+    if (!userId) return;
+    
+    // Remove badges from this user
+    localStorage.removeItem(`user_${userId}_${USER_BADGES_KEY}`);
+  } catch (err) {
+    console.error('Error clearing user badges:', err);
   }
 };
 
@@ -81,14 +99,19 @@ const badgeSlice = createSlice({
       saveUserBadges(state.badges);
     },
     
-    // Clear all badges
+    // Clear all badges (used during logout)
     clearBadges: (state) => {
       state.badges = [];
-      saveUserBadges(state.badges);
+      clearUserBadgesFromStorage();
+    },
+    
+    // Reload badges from storage (used when user changes)
+    reloadBadges: (state) => {
+      state.badges = loadUserBadges();
     }
   },
 });
 
-export const { addBadge, removeBadge, setBadges, clearBadges } = badgeSlice.actions;
+export const { addBadge, removeBadge, setBadges, clearBadges, reloadBadges } = badgeSlice.actions;
 
 export default badgeSlice.reducer;

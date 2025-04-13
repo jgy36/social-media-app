@@ -60,6 +60,7 @@ export const login = async (
   }, "Login error");
 };
 
+// Extract from src/api/auth.ts - Updated register function
 /**
  * Register a new user
  */
@@ -67,11 +68,41 @@ export const register = async (
   userData: RegisterRequest
 ): Promise<ApiResponse<AuthResponse>> => {
   return safeApiCall(async () => {
+    console.log("Registering user with data:", {
+      ...userData,
+      password: "********" // Hide password in logs
+    });
+
     const response = await apiClient.post<ApiResponse<AuthResponse>>(
       "/auth/register",
       userData,
       { withCredentials: true }
     );
+
+    // Store user data in localStorage for immediate access
+    if (response.data.success && response.data.data?.user) {
+      const user = response.data.data.user;
+      
+      // Set all userData in localStorage with proper isolation
+      if (user.id) {
+        // Store the current user ID
+        localStorage.setItem("currentUserId", String(user.id));
+        
+        // Store display name (from response or registration data)
+        const displayName = user.displayName || userData.displayName || userData.username;
+        localStorage.setItem(`user_${user.id}_displayName`, displayName);
+        
+        // Store other user information
+        localStorage.setItem(`user_${user.id}_username`, user.username);
+        localStorage.setItem(`user_${user.id}_email`, user.email);
+        
+        // Mark as authenticated
+        localStorage.setItem(`user_${user.id}_isAuthenticated`, 'true');
+        
+        console.log("User data stored with ID:", user.id);
+      }
+    }
+
     return response.data;
   }, "Registration error");
 };

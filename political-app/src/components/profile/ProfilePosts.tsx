@@ -1,3 +1,4 @@
+// Updated code for ProfilePosts.tsx - user-specific post count storage
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
@@ -7,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { getPostsByUsername } from "@/api/users";
 import { PostType } from "@/types/post";
 import { apiClient } from "@/api/apiClient";
+import { getUserId } from "@/utils/tokenUtils"; // Add this import
 
 // Import the post component directly
 import Post from "@/components/feed/Post";
@@ -65,17 +67,17 @@ const ProfilePosts = () => {
         
         setPosts(sortedPosts);
         
-        // Update post count in localStorage and notify other components
-        if (userPosts.length > 0) {
-          // Store the post count in localStorage
-          localStorage.setItem('userPostsCount', String(userPosts.length));
+        // Update post count in localStorage with user-specific key
+        if (user.id) {
+          // Store with user-specific key
+          localStorage.setItem(`user_${user.id}_userPostsCount`, String(userPosts.length));
           
           // Dispatch a custom event that ProfileHeader can listen for
           window.dispatchEvent(new CustomEvent('userPostsCountUpdated', { 
-            detail: { count: userPosts.length } 
+            detail: { count: userPosts.length, userId: user.id } 
           }));
           
-          console.log("User posts count updated:", userPosts.length);
+          console.log(`User ${user.id} posts count updated:`, userPosts.length);
         }
       } catch (err) {
         console.error("Error fetching user posts:", err);
@@ -86,7 +88,7 @@ const ProfilePosts = () => {
     };
 
     fetchPosts();
-  }, [user?.username]);
+  }, [user?.username, user?.id]);
 
   const handlePostClick = (postId: number) => {
     router.push(`/post/${postId}`);

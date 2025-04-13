@@ -10,11 +10,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar } from "lucide-react";
 import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
 import UserBadges from "./Userbadges";
+import { getUserData } from "@/utils/tokenUtils"; // Add this import
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
   const token = useSelector((state: RootState) => state.user.token);
   const router = useRouter();
+  const [displayName, setDisplayName] = useState<string>("");
 
   const [stats, setStats] = useState({
     followersCount: 0,
@@ -29,6 +31,35 @@ const ProfileHeader = () => {
   // State to store the image URL with cache-busting
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
 
+  // Load display name and ensure it's not empty
+  useEffect(() => {
+    // First try to get from Redux state
+    if (user.displayName) {
+      console.log("Using display name from Redux:", user.displayName);
+      setDisplayName(user.displayName);
+      return;
+    }
+
+    // If not in Redux, try to get from tokenUtils/localStorage
+    const userData = getUserData();
+    if (userData.displayName) {
+      console.log("Using display name from localStorage:", userData.displayName);
+      setDisplayName(userData.displayName);
+      return;
+    }
+
+    // If no display name is found, use the username instead of "Guest"
+    if (user.username) {
+      console.log("Falling back to username:", user.username);
+      setDisplayName(user.username);
+      return;
+    }
+
+    // Only use "Guest" as a last resort
+    console.log("No name found, using 'Guest'");
+    setDisplayName("Guest");
+  }, [user.displayName, user.username]);
+
   // Initial load of data including posts count
   useEffect(() => {
     if (user?.id && token) {
@@ -40,14 +71,14 @@ const ProfileHeader = () => {
           if (typeof user.id === "number") {
             const followStatus = await getFollowStatus(user.id);
             
-            // Get post count from localStorage if available
-            const savedPostCount = localStorage.getItem('userPostsCount');
-            const postCount = savedPostCount ? parseInt(savedPostCount, 10) : 0;
+            // Get post count from localStorage with user-specific key
+            const userSpecificPostCount = localStorage.getItem(`user_${user.id}_userPostsCount`);
+            const postCount = userSpecificPostCount ? parseInt(userSpecificPostCount, 10) : 0;
             
             setStats({
               followersCount: followStatus.followersCount || 0,
               followingCount: followStatus.followingCount || 0,
-              postCount: postCount, // Use saved post count or default to 0
+              postCount: postCount,
             });
           }
           setLoading(false);
@@ -67,8 +98,11 @@ const ProfileHeader = () => {
     // Function to handle post count updates
     const handlePostCountUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
-      if (customEvent.detail && customEvent.detail.count !== undefined) {
-        console.log("Posts count updated:", customEvent.detail.count);
+      // Only update if this event is for our user
+      if (customEvent.detail && 
+          customEvent.detail.userId === user.id &&
+          customEvent.detail.count !== undefined) {
+        console.log("Posts count updated for current user:", customEvent.detail.count);
         setStats(prevStats => ({
           ...prevStats,
           postCount: customEvent.detail.count
@@ -83,7 +117,7 @@ const ProfileHeader = () => {
     return () => {
       window.removeEventListener('userPostsCountUpdated', handlePostCountUpdate);
     };
-  }, []);
+  }, [user.id]);
 
   // Initialize profile image on component mount
   useEffect(() => {
@@ -92,41 +126,49 @@ const ProfileHeader = () => {
     }
   }, [user.profileImageUrl, user.username]);
 
-  // Handle profile image updates
-  const handleProfileUpdate = useCallback((event: Event) => {
-    const customEvent = event as CustomEvent;
-    if (customEvent.detail) {
-      console.log("ProfileHeader - Profile update event received:", customEvent.detail);
-      
-      // Get the image URL
-      const imageUrl = String(customEvent.detail);
-      console.log("Setting profile image to:", imageUrl);
-      
-      // Process the URL and add cache busting
-      const processedUrl = getProfileImageUrl(imageUrl, user.username);
-      setProfileImageSrc(processedUrl);
-      
-      // Also update the refresh key to force re-render
-      setRefreshKey(Date.now());
-    }
-  }, [user.username]);
-
-  // Listen for profile updates
+  // Listen for profile image updates
   useEffect(() => {
+    const handleProfileUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        console.log("ProfileHeader - Profile update event received:", customEvent.detail);
+        
+        // Get the image URL
+        const imageUrl = String(customEvent.detail);
+        console.log("Setting profile image to:", imageUrl);
+        
+        // Process the URL and add cache busting
+        const processedUrl = getProfileImageUrl(imageUrl, user.username);
+        setProfileImageSrc(processedUrl);
+        
+        // Also update the refresh key to force re-render
+        setRefreshKey(Date.now());
+      }
+    };
+
     window.addEventListener('profileImageUpdated', handleProfileUpdate);
     
     return () => {
       window.removeEventListener('profileImageUpdated', handleProfileUpdate);
     };
-  }, [handleProfileUpdate]);
-
-  // Update image source when user profile changes in Redux
+  }, [user.username]);
+  
+  // Listen for display name updates
   useEffect(() => {
-    if (user.profileImageUrl) {
-      const newSrc = getProfileImageUrl(user.profileImageUrl, user.username);
-      setProfileImageSrc(newSrc);
-    }
-  }, [user.profileImageUrl, user.username]);
+    const handleDisplayNameUpdate = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail && customEvent.detail.displayName) {
+        console.log("Display name update event received:", customEvent.detail.displayName);
+        setDisplayName(customEvent.detail.displayName);
+      }
+    };
+
+    window.addEventListener('userProfileUpdated', handleDisplayNameUpdate);
+    
+    return () => {
+      window.removeEventListener('userProfileUpdated', handleDisplayNameUpdate);
+    };
+  }, []);
 
   // Handle stats changes
   const handleStatsChange = (
@@ -172,7 +214,8 @@ const ProfileHeader = () => {
 
       {/* User Info */}
       <div className="flex-1 text-center md:text-left">
-        <h2 className="text-2xl font-bold">{user.displayName || "Guest"}</h2>
+        {/* Display name with fallback logic */}
+        <h2 className="text-2xl font-bold">{displayName}</h2>
         <p className="text-muted-foreground">@{user.username || "unknown"}</p>
 
         {user.bio && <p className="mt-2">{user.bio}</p>}

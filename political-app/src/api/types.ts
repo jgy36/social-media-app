@@ -15,10 +15,12 @@ export interface LoginRequest {
   password: string;
 }
 
+// Update in src/api/types.ts
 export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
+  displayName?: string; // Add this field
 }
 
 export interface AuthResponse {

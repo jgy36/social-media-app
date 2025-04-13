@@ -164,19 +164,37 @@ export const registerUser = createAsyncThunk(
       username,
       email,
       password,
-    }: { username: string; email: string; password: string },
-    { rejectWithValue }
+      displayName,
+    }: { username: string; email: string; password: string; displayName: string },
+    { rejectWithValue, dispatch }
   ) => {
     try {
+      console.log("Registering user with displayName:", displayName);
+      
       // Use the API structure for registration
       const response = await api.auth.register({
         username,
         email,
         password,
+        displayName,
       });
 
       if (!response.success) {
         throw new Error(response.message || "Registration failed");
+      }
+      
+      // After successful registration, immediately login
+      try {
+        await dispatch(loginUser({ email, password })).unwrap();
+        
+        // Explicitly update the display name in Redux state
+        dispatch({
+          type: "user/setDisplayName",
+          payload: displayName
+        });
+      } catch (loginError) {
+        console.error("Auto-login after registration failed:", loginError);
+        // Continue with registration response even if auto-login fails
       }
 
       return response;
@@ -352,7 +370,7 @@ export const checkInitialAuth = createAsyncThunk(
   }
 );
 
-// Logout async thunk
+// Extract from userSlice.ts - Update the logoutUser function
 export const logoutUser = createAsyncThunk(
   "user/logout",
   async (_, { dispatch }) => {
@@ -363,6 +381,10 @@ export const logoutUser = createAsyncThunk(
 
       // Clear communities
       dispatch(clearCommunities());
+      
+      // Also clear badges - Import the action
+      const { clearBadges } = await import("./badgeSlice");
+      dispatch(clearBadges());
 
       // Clear all stored user data
       clearUserData();
@@ -374,6 +396,10 @@ export const logoutUser = createAsyncThunk(
       // Still clear data even if API call fails
       clearUserData();
       dispatch(clearCommunities());
+      
+      // Make sure badges are cleared even on API failure
+      const { clearBadges } = await import("./badgeSlice");
+      dispatch(clearBadges());
 
       return false;
     }
@@ -387,6 +413,27 @@ const userSlice = createSlice({
   reducers: {
     forceAuthenticated: (state, action: PayloadAction<boolean>) => {
       state.isAuthenticated = action.payload;
+    },
+    
+    // Add the setDisplayName reducer
+    setDisplayName: (state, action: PayloadAction<string>) => {
+      const displayName = action.payload;
+      state.displayName = displayName;
+      
+      // Also update in localStorage for persistence
+      if (state.id) {
+        const userId = state.id.toString();
+        localStorage.setItem(`user_${userId}_displayName`, displayName);
+        
+        // Dispatch a custom event that components can listen for
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('userProfileUpdated', {
+              detail: { displayName }
+            })
+          );
+        }
+      }
     },
   },
   extraReducers: (builder) => {
@@ -548,6 +595,6 @@ const userSlice = createSlice({
   },
 });
 
-export const { forceAuthenticated } = userSlice.actions;
+export const { forceAuthenticated, setDisplayName } = userSlice.actions;
 
 export default userSlice.reducer;

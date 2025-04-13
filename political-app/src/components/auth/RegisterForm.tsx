@@ -17,6 +17,7 @@ const RegisterForm = () => {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState(""); // New state for display name
   const [localError, setLocalError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,6 +31,16 @@ const RegisterForm = () => {
         variant: "destructive",
         title: "Validation Error",
         description: usernameValidation.message,
+      });
+      return;
+    }
+
+    // Validate display name
+    if (!displayName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please enter your name",
       });
       return;
     }
@@ -56,7 +67,8 @@ const RegisterForm = () => {
     }
 
     try {
-      const result = await register({ username, email, password });
+      // Pass displayName to the registration function
+      const result = await register({ username, email, password, displayName });
 
       if (result && result.success) {
         // The token might be nested in different ways depending on your API structure
@@ -115,6 +127,23 @@ const RegisterForm = () => {
           {errorMessage}
         </div>
       )}
+
+      {/* Display Name Field - Added */}
+      <div className="space-y-2">
+        <label htmlFor="displayName" className="block text-sm font-medium">
+          Full Name
+        </label>
+        <input
+          id="displayName"
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="Your full name"
+          className="w-full px-3 py-2 border rounded-md"
+          required
+          disabled={loading}
+        />
+      </div>
 
       <div className="space-y-2">
         <label htmlFor="username" className="block text-sm font-medium">

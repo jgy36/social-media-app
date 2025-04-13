@@ -1,5 +1,4 @@
-// In src/components/profile/UserStats.tsx
-// Make sure the component is correctly receiving and displaying postsCount
+// In src/components/profile/UserStats.tsx - Fixed to properly retrieve user-specific post count
 
 import { useState, useEffect } from 'react';
 import { MessagesSquare, Users, User as UserIcon } from 'lucide-react';
@@ -30,17 +29,21 @@ const UserStats = ({
     // Initialize from props
     setCurrentPostsCount(postsCount);
     
-    // Also check localStorage for a potentially more up-to-date value
-    const savedPostCount = localStorage.getItem('userPostsCount');
-    if (savedPostCount) {
-      setCurrentPostsCount(parseInt(savedPostCount, 10));
+    // Check localStorage for a user-specific post count
+    const userSpecificCount = localStorage.getItem(`user_${userId}_userPostsCount`);
+    if (userSpecificCount) {
+      setCurrentPostsCount(parseInt(userSpecificCount, 10));
     }
     
     // Listen for updates
     const handlePostCountUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
-      if (customEvent.detail && customEvent.detail.count !== undefined) {
-        setCurrentPostsCount(customEvent.detail.count);
+      if (customEvent.detail) {
+        // Only update if this event is for our user
+        if (customEvent.detail.userId === userId && 
+            customEvent.detail.count !== undefined) {
+          setCurrentPostsCount(customEvent.detail.count);
+        }
       }
     };
     
@@ -49,7 +52,7 @@ const UserStats = ({
     return () => {
       window.removeEventListener('userPostsCountUpdated', handlePostCountUpdate);
     };
-  }, [postsCount]);
+  }, [postsCount, userId]);
   
   // Update when props change
   useEffect(() => {
