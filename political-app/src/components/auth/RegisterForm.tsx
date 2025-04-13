@@ -1,17 +1,14 @@
-// src/components/auth/RegisterForm.tsx
 import { useState } from "react";
-import { useDispatch } from "react-redux";
-import { AppDispatch } from "@/redux/store";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { registerUser } from "@/redux/slices/userSlice";
 import { useRouter } from "next/router";
-import { useRegister } from "@/hooks/useApi"; // Use the API hook
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import { useRegister } from "@/hooks/useApi";
+import { validateUsername } from "@/utils/usernameUtils";
 
 const RegisterForm = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  const { loading, error, execute: register } = useRegister(); // Use the hook
+  const { toast } = useToast();
+  const { loading, error: apiError, execute: register } = useRegister();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -22,25 +19,78 @@ const RegisterForm = () => {
     e.preventDefault();
     setLocalError(null);
 
+    // Validate username
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.valid) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: usernameValidation.message,
+      });
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please enter a valid email address",
+      });
+      return;
+    }
+
+    // Password strength validation
+    if (password.length < 8) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Password must be at least 8 characters long",
+      });
+      return;
+    }
+
     try {
-      // Use the API hook to register
       const result = await register({ username, email, password });
-      
+
       if (result && result.success) {
-        router.push("/login"); // Redirect to login after registration
+        // Show success toast
+        toast({
+          title: "Registration Successful",
+          description: "Redirecting to your feed...",
+        });
+
+        // Slight delay to show toast
+        setTimeout(() => {
+          router.push("/feed");
+        }, 2000);
       } else {
-        setLocalError(result?.message || "Registration failed. Please try again.");
+        // Show error from backend
+        toast({
+          variant: "destructive",
+          title: "Registration Failed",
+          description: result?.message || "Please try again.",
+        });
       }
     } catch (err) {
       console.error("Registration error:", err);
-      setLocalError(
-        typeof err === "string" ? err : "Registration failed. Please try again."
-      );
+
+      // Show error toast
+      toast({
+        variant: "destructive",
+        title: "Registration Error",
+        description:
+          typeof err === "string"
+            ? err
+            : (err as Error).message ||
+              "Registration failed. Please try again.",
+      });
     }
   };
 
   // Display either local error or API error
-  const errorMessage = localError || (error ? (error.message || "Registration failed") : null);
+  const errorMessage = localError || (apiError ? apiError.message : null);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -91,20 +141,39 @@ const RegisterForm = () => {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Password"
+          placeholder="Password (min 8 characters)"
           className="w-full px-3 py-2 border rounded-md"
           required
+          minLength={8}
           disabled={loading}
         />
       </div>
 
       <button
         type="submit"
-        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         disabled={loading}
       >
-        {loading ? "Registering..." : "Register"}
+        {loading ? (
+          <>
+            <Loader2 className="animate-spin mr-2 h-5 w-5" />
+            Registering...
+          </>
+        ) : (
+          "Register"
+        )}
       </button>
+
+      <div className="text-center text-sm mt-4">
+        <button
+          type="button"
+          onClick={() => router.push("/login")}
+          className="text-blue-600 hover:underline"
+          disabled={loading}
+        >
+          Already have an account? Login here
+        </button>
+      </div>
     </form>
   );
 };
