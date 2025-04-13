@@ -66,11 +66,12 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request, HttpServletResponse response) {
         try {
-            // Register the user
+            // Register the user with display name
             User newUser = userService.registerUser(
                     request.getUsername(),
                     request.getEmail(),
-                    request.getPassword()
+                    request.getPassword(),
+                    request.getDisplayName() // Pass display name to service
             );
 
             // Clear any existing authentication context

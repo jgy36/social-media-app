@@ -32,8 +32,9 @@ public class UserService {
         this.accountManagementService = accountManagementService;
     }
 
+    // Updated register function for userService.ts
     @Transactional
-    public User registerUser(String username, String email, String password) {
+    public User registerUser(String username, String email, String password, String displayName) {
         // ✅ Check if username already exists
         if (userRepository.existsByUsername(username)) {
             throw new IllegalArgumentException("Username already exists. Please choose another.");
@@ -48,6 +49,15 @@ public class UserService {
         user.setUsername(username);
         user.setEmail(email);
         user.setPassword(passwordEncoder.encode(password));
+
+        // Set the display name (new)
+        if (displayName != null && !displayName.trim().isEmpty()) {
+            user.setDisplayName(displayName);
+        } else {
+            // Use username as fallback for display name
+            user.setDisplayName(username);
+        }
+
         user.setRole(Role.ROLE_USER); // ✅ Set default role to ROLE_USER
         user.setVerified(false); // User must verify email
         user.setVerificationToken(UUID.randomUUID().toString());
