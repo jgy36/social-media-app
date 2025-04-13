@@ -14,25 +14,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
   DialogFooter,
-  DialogDescription
+  DialogDescription,
 } from "@/components/ui/dialog";
-import { 
-  Loader2, 
-  AlertCircle, 
-  Check, 
+import {
+  Loader2,
+  AlertCircle,
+  Check,
   Mail,
   Shield,
   ArrowRight,
   Download,
   Trash2,
   AlertTriangle,
-  Info
+  Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/api/apiClient";
@@ -42,7 +42,7 @@ const AccountSettings: React.FC = () => {
   const user = useSelector((state: RootState) => state.user);
   const router = useRouter();
   const { toast } = useToast();
-  
+
   // Email states
   const [email, setEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -51,21 +51,25 @@ const AccountSettings: React.FC = () => {
   const [isChangingEmail, setIsChangingEmail] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [verificationSent, setVerificationSent] = useState(false);
-  
+
   // Account management states
-  const [isVerificationDialogOpen, setIsVerificationDialogOpen] = useState(false);
+  const [isVerificationDialogOpen, setIsVerificationDialogOpen] =
+    useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
-  const [verificationError, setVerificationError] = useState<string | null>(null);
-  
+  const [verificationError, setVerificationError] = useState<string | null>(
+    null
+  );
+
   // Account deletion states
-  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] = useState(false);
+  const [isDeleteAccountDialogOpen, setIsDeleteAccountDialogOpen] =
+    useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Data export states
   const [isExportingData, setIsExportingData] = useState(false);
-  
+
   // Connected accounts state
   const [connectedAccounts, setConnectedAccounts] = useState<{
     google?: boolean;
@@ -73,35 +77,39 @@ const AccountSettings: React.FC = () => {
     twitter?: boolean;
     apple?: boolean;
   }>({});
-  
+
   // Fetch user data on component mount
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         // Fetch email verification status
-        const verificationResponse = await apiClient.get('/users/email/verification-status');
+        const verificationResponse = await apiClient.get(
+          "/users/email/verification-status"
+        );
         setIsEmailVerified(verificationResponse.data?.isVerified || false);
-        
+
         // Fetch email
         setEmail(user.email || "");
-        
+
         // Fetch connected accounts
-        const accountsResponse = await apiClient.get('/users/connected-accounts');
+        const accountsResponse = await apiClient.get(
+          "/users/connected-accounts"
+        );
         setConnectedAccounts(accountsResponse.data || {});
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error("Error fetching user data:", error);
       }
     };
-    
+
     fetchUserData();
   }, [user.email]);
-  
+
   // Validate email format
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
-  
+
   // Handle email change request
   const handleChangeEmail = async () => {
     // Validate email
@@ -109,32 +117,37 @@ const AccountSettings: React.FC = () => {
       setEmailError("Please enter a valid email address");
       return;
     }
-    
+
     setIsChangingEmail(true);
     setEmailError(null);
-    
+
     try {
-      const response = await apiClient.post('/users/email/change', { newEmail });
-      
+      const response = await apiClient.post("/users/email/change", {
+        newEmail,
+      });
+
       setVerificationSent(true);
       setIsChangingEmail(false);
-      
+
       toast({
         title: "Verification Email Sent",
-        description: "Please check your new email inbox for verification instructions",
+        description:
+          "Please check your new email inbox for verification instructions",
         duration: 5000,
       });
     } catch (error: any) {
-      setEmailError(error.response?.data?.message || "Failed to request email change");
+      setEmailError(
+        error.response?.data?.message || "Failed to request email change"
+      );
       setIsChangingEmail(false);
     }
   };
-  
+
   // Handle sending verification email
   const handleSendVerificationEmail = async () => {
     try {
-      await apiClient.post('/users/email/send-verification');
-      
+      await apiClient.post("/users/email/send-verification");
+
       toast({
         title: "Verification Email Sent",
         description: "Please check your inbox for verification instructions",
@@ -143,59 +156,62 @@ const AccountSettings: React.FC = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to send verification email. Please try again later.",
+        description:
+          "Failed to send verification email. Please try again later.",
         variant: "destructive",
         duration: 3000,
       });
     }
   };
-  
+
   // Handle verification code submission
   const handleVerifyEmail = async () => {
     if (!verificationCode || verificationCode.length !== 6) {
       setVerificationError("Please enter a valid 6-digit verification code");
       return;
     }
-    
+
     setIsVerifying(true);
     setVerificationError(null);
-    
+
     try {
-      await apiClient.post('/users/email/verify', { code: verificationCode });
-      
+      await apiClient.post("/users/email/verify", { code: verificationCode });
+
       setIsEmailVerified(true);
       setIsVerificationDialogOpen(false);
-      
+
       toast({
         title: "Email Verified",
         description: "Your email has been successfully verified",
         duration: 3000,
       });
     } catch (error: any) {
-      setVerificationError(error.response?.data?.message || "Invalid verification code");
+      setVerificationError(
+        error.response?.data?.message || "Invalid verification code"
+      );
     } finally {
       setIsVerifying(false);
     }
   };
-  
+
   // Handle data export
   const handleExportData = async () => {
     setIsExportingData(true);
-    
+
     try {
-      const response = await apiClient.get('/users/data-export', {
-        responseType: 'blob',
+      const response = await apiClient.get("/users/data-export", {
+        responseType: "blob",
       });
-      
+
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `politicalapp-data-${Date.now()}.zip`);
+      link.setAttribute("download", `politicalapp-data-${Date.now()}.zip`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       toast({
         title: "Data Export Complete",
         description: "Your data has been exported successfully",
@@ -212,7 +228,7 @@ const AccountSettings: React.FC = () => {
       setIsExportingData(false);
     }
   };
-  
+
   // Handle account deletion
   const handleDeleteAccount = async () => {
     // Verify confirmation text
@@ -225,21 +241,21 @@ const AccountSettings: React.FC = () => {
       });
       return;
     }
-    
+
     setIsDeleting(true);
-    
+
     try {
-      await apiClient.delete('/users/account');
-      
+      await apiClient.delete("/users/account");
+
       toast({
         title: "Account Deleted",
         description: "Your account has been permanently deleted",
         duration: 3000,
       });
-      
+
       // Redirect to landing page after a brief delay
       setTimeout(() => {
-        router.push('/');
+        router.push("/");
       }, 2000);
     } catch (error) {
       toast({
@@ -251,49 +267,54 @@ const AccountSettings: React.FC = () => {
       setIsDeleting(false);
     }
   };
-  
+
   // Handle connecting a social account
   const handleConnectAccount = async (provider: string) => {
-    try {
-      // Open a popup window for OAuth flow
-      window.open(`/api/auth/connect/${provider}`, "Connect Account", "width=600,height=700");
-      
-      // The popup will handle the connection and close itself
-      // We can listen for a message from the popup to know when it's done
-      window.addEventListener("message", async (event) => {
-        if (event.data.type === "ACCOUNT_CONNECTED" && event.data.provider === provider) {
-          // Refresh connected accounts
-          const accountsResponse = await apiClient.get('/users/connected-accounts');
-          setConnectedAccounts(accountsResponse.data || {});
-          
-          toast({
-            title: "Account Connected",
-            description: `You've successfully connected your ${provider} account`,
-            duration: 3000,
-          });
-        }
-      }, { once: true });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to connect your ${provider} account`,
-        variant: "destructive",
-        duration: 3000,
-      });
-    }
-  };
-  
+  try {
+    // Open in a new window/tab with credentials included
+    const popup = window.open(`/api/connect-account/${provider}`, "Connect Account", "width=600,height=700");
+    
+    // Add listener for popup close
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkClosed);
+        
+        // Refresh connected accounts data
+        // Use your existing API call pattern
+        const fetchAccountsAfterConnect = async () => {
+          try {
+            const accountsResponse = await apiClient.get('/users/connected-accounts');
+            setConnectedAccounts(accountsResponse.data || {});
+          } catch (error) {
+            console.error('Error fetching connected accounts:', error);
+          }
+        };
+        
+        fetchAccountsAfterConnect();
+      }
+    }, 500);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: `Failed to connect your ${provider} account`,
+      variant: "destructive",
+      duration: 3000,
+    });
+  }
+};
+
   // Handle disconnecting a social account
   const handleDisconnectAccount = async (provider: string) => {
     try {
       await apiClient.delete(`/users/connected-accounts/${provider}`);
-      
+
       // Update state
-      setConnectedAccounts(prev => ({
+      setConnectedAccounts((prev) => ({
         ...prev,
-        [provider]: false
+        [provider]: false,
       }));
-      
+
       toast({
         title: "Account Disconnected",
         description: `You've successfully disconnected your ${provider} account`,
@@ -320,7 +341,9 @@ const AccountSettings: React.FC = () => {
       <CardContent className="space-y-6">
         <div className="space-y-2">
           <div className="flex justify-between items-center">
-            <Label htmlFor="email" className="text-base font-medium">Email Address</Label>
+            <Label htmlFor="email" className="text-base font-medium">
+              Email Address
+            </Label>
             {!isEmailVerified && (
               <span className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded-full">
                 Unverified
@@ -333,7 +356,7 @@ const AccountSettings: React.FC = () => {
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center space-x-2">
             <Input
               id="email"
@@ -341,23 +364,23 @@ const AccountSettings: React.FC = () => {
               disabled
               className="bg-muted/50 flex-grow"
             />
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => setIsChangeEmailDialogOpen(true)}
             >
               Change
             </Button>
           </div>
-          
+
           {!isEmailVerified && (
             <div className="flex justify-between items-center mt-2">
               <p className="text-sm text-muted-foreground">
                 Please verify your email address to access all features.
               </p>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="text-primary"
                 onClick={handleSendVerificationEmail}
               >
@@ -366,7 +389,7 @@ const AccountSettings: React.FC = () => {
               </Button>
             </div>
           )}
-          
+
           <p className="text-sm text-muted-foreground mt-1">
             Your email address is used for login and notifications.
           </p>
@@ -376,7 +399,11 @@ const AccountSettings: React.FC = () => {
           <Label className="text-base font-medium">Account Type</Label>
           <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/20">
             <div className="bg-primary h-2 w-2 rounded-full"></div>
-            <span>{user.role === "ADMIN" ? "Administrator Account" : "Standard User Account"}</span>
+            <span>
+              {user.role === "ADMIN"
+                ? "Administrator Account"
+                : "Standard User Account"}
+            </span>
           </div>
         </div>
 
@@ -391,30 +418,30 @@ const AccountSettings: React.FC = () => {
                 <div className="ml-3">
                   <p className="font-medium">Google</p>
                   <p className="text-sm text-muted-foreground">
-                    {connectedAccounts.google ? 'Connected' : 'Not connected'}
+                    {connectedAccounts.google ? "Connected" : "Not connected"}
                   </p>
                 </div>
               </div>
-              
+
               {connectedAccounts.google ? (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleDisconnectAccount('google')}
+                  onClick={() => handleDisconnectAccount("google")}
                 >
                   Disconnect
                 </Button>
               ) : (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleConnectAccount('google')}
+                  onClick={() => handleConnectAccount("google")}
                 >
                   Connect
                 </Button>
               )}
             </div>
-            
+
             <div className="p-4 flex justify-between items-center">
               <div className="flex items-center">
                 <div className="h-8 w-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white">
@@ -423,30 +450,30 @@ const AccountSettings: React.FC = () => {
                 <div className="ml-3">
                   <p className="font-medium">Facebook</p>
                   <p className="text-sm text-muted-foreground">
-                    {connectedAccounts.facebook ? 'Connected' : 'Not connected'}
+                    {connectedAccounts.facebook ? "Connected" : "Not connected"}
                   </p>
                 </div>
               </div>
-              
+
               {connectedAccounts.facebook ? (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleDisconnectAccount('facebook')}
+                  onClick={() => handleDisconnectAccount("facebook")}
                 >
                   Disconnect
                 </Button>
               ) : (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleConnectAccount('facebook')}
+                  onClick={() => handleConnectAccount("facebook")}
                 >
                   Connect
                 </Button>
               )}
             </div>
-            
+
             <div className="p-4 flex justify-between items-center">
               <div className="flex items-center">
                 <div className="h-8 w-8 rounded-full bg-[#000000] flex items-center justify-center text-white">
@@ -455,24 +482,24 @@ const AccountSettings: React.FC = () => {
                 <div className="ml-3">
                   <p className="font-medium">Twitter / X</p>
                   <p className="text-sm text-muted-foreground">
-                    {connectedAccounts.twitter ? 'Connected' : 'Not connected'}
+                    {connectedAccounts.twitter ? "Connected" : "Not connected"}
                   </p>
                 </div>
               </div>
-              
+
               {connectedAccounts.twitter ? (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleDisconnectAccount('twitter')}
+                  onClick={() => handleDisconnectAccount("twitter")}
                 >
                   Disconnect
                 </Button>
               ) : (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
-                  onClick={() => handleConnectAccount('twitter')}
+                  onClick={() => handleConnectAccount("twitter")}
                 >
                   Connect
                 </Button>
@@ -480,7 +507,7 @@ const AccountSettings: React.FC = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="space-y-2 border-t pt-6">
           <Label className="text-base font-medium">Account Management</Label>
           <div className="space-y-4">
@@ -490,11 +517,12 @@ const AccountSettings: React.FC = () => {
                 <div>
                   <h4 className="font-medium">Export Your Data</h4>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Download a copy of all your data including posts, comments, and profile information.
+                    Download a copy of all your data including posts, comments,
+                    and profile information.
                   </p>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleExportData}
                     disabled={isExportingData}
                   >
@@ -513,17 +541,20 @@ const AccountSettings: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="rounded-md border border-destructive/30 p-4">
               <div className="flex items-start">
                 <Trash2 className="h-5 w-5 mr-3 text-destructive flex-shrink-0 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-destructive">Delete Account</h4>
+                  <h4 className="font-medium text-destructive">
+                    Delete Account
+                  </h4>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Permanently delete your account and all your data. This action cannot be undone.
+                    Permanently delete your account and all your data. This
+                    action cannot be undone.
                   </p>
-                  <Button 
-                    variant="destructive" 
+                  <Button
+                    variant="destructive"
                     size="sm"
                     onClick={() => setIsDeleteAccountDialogOpen(true)}
                   >
@@ -535,17 +566,21 @@ const AccountSettings: React.FC = () => {
           </div>
         </div>
       </CardContent>
-      
+
       {/* Email Change Dialog */}
-      <Dialog open={isChangeEmailDialogOpen} onOpenChange={setIsChangeEmailDialogOpen}>
+      <Dialog
+        open={isChangeEmailDialogOpen}
+        onOpenChange={setIsChangeEmailDialogOpen}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Change Email Address</DialogTitle>
             <DialogDescription>
-              Enter your new email address. We'll send a verification link to confirm the change.
+              Enter your new email address. We'll send a verification link to
+              confirm the change.
             </DialogDescription>
           </DialogHeader>
-          
+
           {!verificationSent ? (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -557,7 +592,7 @@ const AccountSettings: React.FC = () => {
                   className="bg-muted/50"
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <Label htmlFor="new-email">New Email</Label>
                 <Input
@@ -568,39 +603,45 @@ const AccountSettings: React.FC = () => {
                   placeholder="Enter your new email address"
                 />
               </div>
-              
+
               {emailError && (
                 <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>{emailError}</AlertDescription>
                 </Alert>
               )}
-              
+
               <div className="bg-muted/30 p-3 rounded-md">
                 <div className="flex items-start">
                   <Info className="h-4 w-4 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-muted-foreground">
-                    After submitting, you'll receive a verification email at your new address.
-                    You must click the link in that email to complete the change.
+                    After submitting, you'll receive a verification email at
+                    your new address. You must click the link in that email to
+                    complete the change.
                   </p>
                 </div>
               </div>
             </div>
           ) : (
             <div className="space-y-4 py-4">
-              <Alert variant="default" className="bg-green-50 border-green-300 text-green-800">
+              <Alert
+                variant="default"
+                className="bg-green-50 border-green-300 text-green-800"
+              >
                 <Check className="h-4 w-4" />
                 <AlertDescription>
-                  Verification email sent to {newEmail}. Please check your inbox and follow the instructions.
+                  Verification email sent to {newEmail}. Please check your inbox
+                  and follow the instructions.
                 </AlertDescription>
               </Alert>
-              
+
               <p className="text-sm text-muted-foreground">
-                Don't see the email? Check your spam folder or click "Resend Verification" below.
+                Don't see the email? Check your spam folder or click "Resend
+                Verification" below.
               </p>
             </div>
           )}
-          
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -613,7 +654,7 @@ const AccountSettings: React.FC = () => {
             >
               {verificationSent ? "Close" : "Cancel"}
             </Button>
-            
+
             {!verificationSent ? (
               <Button
                 onClick={handleChangeEmail}
@@ -629,19 +670,19 @@ const AccountSettings: React.FC = () => {
                 )}
               </Button>
             ) : (
-              <Button
-                onClick={handleChangeEmail}
-                disabled={isChangingEmail}
-              >
+              <Button onClick={handleChangeEmail} disabled={isChangingEmail}>
                 Resend Verification
               </Button>
             )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Email Verification Dialog */}
-      <Dialog open={isVerificationDialogOpen} onOpenChange={setIsVerificationDialogOpen}>
+      <Dialog
+        open={isVerificationDialogOpen}
+        onOpenChange={setIsVerificationDialogOpen}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Verify Your Email</DialogTitle>
@@ -649,29 +690,34 @@ const AccountSettings: React.FC = () => {
               Enter the 6-digit code we sent to your email address.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="verification-code">Verification Code</Label>
               <Input
                 id="verification-code"
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                onChange={(e) =>
+                  setVerificationCode(
+                    e.target.value.replace(/\D/g, "").substring(0, 6)
+                  )
+                }
                 placeholder="000000"
                 maxLength={6}
                 className="text-center text-lg tracking-widest"
               />
             </div>
-            
+
             {verificationError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{verificationError}</AlertDescription>
               </Alert>
             )}
-            
+
             <p className="text-sm text-muted-foreground">
-              Didn't receive a code? <button 
+              Didn't receive a code?{" "}
+              <button
                 onClick={handleSendVerificationEmail}
                 className="text-primary hover:underline"
               >
@@ -679,7 +725,7 @@ const AccountSettings: React.FC = () => {
               </button>
             </p>
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -691,7 +737,7 @@ const AccountSettings: React.FC = () => {
             >
               Cancel
             </Button>
-            
+
             <Button
               onClick={handleVerifyEmail}
               disabled={isVerifying || verificationCode.length !== 6}
@@ -708,9 +754,12 @@ const AccountSettings: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
+
       {/* Delete Account Dialog */}
-      <Dialog open={isDeleteAccountDialogOpen} onOpenChange={setIsDeleteAccountDialogOpen}>
+      <Dialog
+        open={isDeleteAccountDialogOpen}
+        onOpenChange={setIsDeleteAccountDialogOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="text-destructive flex items-center">
@@ -718,22 +767,27 @@ const AccountSettings: React.FC = () => {
               Delete Your Account
             </DialogTitle>
             <DialogDescription>
-              This action is permanent and cannot be undone. All your data will be permanently deleted.
+              This action is permanent and cannot be undone. All your data will
+              be permanently deleted.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4 py-4">
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                This will delete your account, posts, comments, and all other data. This action cannot be reversed.
+                This will delete your account, posts, comments, and all other
+                data. This action cannot be reversed.
               </AlertDescription>
             </Alert>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="delete-confirm">Type your username to confirm</Label>
+              <Label htmlFor="delete-confirm">
+                Type your username to confirm
+              </Label>
               <p className="text-sm text-muted-foreground">
-                Please type <span className="font-medium">{user.username}</span> to confirm
+                Please type <span className="font-medium">{user.username}</span>{" "}
+                to confirm
               </p>
               <Input
                 id="delete-confirm"
@@ -743,7 +797,7 @@ const AccountSettings: React.FC = () => {
               />
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -754,7 +808,7 @@ const AccountSettings: React.FC = () => {
             >
               Cancel
             </Button>
-            
+
             <Button
               variant="destructive"
               onClick={handleDeleteAccount}
