@@ -2,6 +2,12 @@
 import { apiClient } from "@/api/apiClient";
 import { getUserId } from "@/utils/tokenUtils";
 
+// Define interfaces for our API responses
+interface UserBadgeResponse {
+  userId: number;
+  badges: string[];
+}
+
 /**
  * Get user badges from the server
  * @param userId ID of the user to get badges for (defaults to current user)
@@ -14,9 +20,18 @@ export const getUserBadges = async (userId?: number): Promise<string[]> => {
       return [];
     }
 
-    const response = await apiClient.get(`/users/${targetUserId}/badges`);
+    console.log(`Fetching badges for user ${targetUserId} from API`);
+    const response = await apiClient.get<UserBadgeResponse>(`/users/${targetUserId}/badges`);
     
     if (response.data && Array.isArray(response.data.badges)) {
+      // Store in localStorage for this user if it's the current user
+      if (targetUserId === getUserId() && typeof window !== 'undefined') {
+        localStorage.setItem(
+          `user_${targetUserId}_userBadges`, 
+          JSON.stringify(response.data.badges)
+        );
+      }
+      
       return response.data.badges;
     }
     
@@ -41,6 +56,13 @@ export const getUserBadges = async (userId?: number): Promise<string[]> => {
   }
 };
 
+// Define success response interface
+interface SuccessResponse {
+  success: boolean;
+  message?: string;
+  badges?: string[];
+}
+
 /**
  * Save user badges to the server
  * @param badges Array of badge IDs to save
@@ -53,15 +75,17 @@ export const saveUserBadges = async (badges: string[]): Promise<{ success: boole
       return { success: false };
     }
 
+    console.log(`Saving badges for user ${userId} to API:`, badges);
+    
     // Real API call
-    const response = await apiClient.put(`/users/${userId}/badges`, badges);
+    const response = await apiClient.put<SuccessResponse>(`/users/${userId}/badges`, badges);
     
     // Also save to localStorage as fallback
     if (typeof window !== 'undefined') {
       localStorage.setItem(`user_${userId}_userBadges`, JSON.stringify(badges));
     }
     
-    return { success: response.data?.success || true };
+    return { success: response.data?.success || response.status === 200 };
   } catch (error) {
     console.error("Error saving user badges:", error);
     
@@ -89,15 +113,17 @@ export const clearUserBadges = async (): Promise<{ success: boolean }> => {
       return { success: false };
     }
     
+    console.log(`Clearing badges for user ${userId}`);
+    
     // Real API call
-    const response = await apiClient.delete(`/users/${userId}/badges`);
+    const response = await apiClient.delete<SuccessResponse>(`/users/${userId}/badges`);
     
     // Also clear from localStorage
     if (typeof window !== 'undefined') {
       localStorage.removeItem(`user_${userId}_userBadges`);
     }
     
-    return { success: response.data?.success || true };
+    return { success: response.data?.success || response.status === 200 };
   } catch (error) {
     console.error("Error clearing user badges:", error);
     

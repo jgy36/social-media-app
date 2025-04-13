@@ -2,7 +2,7 @@
 // src/pages/profile/[username].tsx
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/redux/store";
 import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +22,7 @@ import FollowButton from "@/components/profile/FollowButton";
 import { getFollowStatus, getPostsByUsername } from "@/api/users"; // Update import
 import MessageButton from "@/components/profile/MessageButton";
 import UserBadges from "@/components/profile/Userbadges";
+import { initializeBadges } from "@/redux/slices/badgeSlice";
 
 // Interface for the user profile response
 interface UserProfile {
@@ -60,6 +61,16 @@ const UserProfilePage = () => {
   // Track the source section - where the user came from
   const [sourceSection, setSourceSection] = useState<string | null>(null);
 
+  const dispatch = useDispatch(); // ADD THIS LINE HERE
+
+  // ADD THIS USEEFFECT BLOCK AMONG YOUR OTHER USEEFFECTS
+  // Initialize badges from localStorage when the component mounts
+  useEffect(() => {
+    if (isCurrentUserProfile) {
+      dispatch(initializeBadges());
+    }
+  }, [isCurrentUserProfile, dispatch]);
+  
   useEffect(() => {
     // Get and store the source section when component mounts
     const prevSection = getPreviousSection();
@@ -123,10 +134,11 @@ const UserProfilePage = () => {
           } else if (
             userPosts &&
             typeof userPosts === "object" &&
-            Array.isArray(userPosts.data)
+            'data' in userPosts &&
+            Array.isArray((userPosts as { data: PostType[] }).data)
           ) {
             // Handle case where API returns { data: [...posts] }
-            setPosts(userPosts.data);
+            setPosts((userPosts as { data: PostType[] }).data);
           } else {
             console.warn("Posts response is not an array:", userPosts);
             setPosts([]);

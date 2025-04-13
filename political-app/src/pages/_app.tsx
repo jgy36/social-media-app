@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-// src/pages/_app.tsx - Updated with Redux persist
+// src/pages/_app.tsx - Updated with Redux persist and badge initialization
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { SessionProvider } from "next-auth/react";
@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useDispatch, useSelector } from "react-redux";
 import { restoreAuthState, updateUserProfile } from "@/redux/slices/userSlice";
+import { initializeBadges } from "@/redux/slices/badgeSlice"; // Add this import
 import { AppDispatch, RootState } from "@/redux/store";
 import { ThemeProvider } from "@/context/ThemeContext";
 import AppRouterHandler from "@/components/AppRouterHandler";
@@ -69,6 +70,15 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
     };
   }, [token, dispatch]);
 
+  // NEW EFFECT: Initialize badges when authenticated
+  useEffect(() => {
+    // Load badges if user is authenticated
+    if (isUserAuthenticated) {
+      console.log("User authenticated, initializing badges");
+      dispatch(initializeBadges());
+    }
+  }, [isUserAuthenticated, dispatch]);
+
   useEffect(() => {
     // Set timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
@@ -111,6 +121,9 @@ function AuthPersistence({ children }: { children: React.ReactNode }) {
         if (isAuthenticated) {
           console.log("Authenticated with server, restoring Redux state");
           await dispatch(restoreAuthState()).unwrap();
+          
+          // Initialize badges after restoring auth state
+          dispatch(initializeBadges());
         }
         
         setIsLoading(false);

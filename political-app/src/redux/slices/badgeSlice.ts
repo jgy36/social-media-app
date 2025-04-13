@@ -1,4 +1,4 @@
-// src/redux/slices/badgeSlice.ts - Improved user isolation
+// src/redux/slices/badgeSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { getUserId } from "@/utils/tokenUtils";
 
@@ -10,6 +10,7 @@ const USER_BADGES_KEY = 'userBadges';
 
 interface BadgeState {
   badges: string[]; // Array of badge IDs
+  initialized: boolean;
 }
 
 // Helper to load badges from localStorage with proper user isolation
@@ -68,7 +69,8 @@ const clearUserBadgesFromStorage = () => {
 };
 
 const initialState: BadgeState = {
-  badges: loadUserBadges()
+  badges: [], // Start with empty and initialize on app load
+  initialized: false
 };
 
 const badgeSlice = createSlice({
@@ -96,22 +98,27 @@ const badgeSlice = createSlice({
     setBadges: (state, action: PayloadAction<string[]>) => {
       // Ensure we don't exceed the 10 badge limit
       state.badges = action.payload.slice(0, 10);
+      state.initialized = true;
       saveUserBadges(state.badges);
     },
     
     // Clear all badges (used during logout)
     clearBadges: (state) => {
       state.badges = [];
+      state.initialized = false;
       clearUserBadgesFromStorage();
     },
     
-    // Reload badges from storage (used when user changes)
-    reloadBadges: (state) => {
-      state.badges = loadUserBadges();
+    // Initialize badges from localStorage (used on app startup)
+    initializeBadges: (state) => {
+      if (!state.initialized) {
+        state.badges = loadUserBadges();
+        state.initialized = true;
+      }
     }
   },
 });
 
-export const { addBadge, removeBadge, setBadges, clearBadges, reloadBadges } = badgeSlice.actions;
+export const { addBadge, removeBadge, setBadges, clearBadges, initializeBadges } = badgeSlice.actions;
 
 export default badgeSlice.reducer;
