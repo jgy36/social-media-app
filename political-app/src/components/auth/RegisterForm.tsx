@@ -4,8 +4,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { useRegister } from "@/hooks/useApi";
 import { validateUsername } from "@/utils/usernameUtils";
+import { loginUser } from "@/redux/slices/userSlice"; // Import the same action used by login
+import { useDispatch } from "react-redux";
+import { AppDispatch } from "@/redux/store";
 
 const RegisterForm = () => {
+  const dispatch = useDispatch<AppDispatch>(); // Add this
   const router = useRouter();
   const { toast } = useToast();
   const { loading, error: apiError, execute: register } = useRegister();
@@ -55,6 +59,18 @@ const RegisterForm = () => {
       const result = await register({ username, email, password });
 
       if (result && result.success) {
+        // The token might be nested in different ways depending on your API structure
+        // Try one of these options:
+
+        // Option 1: If token is part of the data property
+        if (result.data && result.data.token) {
+          await dispatch(loginUser({ email, password })).unwrap();
+        }
+        // Option 2: If you just want to dispatch login regardless
+        else {
+          // Just dispatch the login action with credentials
+          await dispatch(loginUser({ email, password })).unwrap();
+        }
         // Show success toast
         toast({
           title: "Registration Successful",
