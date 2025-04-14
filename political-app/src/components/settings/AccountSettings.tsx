@@ -621,17 +621,18 @@ const AccountSettings: React.FC = () => {
           </div>
         </div>
       </CardContent>
-
       {/* Email Change Dialog */}
       <Dialog
         open={isChangeEmailDialogOpen}
         onOpenChange={setIsChangeEmailDialogOpen}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md dark:bg-slate-800">
           <DialogHeader>
-            <DialogTitle>Change Email Address</DialogTitle>
-            <DialogDescription>
-              Enter your new email address. We'll send a verification link to
+            <DialogTitle className="dark:text-white">
+              Change Email Address
+            </DialogTitle>
+            <DialogDescription className="dark:text-gray-300">
+              Enter your new email address. We&apos;ll send a verification link to
               confirm the change.
             </DialogDescription>
           </DialogHeader>
@@ -639,23 +640,28 @@ const AccountSettings: React.FC = () => {
           {!verificationSent ? (
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="current-email">Current Email</Label>
+                <Label htmlFor="current-email" className="dark:text-white">
+                  Current Email
+                </Label>
                 <Input
                   id="current-email"
                   value={email}
                   disabled
-                  className="bg-muted/50"
+                  className="bg-muted/50 dark:bg-slate-700 dark:text-gray-200"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="new-email">New Email</Label>
+                <Label htmlFor="new-email" className="dark:text-white">
+                  New Email
+                </Label>
                 <Input
                   id="new-email"
                   type="email"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
                   placeholder="Enter your new email address"
+                  className="dark:bg-slate-700 dark:text-white dark:placeholder:text-gray-400"
                 />
               </div>
 
@@ -666,10 +672,10 @@ const AccountSettings: React.FC = () => {
                 </Alert>
               )}
 
-              <div className="bg-muted/30 p-3 rounded-md">
+              <div className="bg-muted dark:bg-slate-700 p-3 rounded-md">
                 <div className="flex items-start">
                   <Info className="h-4 w-4 mr-2 text-blue-500 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs dark:text-gray-300">
                     After submitting, you'll receive a verification email at
                     your new address. You must click the link in that email to
                     complete the change.
@@ -681,7 +687,7 @@ const AccountSettings: React.FC = () => {
             <div className="space-y-4 py-4">
               <Alert
                 variant="default"
-                className="bg-green-50 border-green-300 text-green-800"
+                className="bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400"
               >
                 <Check className="h-4 w-4" />
                 <AlertDescription>
@@ -690,7 +696,7 @@ const AccountSettings: React.FC = () => {
                 </AlertDescription>
               </Alert>
 
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm dark:text-gray-300">
                 Don't see the email? Check your spam folder or click "Resend
                 Verification" below.
               </p>
@@ -706,6 +712,7 @@ const AccountSettings: React.FC = () => {
                 setEmailError(null);
                 setVerificationSent(false);
               }}
+              className="dark:text-white dark:border-gray-500 dark:hover:bg-slate-700"
             >
               {verificationSent ? "Close" : "Cancel"}
             </Button>
@@ -714,6 +721,7 @@ const AccountSettings: React.FC = () => {
               <Button
                 onClick={handleChangeEmail}
                 disabled={isChangingEmail || !newEmail}
+                className="dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-gray-100"
               >
                 {isChangingEmail ? (
                   <>
@@ -725,14 +733,17 @@ const AccountSettings: React.FC = () => {
                 )}
               </Button>
             ) : (
-              <Button onClick={handleChangeEmail} disabled={isChangingEmail}>
+              <Button
+                onClick={handleChangeEmail}
+                disabled={isChangingEmail}
+                className="dark:bg-slate-600 dark:hover:bg-slate-500 dark:text-gray-100"
+              >
                 Resend Verification
               </Button>
             )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Email Verification Dialog */}
       <Dialog
         open={isVerificationDialogOpen}
@@ -809,7 +820,6 @@ const AccountSettings: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Delete Account Dialog */}
       <Dialog
         open={isDeleteAccountDialogOpen}

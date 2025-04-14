@@ -42,6 +42,8 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isSearchLoading, setIsSearchLoading] = useState(false);
+  const [searchAttempted, setSearchAttempted] = useState(false);
+  const [firstSearchFailed, setFirstSearchFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   
@@ -57,25 +59,59 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
     }
     
     setIsSearchLoading(true);
+    
     try {
+      // Add a random timestamp to prevent caching issues
+      const timestamp = Date.now();
+      
       // Use the searchAll function from your hook to get unified results
-      const searchResults = await searchAll(searchQuery);
+      const searchResults = await searchAll(`${searchQuery}?t=${timestamp}`);
       
       console.log('Search results:', searchResults);
+      
+      // If the search was previously failed but now succeeded, update the state
+      if (firstSearchFailed) {
+        setFirstSearchFailed(false);
+      }
+      
+      // Mark that we've attempted a search
+      setSearchAttempted(true);
       
       // If the results are already in the expected format, use them directly
       if (Array.isArray(searchResults) && searchResults.length > 0 && 'type' in searchResults[0]) {
         setResults(searchResults as SearchResult[]);
-      } else {
-        // If we need to transform the results
-        const transformedResults: SearchResult[] = [];
-        
-        // Add transformation logic here if needed based on your API response format
+      } else if (Array.isArray(searchResults)) {
+        // If we have an array but need to transform the results
+        const transformedResults: SearchResult[] = searchResults.map(item => ({
+          id: item.id || '',
+          type: item.type as 'user' | 'community' | 'hashtag',
+          name: item.name || item.username || item.tag || '',
+          description: item.description || item.bio || (item.postCount ? `${item.postCount} posts` : ''),
+          members: item.members,
+          followers: item.followersCount,
+          postCount: item.postCount || item.count
+        }));
         
         setResults(transformedResults);
+      } else {
+        // If we don't have valid results
+        setResults([]);
       }
     } catch (error) {
       console.error('Error performing search:', error);
+      
+      // If this is the first search attempt, mark it as failed for retry logic
+      if (!searchAttempted) {
+        setFirstSearchFailed(true);
+        
+        // Try again after a short delay - this helps with first-search failures
+        setTimeout(() => {
+          if (searchQuery.trim()) {
+            performSearch(searchQuery);
+          }
+        }, 500);
+      }
+      
       setResults([]);
     } finally {
       setIsSearchLoading(false);
@@ -99,6 +135,11 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
       debouncedSearch.cancel();
     };
   }, [query, debouncedSearch]);
+
+  // Handle clicks that shouldn't close the popover
+  const handlePopoverClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
 
   const handleSelectResult = (result: SearchResult) => {
     setOpen(false);
@@ -139,8 +180,7 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
         handleSelectResult(results[0]);
       } else if (open) {
         // If dropdown is open but no results, go to search page
-        router.push(`/search?q=${encodeURIComponent(query)}`);
-        setOpen(false);
+        navigateToSearchPage();
       } else {
         setOpen(true);
       }
@@ -155,8 +195,34 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
     }
   };
 
+  // Focus manager - ensure input retains focus
+  const handleInputFocus = () => {
+    if (query.trim() !== '') {
+      setOpen(true);
+    }
+  };
+
+  // Explicitly only use click on input without any side-effects
+  const handleInputClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+  };
+
+  // Function to navigate to search page - centralized to avoid duplication
+  const navigateToSearchPage = () => {
+    console.log("Navigating to search page with query:", query);
+    
+    // Close the popover first
+    setOpen(false);
+    
+    // Use router.push with the search query
+    router.push({
+      pathname: '/search',
+      query: { q: query }
+    });
+  };
+
   return (
-    <div className="relative w-full max-w-md">
+    <div className="relative w-full max-w-md" onClick={handlePopoverClick}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <div className="relative flex items-center">
@@ -167,8 +233,10 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              onFocus={() => query.trim() !== '' && setOpen(true)}
+              onFocus={handleInputFocus}
+              onClick={handleInputClick}
               className="pl-8 pr-8 w-full"
+              autoComplete="off"
             />
             {query.trim() !== '' && (
               <Button 
@@ -183,11 +251,15 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
           </div>
         </PopoverTrigger>
         
-        <PopoverContent className="p-0 w-96" align="start">
+        <PopoverContent className="p-0 w-96" align="start" onClick={handlePopoverClick}>
           <Command>
             <CommandList>
               <CommandEmpty>
-                {isSearchLoading || loading ? 'Searching...' : 'No results found.'}
+                {isSearchLoading || loading 
+                  ? 'Searching...' 
+                  : firstSearchFailed 
+                    ? 'Retrying search...' 
+                    : 'No results found.'}
               </CommandEmpty>
               
               {/* Users Group */}
@@ -283,7 +355,9 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
                         </div>
                         <div className="flex-1 overflow-hidden">
                           <p className="font-medium truncate">{result.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{result.description}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {result.postCount ? `${result.postCount} posts` : ''}
+                          </p>
                         </div>
                       </CommandItem>
                     ))
@@ -308,10 +382,7 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
               {query.trim() !== '' && (
                 <CommandGroup heading="Actions">
                   <CommandItem
-                    onSelect={() => {
-                      router.push(`/search?q=${encodeURIComponent(query)}`);
-                      setOpen(false);
-                    }}
+                    onSelect={navigateToSearchPage}
                     className="flex items-center"
                   >
                     <Search className="mr-2 h-4 w-4" />

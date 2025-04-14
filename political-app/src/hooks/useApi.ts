@@ -6,7 +6,11 @@ import { login, register } from '@/api/auth';
 import { createPost } from '@/api/posts';
 import { searchHashtags, getUnifiedSearchResults } from '@/api/search';
 import { searchCommunities } from '@/api/communities';
-import { LoginRequest, RegisterRequest, AuthResponse, ApiResponse, PostResponse, CreatePostRequest } from '@/api/types';
+import { getNotifications, Notification } from '@/api/notifications';
+import { LoginRequest, RegisterRequest, AuthResponse, ApiResponse, PostResponse } from '@/api/types';
+import { CreatePostRequest } from '@/api/posts'; // Import from posts instead of types
+import { ApiSearchResult } from '@/types/search';
+
 
 /**
  * Type for the executing function that can take parameters and return a result
@@ -112,10 +116,65 @@ export const useSearchCommunities = () => {
  * Hook for unified search across all content types
  */
 export const useSearchAll = () => {
-  const { loading, error, execute } = useApi<any[], [string, string?]>(
-    (query: string, type?: string) => getUnifiedSearchResults(query, type as any)
-  );
-  return { loading, error, execute };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const [data, setData] = useState<ApiSearchResult[]>([]);
+  const [searchInitialized, setSearchInitialized] = useState(false);
+
+  const execute = useCallback(async (query: string, type?: 'user' | 'community' | 'hashtag' | 'post') => {
+    if (!query?.trim()) {
+      return [];
+    }
+
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Add cache busting
+      const timestamp = Date.now();
+      const queryWithTimestamp = query.includes('?') 
+        ? `${query}&_=${timestamp}` 
+        : `${query}?_=${timestamp}`;
+      
+      // Log first search attempt
+      if (!searchInitialized) {
+        console.log('First search attempt, query:', query);
+      }
+      
+      // Perform the search
+      const results = await getUnifiedSearchResults(queryWithTimestamp, type);
+      
+      // Mark search as initialized
+      if (!searchInitialized) {
+        setSearchInitialized(true);
+      }
+      
+      // Update state
+      setData(results);
+      return results;
+    } catch (err) {
+      console.error('Search error:', err);
+      
+      // Special handling for first search attempt
+      if (!searchInitialized) {
+        console.log('First search failed, will retry on next attempt');
+        
+        // Schedule a backend "warmup" call
+        setTimeout(() => {
+          getUnifiedSearchResults('warmup')
+            .then(() => console.log('Search API warmup call completed'))
+            .catch(() => console.log('Search API warmup call failed'));
+        }, 100);
+      }
+      
+      setError(err instanceof Error ? err : new Error('Unknown search error'));
+      return [];
+    } finally {
+      setLoading(false);
+    }
+  }, [searchInitialized]);
+
+  return { loading, error, data, execute };
 };
 
 /**

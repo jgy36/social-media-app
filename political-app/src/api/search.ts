@@ -1,8 +1,10 @@
-// src/api/search.ts
-import { apiClient } from "./apiClient";
+// src/api/search.ts - Fixed with better error handling
+import { apiClient, getErrorMessage } from "./apiClient";
 import { HashtagInfo } from "./types";
 import { ApiSearchResult } from '@/types/search';
 
+// Debug logging for search issues
+const DEBUG_SEARCH = true;
 
 /**
  * Get trending hashtags
@@ -64,115 +66,231 @@ export const searchHashtags = async (query: string): Promise<HashtagInfo[]> => {
     return [];
   } catch (error) {
     console.error(`Error searching hashtags with query ${query}:`, error);
-
-    // Try one more approach as fallback - try to get posts by hashtag
-    try {
-      const postsResponse = await apiClient.get(`/posts`, {
-        params: { tag: query.replace(/^#/, "") },
-      });
-
-      // If we have posts, create a hashtag object
-      if (Array.isArray(postsResponse.data) && postsResponse.data.length > 0) {
-        return [
-          {
-            tag: query.startsWith("#") ? query : `#${query}`,
-            useCount: postsResponse.data.length,
-          },
-        ];
-      }
-    } catch (fallbackError) {
-      console.error("Error in hashtag fallback search:", fallbackError);
-    }
-
     return [];
   }
 };
 
 /**
  * Get unified search results (users, communities, hashtags)
+ * With improved error handling and automatic retries for first search
  */
 export const getUnifiedSearchResults = async (
   query: string,
   type?: "user" | "community" | "hashtag" | "post"
 ): Promise<ApiSearchResult[]> => {
+  // Extract the actual query part from any URL parameters
+  const queryString = query.includes('?') 
+    ? query.split('?')[0] 
+    : query;
+  
+  // Don't attempt empty searches
+  if (!queryString || queryString.trim() === '') {
+    return [];
+  }
+  
   try {
-    // If a specific type is provided, use a more targeted endpoint
-    if (type) {
-      const response = await apiClient.get<ApiSearchResult[]>(
-        `/search?query=${encodeURIComponent(query)}&type=${type}`
-      );
+    // Add timestamp to bust potential cache issues
+    const timestamp = Date.now();
+    
+    // Construct URL based on the query and type
+    const baseUrl = `/search?query=${encodeURIComponent(queryString)}&t=${timestamp}`;
+    const searchUrl = type ? `${baseUrl}&type=${type}` : baseUrl;
+    
+    if (DEBUG_SEARCH) {
+      console.log('🔍 Sending search request to:', searchUrl);
+    }
+    
+    // Make the API request with cache prevention headers
+    const response = await apiClient.get<ApiSearchResult[]>(searchUrl, {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+    
+    if (DEBUG_SEARCH) {
+      console.log('✅ Search API response:', response.data);
+    }
+    
+    if (Array.isArray(response.data)) {
       return response.data;
     }
-
-    // Otherwise, use the general search endpoint
-    const response = await apiClient.get<ApiSearchResult[]>(
-      `/search?query=${encodeURIComponent(query)}`
-    );
-    return response.data;
+    
+    // If response isn't an array, check if it's a JSON object we can convert
+    if (response.data && typeof response.data === 'object') {
+      try {
+        if (DEBUG_SEARCH) {
+          console.log('⚠️ Search response is not an array, trying to convert:', response.data);
+        }
+        // Try to extract results from a container object if present
+        if ('results' in (response.data as any) && Array.isArray((response.data as any).results)) {
+          return (response.data as any).results;
+        }
+        
+        // If not an array but has properties like 'type', it might be a single result
+        if ('type' in (response.data as any)) {
+          return [response.data as ApiSearchResult];
+        }
+      } catch (parseErr) {
+        console.error('Failed to parse search response:', parseErr);
+      }
+    }
+    
+    // If we couldn't process the response, return empty array
+    console.error('Search response format unexpected:', response.data);
+    return [];
+    
   } catch (error) {
-    console.error(`Error in unified search for "${query}":`, error);
+    console.error(`Error in unified search for "${queryString}":`, error);
 
-    // Manual fallback: Try to search each type individually and combine results
-    const results: ApiSearchResult[] = [];
+    // Try fallback search methods
+    console.log('🔍 Attempting fallback search...');
+    return fallbackSearch(queryString, type);
+  }
+};
 
-    try {
-      // Try to search users
-      const userResults = await apiClient.get(
-        `/users/search?query=${encodeURIComponent(query)}`
-      );
-      if (Array.isArray(userResults.data)) {
-        results.push(
-          ...userResults.data.map((user) => ({
-            id: user.id,
-            type: "user" as const,
-            name: user.username,
-            username: user.username,
-            bio: user.bio,
-            followersCount: user.followersCount,
-          }))
-        );
-      }
-    } catch (userError) {
-      console.error("Error searching users:", userError);
+/**
+ * Fallback search implementation that searches individual endpoints
+ */
+const fallbackSearch = async (
+  query: string,
+  type?: "user" | "community" | "hashtag" | "post"
+): Promise<ApiSearchResult[]> => {
+  const results: ApiSearchResult[] = [];
+  
+  // If type is specified, only search that type
+  if (type) {
+    switch (type) {
+      case 'user':
+        await searchUsers(query, results);
+        break;
+      case 'community':
+        await searchCommunities(query, results);
+        break;
+      case 'hashtag':
+        await searchHashtagsAndAddToResults(query, results);
+        break;
+      case 'post':
+        await searchPosts(query, results);
+        break;
     }
-
-    try {
-      // Try to search communities
-      const communityResults = await apiClient.get(
-        `/communities/search?query=${encodeURIComponent(query)}`
-      );
-      if (Array.isArray(communityResults.data)) {
-        results.push(
-          ...communityResults.data.map((community) => ({
-            id: community.id,
-            type: "community" as const,
-            name: community.name,
-            description: community.description,
-            members: community.members,
-          }))
-        );
-      }
-    } catch (communityError) {
-      console.error("Error searching communities:", communityError);
-    }
-
-    try {
-      // Try to search hashtags
-      const hashtagResults = await searchHashtags(query);
-      results.push(
-        ...hashtagResults.map((hashtag) => ({
-            id: hashtag.tag.replace(/^#/, ""),
-            type: "hashtag" as const,
-            name: hashtag.tag,
-            tag: hashtag.tag,
-            count: hashtag.useCount,
-            postCount: hashtag.useCount,
-          }))
-      );
-    } catch (hashtagError) {
-      console.error("Error searching hashtags:", hashtagError);
-    }
-
     return results;
+  }
+  
+  // Otherwise search all types
+  try {
+    await Promise.allSettled([
+      searchUsers(query, results),
+      searchCommunities(query, results),
+      searchHashtagsAndAddToResults(query, results),
+      searchPosts(query, results)
+    ]);
+  } catch (error) {
+    console.error('Error in fallback search:', error);
+  }
+  
+  if (DEBUG_SEARCH) {
+    console.log('🔄 Fallback search results:', results);
+  }
+  
+  return results;
+};
+
+/**
+ * Search users and add results to the array
+ */
+const searchUsers = async (query: string, results: ApiSearchResult[]): Promise<void> => {
+  try {
+    const response = await apiClient.get(
+      `/users/search?query=${encodeURIComponent(query)}`
+    );
+    
+    if (Array.isArray(response.data)) {
+      results.push(
+        ...response.data.map((user) => ({
+          id: user.id,
+          type: "user" as const,
+          name: user.displayName || user.username,
+          username: user.username,
+          bio: user.bio,
+          followersCount: user.followersCount,
+        }))
+      );
+    }
+  } catch (error) {
+    console.error("Error searching users:", error);
+  }
+};
+
+/**
+ * Search communities and add results to the array
+ */
+const searchCommunities = async (query: string, results: ApiSearchResult[]): Promise<void> => {
+  try {
+    const response = await apiClient.get(
+      `/communities/search?query=${encodeURIComponent(query)}`
+    );
+    
+    if (Array.isArray(response.data)) {
+      results.push(
+        ...response.data.map((community) => ({
+          id: community.id,
+          type: "community" as const,
+          name: community.name,
+          description: community.description,
+          members: community.members,
+        }))
+      );
+    }
+  } catch (error) {
+    console.error("Error searching communities:", error);
+  }
+};
+
+/**
+ * Search hashtags and add results to the array
+ */
+const searchHashtagsAndAddToResults = async (query: string, results: ApiSearchResult[]): Promise<void> => {
+  try {
+    const hashtagResults = await searchHashtags(query);
+    
+    results.push(
+      ...hashtagResults.map((hashtag) => ({
+        id: hashtag.tag.replace(/^#/, ""),
+        type: "hashtag" as const,
+        name: hashtag.tag,
+        tag: hashtag.tag,
+        count: hashtag.useCount,
+        postCount: hashtag.useCount,
+      }))
+    );
+  } catch (error) {
+    console.error("Error searching hashtags:", error);
+  }
+};
+
+/**
+ * Search posts and add results to the array
+ */
+const searchPosts = async (query: string, results: ApiSearchResult[]): Promise<void> => {
+  try {
+    const response = await apiClient.get(
+      `/posts/search?query=${encodeURIComponent(query)}`
+    );
+    
+    if (Array.isArray(response.data)) {
+      results.push(
+        ...response.data.map((post) => ({
+          id: post.id,
+          type: "post" as const,
+          content: post.content,
+          author: post.author,
+          createdAt: post.createdAt,
+        }))
+      );
+    }
+  } catch (error) {
+    console.error("Error searching posts:", error);
   }
 };

@@ -1,4 +1,4 @@
-// src/types/search.ts
+// src/types/search.ts - Updated to match backend response format
 
 /**
  * Interface for search results coming from the API
@@ -35,3 +35,21 @@ export interface SearchResult {
   members?: number;
   postCount?: number;
 }
+
+/**
+ * Helper function to convert API search results to UI search results
+ */
+export const formatApiSearchResult = (apiResult: ApiSearchResult): SearchResult => {
+  return {
+    id: apiResult.id || '',
+    type: apiResult.type,
+    name: apiResult.name || apiResult.username || apiResult.tag || '',
+    description: apiResult.description || apiResult.bio || '',
+    content: apiResult.content || '',
+    author: apiResult.author || '',
+    timestamp: apiResult.createdAt || '',
+    followers: apiResult.followersCount,
+    members: apiResult.members,
+    postCount: apiResult.postCount || apiResult.count
+  };
+};

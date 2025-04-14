@@ -129,6 +129,7 @@ const SearchPage = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   // Calculate and store counts separately to ensure stability
   const [tabCounts, setTabCounts] = useState({
@@ -150,74 +151,86 @@ const SearchPage = () => {
 
   // Perform search when query changes
   useEffect(() => {
-    if (q && typeof q === "string") {
-      setSearchQuery(q);
-      performSearch(q);
-    } else {
+    // Only execute if we have a query and router is ready
+    if (router.isReady && q) {
+      if (typeof q === "string") {
+        console.log(`📢 Search query from URL: "${q}"`);
+        setSearchQuery(q);
+        performSearch(q);
+      }
+    } else if (router.isReady) {
+      // Router is ready but no query
       setLoading(false);
       setResults([]);
       setTabCounts({ all: 0, user: 0, community: 0, hashtag: 0, post: 0 });
     }
-  }, [q]);
+  }, [q, router.isReady]);
 
   // Search function
   const performSearch = async (query: string) => {
     setLoading(true);
+    setSearchError(null);
 
     try {
+      console.log(`🔍 Performing search for query: "${query}"`);
+      
+      // Add cache busting to prevent stale results
+      const timestamp = Date.now();
+      const queryWithTimestamp = `${query}?t=${timestamp}`;
+      
       // Get results from API - use no type filter to get all results
-      const searchResults = await getUnifiedSearchResults(query);
+      const searchResults = await getUnifiedSearchResults(queryWithTimestamp);
+      console.log(`✅ Received ${searchResults.length} search results`);
 
       // Transform results to match the SearchResult interface
-      // Use non-null assertion or provide fallback values in the search function
-const transformedResults: SearchResult[] = searchResults.map((result) => {
-  // Base properties common to all result types
-  const baseResult: SearchResult = {
-    id: result.id || result.username || result.tag || 0,
-    type: result.type,
-    name: result.name || result.username || result.tag || '',
-  };
+      const transformedResults: SearchResult[] = searchResults.map((result) => {
+        // Base properties common to all result types
+        const baseResult: SearchResult = {
+          id: result.id || result.username || result.tag || 0,
+          type: result.type,
+          name: result.name || result.username || result.tag || '',
+        };
 
-  // Add type-specific properties
-  switch (result.type) {
-    case "user":
-      return {
-        ...baseResult,
-        description:
-          result.bio || `@${result.username || baseResult.name}`,
-        followers: result.followersCount || 0,
-      };
+        // Add type-specific properties
+        switch (result.type) {
+          case "user":
+            return {
+              ...baseResult,
+              description:
+                result.bio || `@${result.username || baseResult.name}`,
+              followers: result.followersCount || 0,
+            };
 
-    case "community":
-      return {
-        ...baseResult,
-        description: result.description || '',
-        members: result.members || 0,
-      };
+          case "community":
+            return {
+              ...baseResult,
+              description: result.description || '',
+              members: result.members || 0,
+            };
 
-    case "hashtag":
-      const tagName = result.tag || result.name || '';
-      return {
-        ...baseResult,
-        name: tagName.startsWith("#") ? tagName : `#${tagName}`,
-        description: `${
-          result.count || result.postCount || 0
-        } posts with this hashtag`,
-        postCount: result.count || result.postCount || 0,
-      };
+          case "hashtag":
+            const tagName = result.tag || result.name || '';
+            return {
+              ...baseResult,
+              name: tagName.startsWith("#") ? tagName : `#${tagName}`,
+              description: `${
+                result.count || result.postCount || 0
+              } posts with this hashtag`,
+              postCount: result.count || result.postCount || 0,
+            };
 
-    case "post":
-      return {
-        ...baseResult,
-        content: result.content || '',
-        author: result.author || result.username || 'Unknown',
-        timestamp: result.createdAt ? new Date(result.createdAt).toLocaleDateString() : '',
-      };
+          case "post":
+            return {
+              ...baseResult,
+              content: result.content || '',
+              author: result.author || result.username || 'Unknown',
+              timestamp: result.createdAt ? new Date(result.createdAt).toLocaleDateString() : '',
+            };
 
-    default:
-      return baseResult;
-  }
-});
+          default:
+            return baseResult;
+        }
+      });
 
       // Update results
       setResults(transformedResults);
@@ -233,9 +246,10 @@ const transformedResults: SearchResult[] = searchResults.map((result) => {
       };
 
       setTabCounts(counts);
-      console.log("Tab counts set:", counts);
+      console.log("Tab counts:", counts);
     } catch (error) {
-      console.error("Error performing search:", error);
+      console.error("❌ Error performing search:", error);
+      setSearchError("An error occurred while searching. Please try again.");
       setResults([]);
       setTabCounts({ all: 0, user: 0, community: 0, hashtag: 0, post: 0 });
     } finally {
@@ -279,6 +293,12 @@ const transformedResults: SearchResult[] = searchResults.map((result) => {
               <p className="text-sm text-muted-foreground mt-2">
                 Showing results for:{" "}
                 <span className="font-medium">{searchQuery}</span>
+              </p>
+            )}
+            
+            {searchError && (
+              <p className="text-sm text-red-500 mt-2">
+                {searchError}
               </p>
             )}
           </CardContent>
