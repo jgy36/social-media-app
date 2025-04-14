@@ -44,4 +44,10 @@ public interface CommunityRepository extends JpaRepository<Community, Long> {
     // Find communities moderated by user
     @Query("SELECT c FROM Community c JOIN c.moderators m WHERE m = :user")
     List<Community> findCommunitiesModeratedBy(@Param("user") User user);
+
+    // Method needed for search functionality
+    List<Community> findByNameContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String name, String description);
+
+    // Optional: Add methods for finding trending/popular communities
+    List<Community> findTop10ByOrderByMembersDesc();
 }

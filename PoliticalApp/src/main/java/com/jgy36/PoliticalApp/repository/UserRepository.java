@@ -36,7 +36,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT COUNT(p) FROM Post p WHERE p.author.id = :userId")
     int countPosts(Long userId);
 
+    // Basic username search
     List<User> findByUsernameContainingIgnoreCase(String query);
+
+    // ✅ Search by username OR displayName (for search functionality)
+    List<User> findByUsernameContainingIgnoreCaseOrDisplayNameContainingIgnoreCase(String username, String displayName);
 
     // ✅ Add this new method for case-insensitive username check
     boolean existsByUsernameIgnoreCase(String username);
@@ -55,4 +59,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
      */
     @Query("SELECT u FROM User u WHERE u.verificationTokenExpiresAt < CURRENT_TIMESTAMP AND u.verified = false")
     List<User> findUsersWithExpiredVerificationTokens();
+
+    /**
+     * Find top matching users ordered by username (simple alternative)
+     * We removed the followers-based sorting which was causing errors
+     */
+    @Query("SELECT u FROM User u WHERE u.username LIKE %:query% OR u.displayName LIKE %:query% ORDER BY u.username")
+    List<User> findTopMatchingUsers(String query, org.springframework.data.domain.Pageable pageable);
 }

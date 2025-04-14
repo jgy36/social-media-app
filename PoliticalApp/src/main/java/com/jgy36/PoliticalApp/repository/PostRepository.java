@@ -84,4 +84,16 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     // Updated to include original post data
     @Query("SELECT p FROM Post p LEFT JOIN FETCH p.author LEFT JOIN FETCH p.originalPost WHERE p.originalPostId = :postId ORDER BY p.createdAt DESC")
     List<Post> findRepostsOfPost(@Param("postId") Long postId);
+
+    List<Post> findByAuthor(User author);
+
+    List<Post> findByCommunity(Community community);
+
+    // Search for posts with a specific hashtag
+    @Query("SELECT p FROM Post p WHERE p.content LIKE %:hashtag%")
+    List<Post> findByHashtag(String hashtag);
+
+    // Get trending posts (based on likes and comments)
+    @Query("SELECT p FROM Post p ORDER BY SIZE(p.likes) + SIZE(p.comments) DESC")
+    List<Post> findTrendingPosts();
 }
