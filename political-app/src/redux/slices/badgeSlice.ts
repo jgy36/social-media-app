@@ -1,6 +1,7 @@
 // src/redux/slices/badgeSlice.ts
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction, createAsyncThunk } from "@reduxjs/toolkit";
 import { getUserId } from "@/utils/tokenUtils";
+import { getUserBadges } from "@/api/badges";
 
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
@@ -68,6 +69,20 @@ const clearUserBadgesFromStorage = () => {
   }
 };
 
+// Fetch user badges from the server
+export const fetchUserBadges = createAsyncThunk(
+  'badges/fetchFromServer',
+  async (_, { rejectWithValue }) => {
+    try {
+      const badges = await getUserBadges();
+      return badges;
+    } catch (error) {
+      console.error('Error fetching user badges:', error);
+      return rejectWithValue(error instanceof Error ? error.message : 'Failed to fetch badges');
+    }
+  }
+);
+
 const initialState: BadgeState = {
   badges: [], // Start with empty and initialize on app load
   initialized: false
@@ -117,6 +132,23 @@ const badgeSlice = createSlice({
       }
     }
   },
+  extraReducers: (builder) => {
+    // Handle fetchUserBadges
+    builder.addCase(fetchUserBadges.fulfilled, (state, action) => {
+      if (action.payload && action.payload.length > 0) {
+        // If we have server-side badges, use those
+        state.badges = action.payload;
+      } else if (!state.initialized) {
+        // If not initialized yet and no server badges, try loading from localStorage
+        state.badges = loadUserBadges();
+      }
+      // Either way, mark as initialized
+      state.initialized = true;
+      
+      // Save to localStorage
+      saveUserBadges(state.badges);
+    });
+  }
 });
 
 export const { addBadge, removeBadge, setBadges, clearBadges, initializeBadges } = badgeSlice.actions;

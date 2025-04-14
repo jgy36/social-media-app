@@ -49,7 +49,7 @@ const initialState: UserState = {
 // Restore auth state from client-side storage
 export const restoreAuthState = createAsyncThunk(
   "user/restoreAuthState",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
       // Import auth module dynamically to avoid circular dependencies
       const auth = await import("@/api/auth");
@@ -61,7 +61,20 @@ export const restoreAuthState = createAsyncThunk(
         // Get user info from localStorage
         const userData = getUserData();
 
+        // Add this new code: If authenticated, also restore badges
         if (userData.id) {
+          try {
+            // Import badge restoration functionality
+            const { fetchUserBadges } = await import("./badgeSlice");
+            
+            // Dispatch badge fetch
+            dispatch(fetchUserBadges());
+            console.log("Badge restoration initiated during auth state restoration");
+          } catch (badgeError) {
+            console.error("Failed to restore badges during auth restoration:", badgeError);
+            // Continue with auth restoration even if badge fetch fails
+          }
+
           return {
             id: userData.id ? parseInt(String(userData.id)) : null,
             username: userData.username,
@@ -106,7 +119,7 @@ export const loginUser = createAsyncThunk<
     bio: string | null;
     profileImageUrl: string | null;
     isAuthenticated: boolean;
-    role: "USER" | "ADMIN" | null; // Add role to the return type
+    role: "USER" | "ADMIN" | null;
   },
   { email: string; password: string }
 >("user/login", async ({ email, password }, { dispatch, rejectWithValue }) => {
@@ -137,6 +150,22 @@ export const loginUser = createAsyncThunk<
         communitiesError
       );
       // Continue with login even if community restoration fails
+    }
+
+    // NEW CODE: Restore user badges from the server after login
+    try {
+      // Import the badge fetch thunk dynamically
+      const { fetchUserBadges } = await import("./badgeSlice");
+      
+      // Dispatch the thunk to restore badges from server
+      dispatch(fetchUserBadges());
+      console.log("Badge restoration initiated after login");
+    } catch (badgesError) {
+      console.error(
+        "Failed to restore badges after login:", 
+        badgesError
+      );
+      // Continue with login even if badge restoration fails
     }
 
     return {
