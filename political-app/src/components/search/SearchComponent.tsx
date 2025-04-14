@@ -1,31 +1,32 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // src/components/search/SearchComponent.tsx
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, User, Users, Hash, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Search, User, Users, Hash, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import {
   Command,
   CommandEmpty,
   CommandGroup,
   CommandItem,
-  CommandList
-} from '@/components/ui/command';
+  CommandList,
+} from "@/components/ui/command";
 import {
   Popover,
   PopoverContent,
-  PopoverTrigger
-} from '@/components/ui/popover';
-import { useRouter } from 'next/router';
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { useRouter } from "next/router";
 import { useSearchAll } from "@/hooks/useApi"; // Import the API hook
-import { Button } from '@/components/ui/button';
-import { debounce } from 'lodash';
-import { storePreviousSection } from '@/utils/navigationStateManager';
+import { Button } from "@/components/ui/button";
+import { debounce } from "lodash";
+import { storePreviousSection } from "@/utils/navigationStateManager";
 
 // Define interfaces for search results
 interface SearchResult {
   id: string | number;
-  type: 'user' | 'community' | 'hashtag';
+  type: "user" | "community" | "hashtag";
   name: string;
+  username?: string; // Add this line
   description?: string;
   members?: number;
   followers?: number;
@@ -33,11 +34,29 @@ interface SearchResult {
   avatar?: string;
 }
 
+// Define the expected API search result structure
+interface ApiSearchResult {
+  id: string | number;
+  type: string;
+  name?: string;
+  username?: string;
+  displayName?: string;
+  tag?: string;
+  bio?: string;
+  description?: string;
+  members?: number;
+  followersCount?: number;
+  postCount?: number;
+  count?: number;
+}
+
 interface SearchComponentProps {
   initialQuery?: string;
 }
 
-const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) => {
+const SearchComponent: React.FC<SearchComponentProps> = ({
+  initialQuery = "",
+}) => {
   const [query, setQuery] = useState(initialQuery);
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -46,10 +65,10 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
   const [firstSearchFailed, setFirstSearchFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  
+
   // Use the search hook from your API
   const { loading, error, execute: searchAll } = useSearchAll();
-  
+
   // Define the search function
   const performSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
@@ -57,53 +76,92 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
       setIsSearchLoading(false);
       return;
     }
-    
+
     setIsSearchLoading(true);
-    
+
     try {
       // Add a random timestamp to prevent caching issues
       const timestamp = Date.now();
-      
+
       // Use the searchAll function from your hook to get unified results
       const searchResults = await searchAll(`${searchQuery}?t=${timestamp}`);
-      
-      console.log('Search results:', searchResults);
-      
+
+      console.log("Search results:", searchResults);
+
+      // Add debugging to inspect user results
+      if (Array.isArray(searchResults)) {
+        const userResults = searchResults.filter((r) => r.type === "user");
+        if (userResults.length > 0) {
+          console.log("User search results (raw):", userResults);
+        }
+      }
+
       // If the search was previously failed but now succeeded, update the state
       if (firstSearchFailed) {
         setFirstSearchFailed(false);
       }
-      
+
       // Mark that we've attempted a search
       setSearchAttempted(true);
-      
+
       // If the results are already in the expected format, use them directly
-      if (Array.isArray(searchResults) && searchResults.length > 0 && 'type' in searchResults[0]) {
+      if (
+        Array.isArray(searchResults) &&
+        searchResults.length > 0 &&
+        "type" in searchResults[0]
+      ) {
         setResults(searchResults as SearchResult[]);
       } else if (Array.isArray(searchResults)) {
         // If we have an array but need to transform the results
-        const transformedResults: SearchResult[] = searchResults.map(item => ({
-          id: item.id || '',
-          type: item.type as 'user' | 'community' | 'hashtag',
-          name: item.name || item.username || item.tag || '',
-          description: item.description || item.bio || (item.postCount ? `${item.postCount} posts` : ''),
-          members: item.members,
-          followers: item.followersCount,
-          postCount: item.postCount || item.count
-        }));
-        
+        const transformedResults: SearchResult[] = searchResults.map((item) => {
+          // Special handling for user results to ensure username is properly set
+          if (item.type === "user") {
+            console.log("Processing user result:", item);
+
+            // Make sure we have the correct username field, avoiding displayName property
+            const result = {
+              id: item.id || "",
+              type: "user" as const,
+              // Use name or username for display, avoid displayName
+              name: item.name || item.username || "",
+              // Ensure we use the correct username field for navigation
+              username: item.username || "",
+              description: item.bio || item.description || "",
+              followers: item.followersCount,
+            };
+
+            console.log("Transformed user result:", result);
+            return result;
+          }
+
+          // Standard handling for other types
+          return {
+            id: item.id || "",
+            type: item.type as "user" | "community" | "hashtag",
+            name: item.name || item.username || item.tag || "",
+            username: item.username, // Add this line to store username explicitly
+            description:
+              item.description ||
+              item.bio ||
+              (item.postCount ? `${item.postCount} posts` : ""),
+            members: item.members,
+            followers: item.followersCount,
+            postCount: item.postCount || item.count,
+          };
+        });
+
         setResults(transformedResults);
       } else {
         // If we don't have valid results
         setResults([]);
       }
     } catch (error) {
-      console.error('Error performing search:', error);
-      
+      console.error("Error performing search:", error);
+
       // If this is the first search attempt, mark it as failed for retry logic
       if (!searchAttempted) {
         setFirstSearchFailed(true);
-        
+
         // Try again after a short delay - this helps with first-search failures
         setTimeout(() => {
           if (searchQuery.trim()) {
@@ -111,13 +169,12 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
           }
         }, 500);
       }
-      
+
       setResults([]);
     } finally {
       setIsSearchLoading(false);
     }
   };
-
   // Create a debounced version of the search function
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSearch = useCallback(debounce(performSearch, 300), []);
@@ -129,7 +186,7 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
     } else {
       setResults([]);
     }
-    
+
     // Cleanup function to cancel debounced search
     return () => {
       debouncedSearch.cancel();
@@ -142,37 +199,55 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
   };
 
   const handleSelectResult = (result: SearchResult) => {
+    console.log("Selected search result:", result);
+
     setOpen(false);
-    
+
     // Get the current path for context
     const currentPath = router.asPath;
-    const currentSection = currentPath.split('/')[1] || '';
-    
+    const currentSection = currentPath.split("/")[1] || "";
+
     // Store the current section before navigating
     if (currentSection) {
       storePreviousSection(currentSection);
     }
-    
+
     // Handle navigation based on result type
     switch (result.type) {
-      case 'user':
-        router.push(`/profile/${result.name}`);
+      case "user":
+        // Add detailed logging
+        console.log("Navigating to user profile:", {
+          username: result.username,
+          id: result.id,
+          name: result.name,
+        });
+
+        // If username is undefined or appears to be a display name (contains space),
+        // use ID instead
+        const username =
+          result.username && !result.username.includes(" ")
+            ? result.username
+            : result.id;
+
+        console.log(`Using value for navigation: ${username}`);
+        router.push(`/profile/${username}`);
         break;
-      case 'community':
+      case "community":
         router.push(`/community/${result.id}`);
         break;
-      case 'hashtag':
+      case "hashtag":
         // Remove the # from hashtag name for URL
-        const hashtagId = typeof result.name === 'string' && result.name.startsWith('#') 
-          ? result.name.substring(1) 
-          : result.name;
+        const hashtagId =
+          typeof result.name === "string" && result.name.startsWith("#")
+            ? result.name.substring(1)
+            : result.name;
         router.push(`/hashtag/${hashtagId}`);
         break;
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && query.trim() !== '') {
+    if (e.key === "Enter" && query.trim() !== "") {
       // If Enter is pressed with text in the input, open the dropdown
       // or go to search page if dropdown is already open
       if (open && results.length > 0) {
@@ -186,9 +261,9 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
       }
     }
   };
-  
+
   const clearSearch = () => {
-    setQuery('');
+    setQuery("");
     setResults([]);
     if (inputRef.current) {
       inputRef.current.focus();
@@ -197,7 +272,7 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
 
   // Focus manager - ensure input retains focus
   const handleInputFocus = () => {
-    if (query.trim() !== '') {
+    if (query.trim() !== "") {
       setOpen(true);
     }
   };
@@ -210,14 +285,14 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
   // Function to navigate to search page - centralized to avoid duplication
   const navigateToSearchPage = () => {
     console.log("Navigating to search page with query:", query);
-    
+
     // Close the popover first
     setOpen(false);
-    
+
     // Use router.push with the search query
     router.push({
-      pathname: '/search',
-      query: { q: query }
+      pathname: "/search",
+      query: { q: query },
     });
   };
 
@@ -238,10 +313,10 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
               className="pl-8 pr-8 w-full"
               autoComplete="off"
             />
-            {query.trim() !== '' && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
+            {query.trim() !== "" && (
+              <Button
+                variant="ghost"
+                size="icon"
                 className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 text-muted-foreground hover:text-foreground"
                 onClick={clearSearch}
               >
@@ -250,23 +325,27 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
             )}
           </div>
         </PopoverTrigger>
-        
-        <PopoverContent className="p-0 w-96" align="start" onClick={handlePopoverClick}>
+
+        <PopoverContent
+          className="p-0 w-96"
+          align="start"
+          onClick={handlePopoverClick}
+        >
           <Command>
             <CommandList>
               <CommandEmpty>
-                {isSearchLoading || loading 
-                  ? 'Searching...' 
-                  : firstSearchFailed 
-                    ? 'Retrying search...' 
-                    : 'No results found.'}
+                {isSearchLoading || loading
+                  ? "Searching..."
+                  : firstSearchFailed
+                  ? "Retrying search..."
+                  : "No results found."}
               </CommandEmpty>
-              
+
               {/* Users Group */}
-              {results.some(r => r.type === 'user') && (
+              {results.some((r) => r.type === "user") && (
                 <CommandGroup heading="Users">
                   {results
-                    .filter(r => r.type === 'user')
+                    .filter((r) => r.type === "user")
                     .slice(0, 4) // Limit to 4 users
                     .map((result) => (
                       <CommandItem
@@ -279,17 +358,20 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
                         </div>
                         <div className="flex-1 overflow-hidden">
                           <p className="font-medium truncate">{result.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{result.description}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {result.description}
+                          </p>
                         </div>
                       </CommandItem>
-                    ))
-                  }
-                  
+                    ))}
+
                   {/* More link if more than 4 results */}
-                  {results.filter(r => r.type === 'user').length > 4 && (
+                  {results.filter((r) => r.type === "user").length > 4 && (
                     <CommandItem
                       onSelect={() => {
-                        router.push(`/search?q=${encodeURIComponent(query)}&type=user`);
+                        router.push(
+                          `/search?q=${encodeURIComponent(query)}&type=user`
+                        );
                         setOpen(false);
                       }}
                       className="text-sm text-muted-foreground hover:text-foreground italic"
@@ -299,12 +381,12 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
                   )}
                 </CommandGroup>
               )}
-              
+
               {/* Communities Group */}
-              {results.some(r => r.type === 'community') && (
+              {results.some((r) => r.type === "community") && (
                 <CommandGroup heading="Communities">
                   {results
-                    .filter(r => r.type === 'community')
+                    .filter((r) => r.type === "community")
                     .slice(0, 4) // Limit to 4 communities
                     .map((result) => (
                       <CommandItem
@@ -317,17 +399,22 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
                         </div>
                         <div className="flex-1 overflow-hidden">
                           <p className="font-medium truncate">{result.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{result.description}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {result.description}
+                          </p>
                         </div>
                       </CommandItem>
-                    ))
-                  }
-                  
+                    ))}
+
                   {/* More link if more than 4 results */}
-                  {results.filter(r => r.type === 'community').length > 4 && (
+                  {results.filter((r) => r.type === "community").length > 4 && (
                     <CommandItem
                       onSelect={() => {
-                        router.push(`/search?q=${encodeURIComponent(query)}&type=community`);
+                        router.push(
+                          `/search?q=${encodeURIComponent(
+                            query
+                          )}&type=community`
+                        );
                         setOpen(false);
                       }}
                       className="text-sm text-muted-foreground hover:text-foreground italic"
@@ -337,12 +424,12 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
                   )}
                 </CommandGroup>
               )}
-              
+
               {/* Hashtags Group */}
-              {results.some(r => r.type === 'hashtag') && (
+              {results.some((r) => r.type === "hashtag") && (
                 <CommandGroup heading="Hashtags">
                   {results
-                    .filter(r => r.type === 'hashtag')
+                    .filter((r) => r.type === "hashtag")
                     .slice(0, 4) // Limit to 4 hashtags
                     .map((result) => (
                       <CommandItem
@@ -356,18 +443,21 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
                         <div className="flex-1 overflow-hidden">
                           <p className="font-medium truncate">{result.name}</p>
                           <p className="text-xs text-muted-foreground truncate">
-                            {result.postCount ? `${result.postCount} posts` : ''}
+                            {result.postCount
+                              ? `${result.postCount} posts`
+                              : ""}
                           </p>
                         </div>
                       </CommandItem>
-                    ))
-                  }
-                  
+                    ))}
+
                   {/* More link if more than 4 results */}
-                  {results.filter(r => r.type === 'hashtag').length > 4 && (
+                  {results.filter((r) => r.type === "hashtag").length > 4 && (
                     <CommandItem
                       onSelect={() => {
-                        router.push(`/search?q=${encodeURIComponent(query)}&type=hashtag`);
+                        router.push(
+                          `/search?q=${encodeURIComponent(query)}&type=hashtag`
+                        );
                         setOpen(false);
                       }}
                       className="text-sm text-muted-foreground hover:text-foreground italic"
@@ -377,9 +467,9 @@ const SearchComponent: React.FC<SearchComponentProps> = ({ initialQuery = '' }) 
                   )}
                 </CommandGroup>
               )}
-              
+
               {/* View All Search Results option */}
-              {query.trim() !== '' && (
+              {query.trim() !== "" && (
                 <CommandGroup heading="Actions">
                   <CommandItem
                     onSelect={navigateToSearchPage}

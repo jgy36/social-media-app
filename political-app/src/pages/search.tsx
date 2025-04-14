@@ -173,11 +173,11 @@ const SearchPage = () => {
 
     try {
       console.log(`🔍 Performing search for query: "${query}"`);
-      
+
       // Add cache busting to prevent stale results
       const timestamp = Date.now();
       const queryWithTimestamp = `${query}?t=${timestamp}`;
-      
+
       // Get results from API - use no type filter to get all results
       const searchResults = await getUnifiedSearchResults(queryWithTimestamp);
       console.log(`✅ Received ${searchResults.length} search results`);
@@ -188,7 +188,8 @@ const SearchPage = () => {
         const baseResult: SearchResult = {
           id: result.id || result.username || result.tag || 0,
           type: result.type,
-          name: result.name || result.username || result.tag || '',
+          name: result.name || result.username || result.tag || "",
+          username: result.username, // Add this line to preserve username
         };
 
         // Add type-specific properties
@@ -204,12 +205,12 @@ const SearchPage = () => {
           case "community":
             return {
               ...baseResult,
-              description: result.description || '',
+              description: result.description || "",
               members: result.members || 0,
             };
 
           case "hashtag":
-            const tagName = result.tag || result.name || '';
+            const tagName = result.tag || result.name || "";
             return {
               ...baseResult,
               name: tagName.startsWith("#") ? tagName : `#${tagName}`,
@@ -222,9 +223,11 @@ const SearchPage = () => {
           case "post":
             return {
               ...baseResult,
-              content: result.content || '',
-              author: result.author || result.username || 'Unknown',
-              timestamp: result.createdAt ? new Date(result.createdAt).toLocaleDateString() : '',
+              content: result.content || "",
+              author: result.author || result.username || "Unknown",
+              timestamp: result.createdAt
+                ? new Date(result.createdAt).toLocaleDateString()
+                : "",
             };
 
           default:
@@ -295,11 +298,9 @@ const SearchPage = () => {
                 <span className="font-medium">{searchQuery}</span>
               </p>
             )}
-            
+
             {searchError && (
-              <p className="text-sm text-red-500 mt-2">
-                {searchError}
-              </p>
+              <p className="text-sm text-red-500 mt-2">{searchError}</p>
             )}
           </CardContent>
         </Card>

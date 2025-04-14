@@ -27,6 +27,7 @@ export interface SearchResult {
   id: string | number;
   type: 'user' | 'community' | 'hashtag' | 'post';
   name: string;
+  username?: string; // Add this line to include username
   description?: string;
   content?: string;
   author?: string;
@@ -35,7 +36,6 @@ export interface SearchResult {
   members?: number;
   postCount?: number;
 }
-
 /**
  * Helper function to convert API search results to UI search results
  */
@@ -44,6 +44,7 @@ export const formatApiSearchResult = (apiResult: ApiSearchResult): SearchResult 
     id: apiResult.id || '',
     type: apiResult.type,
     name: apiResult.name || apiResult.username || apiResult.tag || '',
+    username: apiResult.username, // Add this line to preserve username
     description: apiResult.description || apiResult.bio || '',
     content: apiResult.content || '',
     author: apiResult.author || '',

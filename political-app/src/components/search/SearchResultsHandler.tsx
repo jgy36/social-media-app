@@ -72,7 +72,8 @@ const ResultCard: React.FC<{ result: SearchResult }> = ({ result }) => {
   const handleClick = () => {
     switch (result.type) {
       case "user":
-        router.push(`/profile/${result.name}`);
+        // Use username for navigation, fall back to id if not available
+        router.push(`/profile/${result.username || result.id}`);
         break;
       case "community":
         router.push(`/community/${result.id}`);
