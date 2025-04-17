@@ -1,15 +1,14 @@
-// src/components/profile/ProfileHeader.tsx
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react"; // Removed unused useCallback
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useRouter } from "next/router";
 import SettingsDropdown from "./SettingsDropdown";
 import UserStats from "./UserStats";
-import { getFollowStatus } from "@/api/users";
+import { getFollowStatus, checkAccountPrivacy } from "@/api/users"; // Add checkAccountPrivacy import
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar, Pencil } from "lucide-react";
+import { Calendar } from "lucide-react"; // Removed unused Pencil
 import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
-import { getUserData } from "@/utils/tokenUtils"; // Add this import
+import { getUserData } from "@/utils/tokenUtils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -20,6 +19,8 @@ import {
 } from "@/components/ui/tooltip";
 import { getBadgeById } from '@/types/badges';
 import BadgeSelector from './BadgeSelector';
+import FollowButton from './FollowButton';
+import MessageButton from './MessageButton';
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
@@ -36,14 +37,15 @@ const ProfileHeader = () => {
     followersCount: 0,
     followingCount: 0,
     postCount: 0,
+    isFollowing: false, // Added isFollowing property to fix error
   });
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Removed unused loading and error states
   const [refreshKey, setRefreshKey] = useState(Date.now());
   
   // State to store the image URL with cache-busting
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
+  const [isPrivateAccount, setIsPrivateAccount] = useState(false);
 
   // Load display name and ensure it's not empty
   useEffect(() => {
@@ -77,9 +79,6 @@ const ProfileHeader = () => {
   // Initial load of data including posts count and join date
   useEffect(() => {
     if (user?.id && token) {
-      setLoading(true);
-      setError(null);
-
       const fetchStats = async () => {
         try {
           if (typeof user.id === "number") {
@@ -93,6 +92,7 @@ const ProfileHeader = () => {
               followersCount: followStatus.followersCount || 0,
               followingCount: followStatus.followingCount || 0,
               postCount: postCount,
+              isFollowing: followStatus.isFollowing || false,
             });
 
             // Try to get join date from localStorage
@@ -131,11 +131,8 @@ const ProfileHeader = () => {
               }
             }
           }
-          setLoading(false);
         } catch (error) {
           console.error("Error fetching follow stats:", error);
-          setError("Failed to load profile stats");
-          setLoading(false);
         }
       };
 
@@ -219,6 +216,22 @@ const ProfileHeader = () => {
       window.removeEventListener('userProfileUpdated', handleDisplayNameUpdate);
     };
   }, []);
+  
+  // Add this effect to check account privacy
+  useEffect(() => {
+    const checkPrivacy = async () => {
+      if (user?.id && user.id !== currentUser.id) {
+        try {
+          const isPrivate = await checkAccountPrivacy(user.id);
+          setIsPrivateAccount(isPrivate);
+        } catch (error) {
+          console.error("Error checking account privacy:", error);
+        }
+      }
+    };
+    
+    checkPrivacy();
+  }, [user?.id, currentUser.id]);
 
   // Handle stats changes
   const handleStatsChange = (
@@ -229,6 +242,17 @@ const ProfileHeader = () => {
       ...prevStats,
       followersCount: newFollowersCount,
       followingCount: newFollowingCount,
+    }));
+  };
+
+  // Handle follow change from FollowButton
+  const handleFollowChange = (
+    isFollowing: boolean,
+    followerCount: number  ) => {
+    setStats(prevStats => ({
+      ...prevStats,
+      followersCount: followerCount,
+      isFollowing: isFollowing,
     }));
   };
 
@@ -363,9 +387,37 @@ const ProfileHeader = () => {
         </div>
       </div>
 
-      {/* Settings */}
+      {/* Action Buttons / Settings - Show different buttons based on authentication and ownership */}
       <div className="flex items-center gap-2">
-        <SettingsDropdown />
+        {isAuthenticated && user.id === currentUser.id ? (
+          <SettingsDropdown />
+        ) : isAuthenticated && user.id !== currentUser.id ? (
+          <div className="flex flex-col gap-2">
+            {/* Fix the userId type issue by ensuring it's not null */}
+            {user.id && (
+              <FollowButton
+                userId={user.id}
+                initialIsFollowing={stats.isFollowing}
+                isPrivateAccount={isPrivateAccount}
+                onFollowChange={handleFollowChange}
+              />
+            )}
+            {user.id && (
+              <MessageButton 
+                username={user.username || ""} 
+                userId={user.id} 
+                variant="outline"
+              />
+            )}
+          </div>
+        ) : (
+          <Button
+            onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${user.username}`)}`)}
+            className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+          >
+            Log in to interact
+          </Button>
+        )}
       </div>
       
       {/* Badge Selector Modal */}

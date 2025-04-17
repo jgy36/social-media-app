@@ -1,11 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 // src/api/users.ts - Updated with better error handling and localStorage syncing
 import { apiClient, getErrorMessage } from "./apiClient";
 import {
   UserProfile,
   UpdateUsernameRequest,
   UpdateUsernameResponse,
-  UpdateProfileRequest,
+  // Removed UpdateProfileRequest since it's unused
   UpdateProfileResponse,
 } from "./types";
 // Import directly from the types directory
@@ -448,7 +447,7 @@ export const getPostsByUsername = async (
 ): Promise<PostType[]> => {
   try {
     // First get the user ID from the username
-    const userResponse = await apiClient.get<any>(`/users/profile/${username}`);
+    const userResponse = await apiClient.get<UserProfile>(`/users/profile/${username}`);
     const userId = userResponse.data.id;
 
     if (!userId) {
@@ -462,5 +461,18 @@ export const getPostsByUsername = async (
   } catch (error) {
     console.error(`Error fetching posts for user ${username}:`, error);
     return [];
+  }
+};
+
+/**
+ * Check if a user's account is private
+ */
+export const checkAccountPrivacy = async (userId: number): Promise<boolean> => {
+  try {
+    const response = await apiClient.get<{ isPrivate: boolean }>(`/users/${userId}/privacy-status`);
+    return response.data.isPrivate;
+  } catch (error) {
+    console.error(`Error checking privacy status for user ${userId}:`, error);
+    return false; // Default to public if we can't determine
   }
 };

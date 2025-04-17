@@ -1,9 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// src/components/profile/FollowButton.tsx
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { followUser, unfollowUser, getFollowStatus } from "@/api/users"; // Update import
+import { followUser, unfollowUser, getFollowStatus } from "@/api/users";
 import { useSelector } from 'react-redux';
 import { RootState } from '@/redux/store';
 import { useRouter } from 'next/router';
@@ -13,6 +10,7 @@ import { FollowResponse } from '@/types/follow';
 interface FollowButtonProps {
   userId: number;
   initialIsFollowing?: boolean;
+  isPrivateAccount?: boolean; // New prop for private accounts
   onFollowChange?: (isFollowing: boolean, followerCount: number, followingCount: number) => void;
   size?: 'default' | 'sm' | 'lg' | 'icon';
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
@@ -21,13 +19,15 @@ interface FollowButtonProps {
 const FollowButton = ({ 
   userId, 
   initialIsFollowing = false, 
+  isPrivateAccount = false, // Default to public account
   onFollowChange,
   size = 'default',
   variant = 'default'
 }: FollowButtonProps) => {
   const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
+  const [isRequested, setIsRequested] = useState(false); // New state for request status
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Removed error state since it's unused
   const [initialized, setInitialized] = useState(false);
   
   const isAuthenticated = useSelector((state: RootState) => !!state.user.token);
@@ -41,6 +41,7 @@ const FollowButton = ({
         if (isAuthenticated && userId !== currentUserId) {
           const status = await getFollowStatus(userId);
           setIsFollowing(status.isFollowing);
+          setIsRequested(status.isRequested || false); // Check if follow is requested
         }
         setInitialized(true);
       } catch (err) {
@@ -70,18 +71,24 @@ const FollowButton = ({
     }
     
     setLoading(true);
-    setError(null);
     
     try {
       let response: FollowResponse;
       
       if (isFollowing) {
         response = await unfollowUser(userId);
+        setIsRequested(false);
       } else {
         response = await followUser(userId);
+        
+        // If account is private, set requested state
+        if (isPrivateAccount) {
+          setIsRequested(true);
+          setIsFollowing(false);
+        } else {
+          setIsFollowing(response.isFollowing);
+        }
       }
-      
-      setIsFollowing(response.isFollowing);
       
       // Call the callback with updated data
       if (onFollowChange) {
@@ -92,23 +99,38 @@ const FollowButton = ({
         );
       }
     } catch (err) {
-      setError("Failed to update follow status");
       console.error("Follow toggle error:", err);
     } finally {
       setLoading(false);
     }
   };
   
-  const buttonText = isFollowing ? "Following" : "Follow";
-  const buttonVariant = isFollowing ? "outline" : variant;
+  // Different button texts based on status
+  let buttonText = "Follow";
+  let buttonVariant = variant;
+  
+  if (isFollowing) {
+    buttonText = "Following";
+    buttonVariant = "outline";
+  } else if (isRequested) {
+    buttonText = "Requested";
+    buttonVariant = "outline";
+  } else if (isPrivateAccount) {
+    buttonText = "Request to Follow";
+  }
+  
+  // Define proper types for the variant to avoid using 'any'
+  type ButtonVariant = 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   
   return (
     <Button
       size={size}
-      variant={buttonVariant as any}
+      variant={buttonVariant as ButtonVariant}
       onClick={handleToggleFollow}
-      disabled={loading || !initialized || userId === currentUserId}
-      className={isFollowing ? "border-primary/50 text-primary hover:text-destructive hover:border-destructive" : ""}
+      disabled={loading || !initialized || userId === currentUserId || isRequested}
+      className={isFollowing || isRequested 
+        ? "border-primary/50 text-primary hover:text-destructive hover:border-destructive" 
+        : ""}
       aria-label={buttonText}
     >
       {loading ? (

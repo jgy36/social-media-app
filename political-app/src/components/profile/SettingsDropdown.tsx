@@ -15,7 +15,8 @@ import {
   Eye,
   HelpCircle,
   UserCog,
-  Bookmark
+  Bookmark,
+  UserPlus,
 } from "lucide-react";
 
 import {
@@ -25,16 +26,16 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuGroup,
-  DropdownMenuLabel
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 
 interface SettingsDropdownProps {
   // Optional prop to use a different trigger button style
-  variant?: 'icon' | 'text';
+  variant?: "icon" | "text";
 }
 
-const SettingsDropdown = ({ variant = 'icon' }: SettingsDropdownProps) => {
+const SettingsDropdown = ({ variant = "icon" }: SettingsDropdownProps) => {
   const { theme, setTheme } = useTheme();
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
@@ -52,7 +53,7 @@ const SettingsDropdown = ({ variant = 'icon' }: SettingsDropdownProps) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        {variant === 'icon' ? (
+        {variant === "icon" ? (
           <Button variant="ghost" size="icon" className="rounded-full">
             <Settings size={20} />
             <span className="sr-only">Settings</span>
@@ -64,39 +65,51 @@ const SettingsDropdown = ({ variant = 'icon' }: SettingsDropdownProps) => {
           </Button>
         )}
       </DropdownMenuTrigger>
-      
+
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
-        
+
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={() => router.push("/profile")}>
-            <User className="h-4 w-4 mr-2" /> 
+            <User className="h-4 w-4 mr-2" />
             Profile
           </DropdownMenuItem>
-          
+
           <DropdownMenuItem onClick={() => router.push("/saved-posts")}>
-            <Bookmark className="h-4 w-4 mr-2" /> 
+            <Bookmark className="h-4 w-4 mr-2" />
             Saved Posts
           </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => router.push("/settings?tab=account")}>
-            <UserCog className="h-4 w-4 mr-2" /> 
+
+          <DropdownMenuItem
+            onClick={() => router.push("/settings?tab=account")}
+          >
+            <UserCog className="h-4 w-4 mr-2" />
             Account Settings
           </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => router.push("/settings?tab=privacy")}>
-            <Eye className="h-4 w-4 mr-2" /> 
+
+          <DropdownMenuItem
+            onClick={() => router.push("/settings?tab=privacy")}
+          >
+            <Eye className="h-4 w-4 mr-2" />
             Privacy
           </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => router.push("/settings?tab=notifications")}>
-            <Bell className="h-4 w-4 mr-2" /> 
+
+          <DropdownMenuItem
+            onClick={() => router.push("/settings?tab=notifications")}
+          >
+            <Bell className="h-4 w-4 mr-2" />
             Notifications
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => router.push("/settings/follow-requests")}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Follow Requests
+          </DropdownMenuItem>
         </DropdownMenuGroup>
-        
+
         <DropdownMenuSeparator />
-        
+
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={toggleTheme}>
             {theme === "dark" ? (
@@ -112,24 +125,29 @@ const SettingsDropdown = ({ variant = 'icon' }: SettingsDropdownProps) => {
             )}
           </DropdownMenuItem>
         </DropdownMenuGroup>
-        
+
         <DropdownMenuSeparator />
-        
+
         <DropdownMenuGroup>
           <DropdownMenuItem onClick={() => router.push("/help")}>
             <HelpCircle className="h-4 w-4 mr-2" />
             Help & Support
           </DropdownMenuItem>
-          
-          <DropdownMenuItem onClick={() => router.push("/settings?tab=security")}>
+
+          <DropdownMenuItem
+            onClick={() => router.push("/settings?tab=security")}
+          >
             <Shield className="h-4 w-4 mr-2" />
             Security
           </DropdownMenuItem>
         </DropdownMenuGroup>
-        
+
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+
+        <DropdownMenuItem
+          onClick={handleLogout}
+          className="text-destructive focus:text-destructive"
+        >
           <LogOut className="h-4 w-4 mr-2" />
           Logout
         </DropdownMenuItem>

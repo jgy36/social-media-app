@@ -17,6 +17,7 @@ export interface FollowUser {
  */
 export interface FollowResponse {
   isFollowing: boolean;
+  isRequested?: boolean; // Add this property to fix the error
   followersCount: number;
   followingCount: number;
   success?: boolean;
@@ -39,4 +40,10 @@ export interface FollowListResponse {
   users: FollowUser[];
   hasMore: boolean;
   nextPage?: number;
+}
+
+export interface FollowRequestType {
+  id: number;
+  user: FollowUser;
+  createdAt: string;
 }
