@@ -130,7 +130,11 @@ const UserProfilePage = () => {
 
           // Ensure that userPosts is an array before setting the state
           if (Array.isArray(userPosts)) {
-            setPosts(userPosts);
+            // Sort posts by date (newest first) - ADDED THIS SORTING CODE
+            const sortedPosts = [...userPosts].sort((a, b) => {
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+            setPosts(sortedPosts);
           } else if (
             userPosts &&
             typeof userPosts === "object" &&
@@ -138,7 +142,12 @@ const UserProfilePage = () => {
             Array.isArray((userPosts as { data: PostType[] }).data)
           ) {
             // Handle case where API returns { data: [...posts] }
-            setPosts((userPosts as { data: PostType[] }).data);
+            const postsData = (userPosts as { data: PostType[] }).data;
+            // Sort posts by date (newest first) - ADDED THIS SORTING CODE
+            const sortedPosts = [...postsData].sort((a, b) => {
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+            setPosts(sortedPosts);
           } else {
             console.warn("Posts response is not an array:", userPosts);
             setPosts([]);

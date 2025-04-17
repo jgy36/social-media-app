@@ -19,12 +19,14 @@ interface UserBadgesProps {
   userId?: number;
   isCurrentUser?: boolean;
   badges?: string[];
+  className?: string; // Add className prop for external styling
 }
 
 const UserBadges: React.FC<UserBadgesProps> = ({ 
   userId, 
   isCurrentUser = false,
-  badges: propBadges
+  badges: propBadges,
+  className = ""
 }) => {
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
   const userBadges = useSelector((state: RootState) => state.badges.badges);
@@ -97,7 +99,7 @@ const UserBadges: React.FC<UserBadgesProps> = ({
   }
   
   return (
-    <div className="mt-4">
+    <div className={className}>
       <div className="flex flex-wrap gap-2 mb-2">
         {displayBadges.length > 0 ? (
           displayBadges.map(badgeId => {
@@ -124,7 +126,7 @@ const UserBadges: React.FC<UserBadgesProps> = ({
           })
         ) : isCurrentUser ? (
           <div className="text-sm text-muted-foreground italic">
-            No badges selected yet. Add some to show your positions.
+            No badges selected yet.
           </div>
         ) : null}
       </div>
@@ -134,7 +136,6 @@ const UserBadges: React.FC<UserBadgesProps> = ({
           variant="outline" 
           size="sm" 
           onClick={() => setIsSelectorOpen(true)}
-          className="mt-2"
         >
           {displayBadges.length > 0 ? 'Edit Badges' : 'Add Badges'}
         </Button>
