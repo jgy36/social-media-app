@@ -33,6 +33,16 @@ public class PrivacySettingsService {
     }
 
     /**
+     * Get the current authenticated user
+     */
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+    }
+
+    /**
      * Get privacy settings for a user
      * If settings don't exist, create default ones
      */
@@ -48,10 +58,43 @@ public class PrivacySettingsService {
     }
 
     /**
+     * Get privacy settings for a specific user object
+     * If settings don't exist, create default ones
+     */
+    @Transactional
+    public UserPrivacySettings getUserSettings(User user) {
+        return privacyRepository.findByUserId(user.getId())
+                .orElseGet(() -> {
+                    UserPrivacySettings settings = new UserPrivacySettings(user);
+                    return privacyRepository.save(settings);
+                });
+    }
+
+    /**
      * Get current user's privacy settings
      */
     public UserPrivacySettings getCurrentUserSettings() {
         return getSettings(getCurrentUserId());
+    }
+
+    /**
+     * Check if a user's account is private
+     *
+     * @param userId The user ID to check
+     * @return true if the account is private (publicProfile = false), false otherwise
+     */
+    public boolean isAccountPrivate(Long userId) {
+        UserPrivacySettings settings = getSettings(userId);
+        return !settings.isPublicProfile();
+    }
+
+    /**
+     * Check if the current user's account is private
+     *
+     * @return true if the account is private (publicProfile = false), false otherwise
+     */
+    public boolean isCurrentAccountPrivate() {
+        return isAccountPrivate(getCurrentUserId());
     }
 
     /**
@@ -61,6 +104,10 @@ public class PrivacySettingsService {
     public UserPrivacySettings updateSettings(Long userId, UserPrivacySettingsDto settingsDto) {
         UserPrivacySettings settings = getSettings(userId);
 
+        // Track old privacy setting to detect changes
+        boolean wasPrivate = !settings.isPublicProfile();
+        boolean willBePrivate = !settingsDto.isPublicProfile();
+
         // Update fields from DTO
         settings.setPublicProfile(settingsDto.isPublicProfile());
         settings.setShowPoliticalAffiliation(settingsDto.isShowPoliticalAffiliation());
@@ -68,10 +115,26 @@ public class PrivacySettingsService {
         settings.setShowVotingRecord(settingsDto.isShowVotingRecord());
         settings.setAllowDirectMessages(settingsDto.isAllowDirectMessages());
         settings.setAllowFollowers(settingsDto.isAllowFollowers());
-        settings.setAllowSearchIndexing(settingsDto.isAllowSearchIndexing());
+
+        // Enforce related settings for private accounts
+        if (willBePrivate) {
+            // Private accounts shouldn't be indexed in search
+            settings.setAllowSearchIndexing(false);
+        } else {
+            // Public accounts can be indexed if the user wants
+            settings.setAllowSearchIndexing(settingsDto.isAllowSearchIndexing());
+        }
+
         settings.setDataSharing(settingsDto.isDataSharing());
 
-        return privacyRepository.save(settings);
+        // Save settings
+        UserPrivacySettings updatedSettings = privacyRepository.save(settings);
+
+        // If account was public and is now private, we might need to
+        // convert existing follows to requests, but we'll leave that
+        // to the controller or another service
+
+        return updatedSettings;
     }
 
     /**
@@ -83,6 +146,50 @@ public class PrivacySettingsService {
     }
 
     /**
+     * Simplified method to toggle private account setting
+     *
+     * @return The updated settings
+     */
+    @Transactional
+    public UserPrivacySettings togglePrivateAccount() {
+        UserPrivacySettings settings = getCurrentUserSettings();
+        UserPrivacySettingsDto dto = toDto(settings);
+
+        // Toggle the private account setting (invert publicProfile)
+        dto.setPublicProfile(!dto.isPublicProfile());
+
+        // If making private, enforce other privacy settings
+        if (!dto.isPublicProfile()) {
+            dto.setAllowSearchIndexing(false);
+        }
+
+        return updateCurrentUserSettings(dto);
+    }
+
+    /**
+     * Set whether an account is private
+     *
+     * @param userId    The user ID
+     * @param isPrivate Whether the account should be private
+     * @return The updated settings
+     */
+    @Transactional
+    public UserPrivacySettings setAccountPrivacy(Long userId, boolean isPrivate) {
+        UserPrivacySettings settings = getSettings(userId);
+        UserPrivacySettingsDto dto = toDto(settings);
+
+        // Set the private account setting (invert for publicProfile)
+        dto.setPublicProfile(!isPrivate);
+
+        // If making private, enforce other privacy settings
+        if (isPrivate) {
+            dto.setAllowSearchIndexing(false);
+        }
+
+        return updateSettings(userId, dto);
+    }
+
+    /**
      * Reset settings to default values
      */
     @Transactional
@@ -90,7 +197,7 @@ public class PrivacySettingsService {
         UserPrivacySettings settings = getSettings(userId);
 
         // Reset to default values
-        settings.setPublicProfile(true);
+        settings.setPublicProfile(true); // Not private by default
         settings.setShowPoliticalAffiliation(false);
         settings.setShowPostHistory(true);
         settings.setShowVotingRecord(false);
@@ -123,6 +230,16 @@ public class PrivacySettingsService {
         dto.setAllowFollowers(settings.isAllowFollowers());
         dto.setAllowSearchIndexing(settings.isAllowSearchIndexing());
         dto.setDataSharing(settings.isDataSharing());
+        return dto;
+    }
+
+    /**
+     * Get a simplified privacy setting DTO that only shows if the account is private
+     */
+    public UserPrivacySettingsDto getSimplifiedSettings(Long userId) {
+        UserPrivacySettings settings = getSettings(userId);
+        UserPrivacySettingsDto dto = new UserPrivacySettingsDto();
+        dto.setPublicProfile(settings.isPublicProfile());
         return dto;
     }
 }

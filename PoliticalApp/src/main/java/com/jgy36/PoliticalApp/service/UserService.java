@@ -5,11 +5,15 @@ import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import jakarta.mail.MessagingException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,16 +24,32 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserSettingsInitializer settingsInitializer;
     private final AccountManagementService accountManagementService;
+    private final PrivacySettingsService privacySettingsService;
+    private final FollowRequestService followRequestService;
 
     public UserService(
             UserRepository userRepository,
             PasswordEncoder passwordEncoder,
             UserSettingsInitializer settingsInitializer,
-            AccountManagementService accountManagementService) {
+            AccountManagementService accountManagementService,
+            PrivacySettingsService privacySettingsService,
+            FollowRequestService followRequestService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.settingsInitializer = settingsInitializer;
         this.accountManagementService = accountManagementService;
+        this.privacySettingsService = privacySettingsService;
+        this.followRequestService = followRequestService;
+    }
+
+    /**
+     * Get the current authenticated user
+     */
+    public User getCurrentUser() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
     }
 
     // Updated register function for userService.ts
@@ -128,5 +148,150 @@ public class UserService {
         }
 
         return userRepository.save(user);
+    }
+
+    /**
+     * Check if a user account is private
+     *
+     * @param userId ID of the user to check
+     * @return true if the account is private, false otherwise
+     */
+    public boolean isAccountPrivate(Long userId) {
+        return privacySettingsService.isAccountPrivate(userId);
+    }
+
+    /**
+     * Follow a user or create a follow request based on privacy settings
+     *
+     * @param targetUserId ID of the user to follow
+     * @return Result map with success status and information about the follow/request
+     */
+    @Transactional
+    public Map<String, Object> followUser(Long targetUserId) {
+        try {
+            // Use the followRequestService to create a follow or request
+            boolean directFollow = followRequestService.createFollowOrRequest(targetUserId);
+
+            if (directFollow) {
+                // Direct follow was created - account is public or already following
+                return Map.of(
+                        "success", true,
+                        "followStatus", "following",
+                        "message", "Successfully followed user"
+                );
+            } else {
+                // Follow request was created - account is private
+                return Map.of(
+                        "success", true,
+                        "followStatus", "requested",
+                        "message", "Follow request sent"
+                );
+            }
+        } catch (Exception e) {
+            return Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Unfollow a user
+     *
+     * @param targetUserId ID of the user to unfollow
+     * @return Result map with success status
+     */
+    @Transactional
+    public Map<String, Object> unfollowUser(Long targetUserId) {
+        try {
+            User currentUser = getCurrentUser();
+            User targetUser = userRepository.findById(targetUserId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+            // Check if currently following
+            if (!currentUser.getFollowing().contains(targetUser)) {
+                // Not following, but check for pending requests
+                boolean hasPendingRequest = followRequestService.hasPendingRequest(currentUser, targetUser);
+
+                if (hasPendingRequest) {
+                    // Cancel the pending request
+                    // This would need to be implemented in the FollowRequestService
+                    return Map.of(
+                            "success", true,
+                            "message", "Follow request canceled"
+                    );
+                }
+
+                return Map.of(
+                        "success", false,
+                        "message", "Not following this user"
+                );
+            }
+
+            // Remove from following
+            currentUser.getFollowing().remove(targetUser);
+            userRepository.save(currentUser);
+
+            return Map.of(
+                    "success", true,
+                    "message", "Successfully unfollowed user"
+            );
+        } catch (Exception e) {
+            return Map.of(
+                    "success", false,
+                    "error", e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Get follow status for a user
+     *
+     * @param targetUserId ID of the user to check
+     * @return Follow status information including counts and relationship status
+     */
+    public Map<String, Object> getFollowStatus(Long targetUserId) {
+        try {
+            User currentUser = getCurrentUser();
+            User targetUser = userRepository.findById(targetUserId)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+            boolean isFollowing = currentUser.getFollowing().contains(targetUser);
+            boolean isRequested = false;
+
+            // If not following, check if there's a pending request
+            if (!isFollowing) {
+                isRequested = followRequestService.hasPendingRequest(currentUser, targetUser);
+            }
+
+            // Get counts
+            int followersCount = userRepository.countFollowers(targetUserId);
+            int followingCount = userRepository.countFollowing(targetUserId);
+
+            return Map.of(
+                    "isFollowing", isFollowing,
+                    "isRequested", isRequested,
+                    "followersCount", followersCount,
+                    "followingCount", followingCount
+            );
+        } catch (Exception e) {
+            return Map.of(
+                    "isFollowing", false,
+                    "isRequested", false,
+                    "followersCount", 0,
+                    "followingCount", 0,
+                    "error", e.getMessage()
+            );
+        }
+    }
+
+    /**
+     * Get pending follow requests count for the current user
+     *
+     * @return Number of pending follow requests
+     */
+    public int getPendingFollowRequestsCount() {
+        User currentUser = getCurrentUser();
+        return followRequestService.getFollowRequestsForUser(currentUser).size();
     }
 }

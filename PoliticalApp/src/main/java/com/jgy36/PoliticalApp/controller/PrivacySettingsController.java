@@ -51,4 +51,16 @@ public class PrivacySettingsController {
                 "settings", privacyService.toDto(settings)
         ));
     }
+
+    /**
+     * Check if a user's account is private (used by frontend to determine follow button behavior)
+     */
+    @GetMapping("/status/{userId}")
+    public ResponseEntity<?> checkPrivacyStatus(@PathVariable Long userId) {
+        boolean isPrivate = !privacyService.isAccountPrivate(userId);
+
+        return ResponseEntity.ok(Map.of(
+                "isPrivate", isPrivate
+        ));
+    }
 }

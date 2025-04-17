@@ -3,6 +3,8 @@ package com.jgy36.PoliticalApp.controller;
 import com.jgy36.PoliticalApp.dto.UserProfileDTO;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.entity.UserPrivacySettings;
+import com.jgy36.PoliticalApp.exception.ResourceNotFoundException;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.service.FollowService;
 import com.jgy36.PoliticalApp.service.PostService;
@@ -515,6 +517,24 @@ public class UserController {
                     "message", e.getMessage()
             ));
         }
+    }
+
+    /**
+     * Check if a user's account is private
+     */
+    @GetMapping("/{userId}/privacy-status")
+    public ResponseEntity<Map<String, Boolean>> checkPrivacyStatus(@PathVariable Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Check user privacy settings
+        UserPrivacySettings privacySettings = user.getPrivacySettings();
+        boolean isPrivate = privacySettings != null && !privacySettings.isPublicProfile();
+
+        Map<String, Boolean> response = new HashMap<>();
+        response.put("isPrivate", isPrivate);
+
+        return ResponseEntity.ok(response);
     }
 
 }

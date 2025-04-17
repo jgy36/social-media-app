@@ -48,4 +48,9 @@ public class UserPrivacySettingsDto {
     public void setDataSharing(boolean dataSharing) {
         this.dataSharing = dataSharing;
     }
+
+    // Helper method to check if account is private (inverted publicProfile)
+    public boolean isPrivateAccount() {
+        return !publicProfile;
+    }
 }

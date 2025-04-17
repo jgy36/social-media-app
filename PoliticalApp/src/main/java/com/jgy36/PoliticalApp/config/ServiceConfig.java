@@ -1,10 +1,11 @@
 package com.jgy36.PoliticalApp.config;
 
-import com.jgy36.PoliticalApp.service.AccountManagementService;
-import com.jgy36.PoliticalApp.service.UserService;
+import com.jgy36.PoliticalApp.repository.UserRepository;
+import com.jgy36.PoliticalApp.service.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * Configuration to handle circular dependencies between services
@@ -18,11 +19,20 @@ public class ServiceConfig {
      */
     @Bean
     public UserService userServiceForAccountManagement(
-            @Lazy AccountManagementService accountManagementService) {
+            @Lazy AccountManagementService accountManagementService,
+            @Lazy UserRepository userRepository,
+            @Lazy PasswordEncoder passwordEncoder,
+            @Lazy UserSettingsInitializer userSettingsInitializer,
+            @Lazy PrivacySettingsService privacySettingsService,
+            @Lazy FollowRequestService followRequestService) {
+
         return new UserService(
-                null, // Will be injected by Spring
-                null, // Will be injected by Spring
-                null, // Will be injected by Spring
-                accountManagementService);
+                userRepository,                // Was null before
+                passwordEncoder,               // Was null before
+                userSettingsInitializer,       // Was null before
+                accountManagementService,
+                privacySettingsService,        // New required parameter
+                followRequestService           // New required parameter
+        );
     }
 }
