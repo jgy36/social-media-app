@@ -213,7 +213,12 @@ public class PostController {
         User currentUser = null;
         try {
             currentUser = userService.getCurrentUser();
+            System.out.println("DEBUG: Current user ID: " + currentUser.getId() +
+                    " (type: " + currentUser.getId().getClass().getName() + ")");
+            System.out.println("DEBUG: Request userId: " + userId +
+                    " (type: " + userId.getClass().getName() + ")");
         } catch (Exception e) {
+            System.out.println("DEBUG: Failed to get current user: " + e.getMessage());
             // User not authenticated
         }
 
