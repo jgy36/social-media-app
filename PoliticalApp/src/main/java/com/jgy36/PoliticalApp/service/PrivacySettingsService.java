@@ -85,7 +85,13 @@ public class PrivacySettingsService {
      */
     public boolean isAccountPrivate(Long userId) {
         UserPrivacySettings settings = getSettings(userId);
-        return !settings.isPublicProfile();
+        boolean isPrivate = !settings.isPublicProfile();
+
+        System.out.println("DEBUG - Privacy check for user ID " + userId);
+        System.out.println("Is private account? " + isPrivate);
+        System.out.println("Settings: publicProfile=" + settings.isPublicProfile());
+
+        return isPrivate;
     }
 
     /**

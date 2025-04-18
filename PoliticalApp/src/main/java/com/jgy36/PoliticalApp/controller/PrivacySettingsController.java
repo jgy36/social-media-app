@@ -57,7 +57,7 @@ public class PrivacySettingsController {
      */
     @GetMapping("/status/{userId}")
     public ResponseEntity<?> checkPrivacyStatus(@PathVariable Long userId) {
-        boolean isPrivate = !privacyService.isAccountPrivate(userId);
+        boolean isPrivate = privacyService.isAccountPrivate(userId);
 
         return ResponseEntity.ok(Map.of(
                 "isPrivate", isPrivate

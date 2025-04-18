@@ -67,12 +67,13 @@ public class FollowRequestService {
             return false; // Request already exists
         }
 
-        // Check target user's privacy settings
-        boolean isPrivate = false;
+        // ⚠️ Debug the privacy check
         UserPrivacySettings privacySettings = privacySettingsService.getUserSettings(targetUser);
-        if (privacySettings != null) {
-            isPrivate = !privacySettings.isPublicProfile();
-        }
+        boolean isPrivate = !privacySettings.isPublicProfile();
+
+        System.out.println("DEBUG - Privacy check for user " + targetUser.getUsername());
+        System.out.println("Is private account? " + isPrivate);
+        System.out.println("Privacy settings: publicProfile=" + privacySettings.isPublicProfile());
 
         // If account is public, directly follow
         if (!isPrivate) {

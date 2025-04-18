@@ -19,11 +19,13 @@ public class FollowService {
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final FollowRequestService followRequestService;
 
-    public FollowService(FollowRepository followRepository, UserRepository userRepository, NotificationService notificationService) {
+    public FollowService(FollowRepository followRepository, UserRepository userRepository, NotificationService notificationService, FollowRequestService followRequestService) {
         this.followRepository = followRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.followRequestService = followRequestService;
     }
 
     private User getAuthenticatedUser() {
@@ -204,5 +206,17 @@ public class FollowService {
                     "followingCount", getFollowingCount(targetUserId)
             );
         }
+    }
+
+    /**
+     * Follow a user or create a follow request based on privacy settings
+     *
+     * @param targetUserId ID of the user to follow
+     * @return true if direct follow created, false if request sent
+     */
+    @Transactional
+    public boolean createFollowOrRequest(Long targetUserId) {
+        // Delegate to the FollowRequestService
+        return followRequestService.createFollowOrRequest(targetUserId);
     }
 }

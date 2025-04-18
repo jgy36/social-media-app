@@ -6,8 +6,7 @@ import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.entity.UserPrivacySettings;
 import com.jgy36.PoliticalApp.exception.ResourceNotFoundException;
 import com.jgy36.PoliticalApp.repository.UserRepository;
-import com.jgy36.PoliticalApp.service.FollowService;
-import com.jgy36.PoliticalApp.service.PostService;
+import com.jgy36.PoliticalApp.service.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,10 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -36,13 +32,19 @@ public class UserController {
     private final UserRepository userRepository;
     private final FollowService followService;
     private final PostService postService;
+    private final FollowRequestService followRequestService;
+    private final UserService userService;
+    private final PrivacySettingsService privacySettingsService;
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    public UserController(UserRepository userRepository, FollowService followService, PostService postService) {
+    public UserController(UserRepository userRepository, FollowService followService, PostService postService, FollowRequestService followRequestService, UserService userService, PrivacySettingsService privacySettingsService) {
         this.userRepository = userRepository;
         this.followService = followService;
         this.postService = postService;
+        this.followRequestService = followRequestService;
+        this.userService = userService;
+        this.privacySettingsService = privacySettingsService;
     }
 
     /**
@@ -132,10 +134,6 @@ public class UserController {
         return ResponseEntity.ok(profileDTO);
     }
 
-    /**
-     * ✅ Get a user's posts
-     * Making this public is recommended for better UX, but requires backend modifications
-     */
     @GetMapping("/profile/{username}/posts")
     public ResponseEntity<?> getUserPosts(@PathVariable String username) {
         Optional<User> userOpt = userRepository.findByUsername(username);
@@ -145,8 +143,26 @@ public class UserController {
         }
 
         User user = userOpt.get();
-        List<Post> posts = postService.getPostsByUserId(user.getId());
 
+        // Get current user (if authenticated)
+        User currentUser = null;
+        try {
+            currentUser = userService.getCurrentUser();
+        } catch (Exception e) {
+            // User not authenticated
+        }
+
+        // Check privacy - critical check that might be missing
+        boolean isPrivate = privacySettingsService.isAccountPrivate(user.getId());
+        boolean isOwner = currentUser != null && currentUser.getId().equals(user.getId());
+        boolean isFollowing = currentUser != null && currentUser.getFollowing().contains(user);
+
+        // If private and not owner and not following, don't show posts
+        if (isPrivate && !isOwner && !isFollowing) {
+            return ResponseEntity.ok(Collections.emptyList()); // Return empty list of posts
+        }
+
+        List<Post> posts = postService.getPostsByUserId(user.getId());
         return ResponseEntity.ok(posts);
     }
 
@@ -179,19 +195,29 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Cannot follow yourself"));
         }
 
-        // Add target user to current user's following list
-        currentUser.follow(targetUser);
-        userRepository.save(currentUser);
+        try {
+            // Use the followRequestService to create a follow or request based on privacy settings
+            boolean directFollow = followService.createFollowOrRequest(targetUser.getId());
 
-        // Get updated stats
-        int followersCount = followService.getFollowerCount(targetUser.getId());
+            // Get updated stats
+            int followersCount = followService.getFollowerCount(targetUser.getId());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "Successfully followed user");
-        response.put("followersCount", followersCount);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            if (directFollow) {
+                response.put("message", "Successfully followed user");
+                response.put("followStatus", "following");
+            } else {
+                response.put("message", "Follow request sent");
+                response.put("followStatus", "requested");
+            }
+            response.put("followersCount", followersCount);
 
-        return ResponseEntity.ok(response);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
     /**
@@ -535,6 +561,22 @@ public class UserController {
         response.put("isPrivate", isPrivate);
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Check if current user has sent a follow request to the target user
+     */
+    @GetMapping("/follow/request-status/{userId}")
+    public ResponseEntity<?> checkFollowRequestStatus(@PathVariable Long userId) {
+        User currentUser = userService.getCurrentUser();
+        User targetUser = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        boolean hasRequest = followRequestService.hasPendingRequest(currentUser, targetUser);
+
+        return ResponseEntity.ok(Map.of(
+                "hasRequest", hasRequest
+        ));
     }
 
 }
