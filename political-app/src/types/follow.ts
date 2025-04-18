@@ -16,12 +16,13 @@ export interface FollowUser {
  * Interface for the response from follow/unfollow operations
  */
 export interface FollowResponse {
-  isFollowing: boolean;
-  isRequested?: boolean; // Add this property to fix the error
-  followersCount: number;
-  followingCount: number;
   success?: boolean;
   message?: string;
+  followStatus?: string;
+  isFollowing: boolean;
+  isRequested?: boolean;
+  followersCount: number;
+  followingCount: number;
 }
 
 /**

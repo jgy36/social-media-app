@@ -61,49 +61,56 @@ const FollowButton = ({
   }, [initialIsFollowing, initialized]);
   
   const handleToggleFollow = async () => {
-    if (!isAuthenticated) {
-      router.push(`/login?redirect=${encodeURIComponent(`/profile/${userId}`)}`);
-      return;
-    }
+  if (!isAuthenticated) {
+    router.push(`/login?redirect=${encodeURIComponent(`/profile/${userId}`)}`);
+    return;
+  }
+  
+  if (userId === currentUserId) {
+    return; // Can't follow yourself
+  }
+  
+  setLoading(true);
+  
+  try {
+    let response: FollowResponse;
     
-    if (userId === currentUserId) {
-      return; // Can't follow yourself
-    }
-    
-    setLoading(true);
-    
-    try {
-      let response: FollowResponse;
+    if (isFollowing) {
+      response = await unfollowUser(userId);
+      setIsRequested(false);
+      setIsFollowing(false);
+    } else {
+      response = await followUser(userId);
       
-      if (isFollowing) {
-        response = await unfollowUser(userId);
-        setIsRequested(false);
+      // Use the server response to determine the follow status
+      // The server should return followStatus: "following" or "requested"
+      console.log("Follow response:", response); // Debug log
+      
+      if (response.followStatus === "requested" || response.isRequested) {
+        // Follow request was created (private account)
+        setIsRequested(true);
+        setIsFollowing(false);
       } else {
-        response = await followUser(userId);
-        
-        // If account is private, set requested state
-        if (isPrivateAccount) {
-          setIsRequested(true);
-          setIsFollowing(false);
-        } else {
-          setIsFollowing(response.isFollowing);
-        }
+        // Direct follow was created (public account)
+        setIsFollowing(true);
+        setIsRequested(false);
       }
-      
-      // Call the callback with updated data
-      if (onFollowChange) {
-        onFollowChange(
-          response.isFollowing, 
-          response.followersCount, 
-          response.followingCount
-        );
-      }
-    } catch (err) {
-      console.error("Follow toggle error:", err);
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    // Call the callback with updated data
+    if (onFollowChange) {
+      onFollowChange(
+        response.isFollowing || false, 
+        response.followersCount || 0, 
+        response.followingCount || 0
+      );
+    }
+  } catch (err) {
+    console.error("Follow toggle error:", err);
+  } finally {
+    setLoading(false);
+  }
+};
   
   // Different button texts based on status
   let buttonText = "Follow";

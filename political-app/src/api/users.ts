@@ -278,7 +278,14 @@ export const followUser = async (userId: number): Promise<FollowResponse> => {
         withCredentials: true,
       }
     );
-    return response.data;
+    
+    // Process the response to handle both follow and follow request cases
+    return {
+      ...response.data,
+      // If the backend returns followStatus, use it to determine these values
+      isFollowing: response.data.followStatus === "following" || response.data.isFollowing,
+      isRequested: response.data.followStatus === "requested" || response.data.isRequested
+    };
   } catch (error) {
     console.error(`Error following user ${userId}:`, error);
     throw new Error(getErrorMessage(error));
@@ -469,10 +476,23 @@ export const getPostsByUsername = async (
  */
 export const checkAccountPrivacy = async (userId: number): Promise<boolean> => {
   try {
+    console.log("Checking privacy for user:", userId);
+    // Make sure this matches your controller endpoint
     const response = await apiClient.get<{ isPrivate: boolean }>(`/users/${userId}/privacy-status`);
+    console.log("Privacy response:", response.data);
     return response.data.isPrivate;
   } catch (error) {
     console.error(`Error checking privacy status for user ${userId}:`, error);
     return false; // Default to public if we can't determine
+  }
+};
+
+export const checkFollowRequestStatus = async (userId: number): Promise<boolean> => {
+  try {
+    const response = await apiClient.get<{ hasRequest: boolean }>(`/follow/request-status/${userId}`);
+    return response.data.hasRequest;
+  } catch (error) {
+    console.error(`Error checking follow request status for user ${userId}:`, error);
+    return false;
   }
 };
