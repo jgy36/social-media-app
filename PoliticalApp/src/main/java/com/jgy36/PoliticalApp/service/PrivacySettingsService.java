@@ -11,35 +11,81 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 @Service
 public class PrivacySettingsService {
+    // Add a formatter for timestamps in logs
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private final UserPrivacySettingsRepository privacyRepository;
     private final UserRepository userRepository;
 
     public PrivacySettingsService(UserPrivacySettingsRepository privacyRepository, UserRepository userRepository) {
         this.privacyRepository = privacyRepository;
         this.userRepository = userRepository;
+        logInfo("PrivacySettingsService initialized");
+    }
+
+    /**
+     * Helper method to format and print log messages
+     */
+    private void logInfo(String message) {
+        String timestamp = LocalDateTime.now().format(formatter);
+        System.out.println("[PRIVACY-SERVICE " + timestamp + "] " + message);
+    }
+
+    /**
+     * Helper method to format and print error messages
+     */
+    private void logError(String message, Throwable e) {
+        String timestamp = LocalDateTime.now().format(formatter);
+        System.err.println("[PRIVACY-SERVICE ERROR " + timestamp + "] " + message);
+        if (e != null) {
+            e.printStackTrace();
+        }
     }
 
     /**
      * Get the current authenticated user's ID
      */
     private Long getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-        return user.getId();
+        logInfo("Getting current user ID from authentication context");
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+            logInfo("Auth email: " + email);
+
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            logInfo("Current user ID: " + user.getId() + ", username: " + user.getUsername());
+            return user.getId();
+        } catch (Exception e) {
+            logError("Failed to get current user ID", e);
+            throw e;
+        }
     }
 
     /**
      * Get the current authenticated user
      */
     public User getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        logInfo("Getting current user from authentication context");
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String email = authentication.getName();
+            logInfo("Auth email: " + email);
+
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            logInfo("Found current user: ID=" + user.getId() + ", username=" + user.getUsername());
+            return user;
+        } catch (Exception e) {
+            logError("Failed to get current user", e);
+            throw e;
+        }
     }
 
     /**
@@ -48,13 +94,42 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings getSettings(Long userId) {
-        return privacyRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    User user = userRepository.findById(userId)
-                            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-                    UserPrivacySettings settings = new UserPrivacySettings(user);
-                    return privacyRepository.save(settings);
-                });
+        logInfo("=== GET PRIVACY SETTINGS [userId=" + userId + "] ===");
+        try {
+            // Check if settings exist
+            logInfo("Checking if privacy settings exist for user " + userId);
+            var settingsOpt = privacyRepository.findByUserId(userId);
+
+            if (settingsOpt.isPresent()) {
+                UserPrivacySettings settings = settingsOpt.get();
+                logInfo("Found existing settings: publicProfile=" + settings.isPublicProfile() +
+                        ", allowFollowers=" + settings.isAllowFollowers() +
+                        ", allowSearchIndexing=" + settings.isAllowSearchIndexing());
+                return settings;
+            } else {
+                // Create new settings
+                logInfo("No settings found, creating default settings");
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> {
+                            logError("User not found with ID: " + userId, null);
+                            return new UsernameNotFoundException("User not found with ID: " + userId);
+                        });
+
+                UserPrivacySettings settings = new UserPrivacySettings(user);
+                logInfo("Created default settings: publicProfile=" + settings.isPublicProfile() +
+                        ", allowFollowers=" + settings.isAllowFollowers() +
+                        ", allowSearchIndexing=" + settings.isAllowSearchIndexing());
+
+                UserPrivacySettings savedSettings = privacyRepository.save(settings);
+                logInfo("Saved default settings with ID: " + savedSettings.getUserId());
+                return savedSettings;
+            }
+        } catch (Exception e) {
+            logError("Error getting privacy settings for user " + userId, e);
+            throw e;
+        } finally {
+            logInfo("=== END GET PRIVACY SETTINGS ===");
+        }
     }
 
     /**
@@ -63,20 +138,49 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings getUserSettings(User user) {
-        // Always get fresh settings from the database
-        return privacyRepository.findByUserId(user.getId())
-                .orElseGet(() -> {
-                    System.out.println("Creating default privacy settings for user: " + user.getUsername());
-                    UserPrivacySettings settings = new UserPrivacySettings(user);
-                    return privacyRepository.save(settings);
-                });
+        if (user == null) {
+            logError("getUserSettings called with null user", null);
+            throw new IllegalArgumentException("User cannot be null");
+        }
+
+        logInfo("=== GET USER SETTINGS [username=" + user.getUsername() + ", id=" + user.getId() + "] ===");
+        try {
+            // Always get fresh settings from the database
+            var settingsOpt = privacyRepository.findByUserId(user.getId());
+
+            if (settingsOpt.isPresent()) {
+                UserPrivacySettings settings = settingsOpt.get();
+                logInfo("Found existing settings: publicProfile=" + settings.isPublicProfile() +
+                        ", allowFollowers=" + settings.isAllowFollowers() +
+                        ", allowSearchIndexing=" + settings.isAllowSearchIndexing());
+                return settings;
+            } else {
+                logInfo("Creating default privacy settings for user: " + user.getUsername());
+                UserPrivacySettings settings = new UserPrivacySettings(user);
+                logInfo("Default settings created: publicProfile=" + settings.isPublicProfile() +
+                        ", allowFollowers=" + settings.isAllowFollowers() +
+                        ", allowSearchIndexing=" + settings.isAllowSearchIndexing());
+
+                UserPrivacySettings savedSettings = privacyRepository.save(settings);
+                logInfo("Saved default settings with ID: " + savedSettings.getUserId());
+                return savedSettings;
+            }
+        } catch (Exception e) {
+            logError("Error getting user settings for user " + user.getId(), e);
+            throw e;
+        } finally {
+            logInfo("=== END GET USER SETTINGS ===");
+        }
     }
 
     /**
      * Get current user's privacy settings
      */
     public UserPrivacySettings getCurrentUserSettings() {
-        return getSettings(getCurrentUserId());
+        logInfo("Getting privacy settings for current user");
+        Long userId = getCurrentUserId();
+        logInfo("Current user ID: " + userId);
+        return getSettings(userId);
     }
 
     /**
@@ -86,14 +190,55 @@ public class PrivacySettingsService {
      * @return true if the account is private (publicProfile = false), false otherwise
      */
     public boolean isAccountPrivate(Long userId) {
-        UserPrivacySettings settings = getSettings(userId);
-        boolean isPrivate = !settings.isPublicProfile();
+        logInfo("=============== CHECKING PRIVACY STATUS [userId=" + userId + "] ===============");
+        try {
+            // Get user info for better logging
+            String username = "unknown";
+            try {
+                User user = userRepository.findById(userId).orElse(null);
+                if (user != null) {
+                    username = user.getUsername();
+                }
+            } catch (Exception e) {
+                logError("Error getting username for user " + userId, e);
+            }
 
-        System.out.println("DEBUG - Privacy check for user ID " + userId);
-        System.out.println("Is private account? " + isPrivate);
-        System.out.println("Settings: publicProfile=" + settings.isPublicProfile());
+            logInfo("Checking if account is private for user: " + username + " (ID: " + userId + ")");
 
-        return isPrivate;
+            // Get settings or defaults
+            UserPrivacySettings settings = getSettings(userId);
+
+            // Check raw values from database
+            logInfo("Database record - Entity ID: " + settings.getUserId());
+            logInfo("Database record - publicProfile: " + settings.isPublicProfile());
+            logInfo("Database record - allowFollowers: " + settings.isAllowFollowers());
+            logInfo("Database record - allowSearchIndexing: " + settings.isAllowSearchIndexing());
+
+            // Calculate privacy status
+            boolean isPrivate = !settings.isPublicProfile();
+
+            logInfo("PRIVACY CHECK RESULT: isPrivate=" + isPrivate);
+
+            // Additional debug info - get a fresh read from database to verify no caching issues
+            try {
+                var freshSettings = privacyRepository.findByUserId(userId);
+                if (freshSettings.isPresent()) {
+                    logInfo("DOUBLE-CHECK - Fresh DB read: publicProfile=" + freshSettings.get().isPublicProfile() +
+                            " (Should match: " + settings.isPublicProfile() + ")");
+                } else {
+                    logInfo("DOUBLE-CHECK - No settings found in fresh DB read!");
+                }
+            } catch (Exception e) {
+                logError("Error performing double-check read", e);
+            }
+
+            return isPrivate;
+        } catch (Exception e) {
+            logError("Error checking if account is private for user " + userId, e);
+            throw e;
+        } finally {
+            logInfo("=============== END PRIVACY CHECK ===============");
+        }
     }
 
     /**
@@ -102,7 +247,10 @@ public class PrivacySettingsService {
      * @return true if the account is private (publicProfile = false), false otherwise
      */
     public boolean isCurrentAccountPrivate() {
-        return isAccountPrivate(getCurrentUserId());
+        logInfo("Checking if current user's account is private");
+        Long userId = getCurrentUserId();
+        logInfo("Current user ID: " + userId);
+        return isAccountPrivate(userId);
     }
 
     /**
@@ -110,47 +258,116 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings updateSettings(Long userId, UserPrivacySettingsDto settingsDto) {
-        UserPrivacySettings settings = getSettings(userId);
+        logInfo("=============== PRIVACY SETTINGS UPDATE [userId=" + userId + "] ===============");
+        try {
+            // Get user info for better logging
+            String username = "unknown";
+            try {
+                User user = userRepository.findById(userId).orElse(null);
+                if (user != null) {
+                    username = user.getUsername();
+                }
+            } catch (Exception e) {
+                logError("Error getting username for user " + userId, e);
+            }
 
-        // Log before update
-        System.out.println("PRIVACY UPDATE - User ID: " + userId);
-        System.out.println("  Before: publicProfile = " + settings.isPublicProfile());
-        System.out.println("  After: publicProfile = " + settingsDto.isPublicProfile());
+            logInfo("Updating privacy settings for user: " + username + " (ID: " + userId + ")");
 
-        // Track old privacy setting to detect changes
-        boolean wasPrivate = !settings.isPublicProfile();
-        boolean willBePrivate = !settingsDto.isPublicProfile();
+            UserPrivacySettings settings = getSettings(userId);
 
-        // Update fields from DTO
-        settings.setPublicProfile(settingsDto.isPublicProfile());
-        settings.setShowPoliticalAffiliation(settingsDto.isShowPoliticalAffiliation());
-        settings.setShowPostHistory(settingsDto.isShowPostHistory());
-        settings.setShowVotingRecord(settingsDto.isShowVotingRecord());
-        settings.setAllowDirectMessages(settingsDto.isAllowDirectMessages());
-        settings.setAllowFollowers(settingsDto.isAllowFollowers());
+            // Log current state in detail
+            logInfo("CURRENT SETTINGS:");
+            logInfo("  publicProfile = " + settings.isPublicProfile() + " (isPrivate = " + !settings.isPublicProfile() + ")");
+            logInfo("  showPoliticalAffiliation = " + settings.isShowPoliticalAffiliation());
+            logInfo("  showPostHistory = " + settings.isShowPostHistory());
+            logInfo("  showVotingRecord = " + settings.isShowVotingRecord());
+            logInfo("  allowDirectMessages = " + settings.isAllowDirectMessages());
+            logInfo("  allowFollowers = " + settings.isAllowFollowers());
+            logInfo("  allowSearchIndexing = " + settings.isAllowSearchIndexing());
+            logInfo("  dataSharing = " + settings.isDataSharing());
 
-        // Enforce related settings for private accounts
-        if (willBePrivate) {
-            // Private accounts shouldn't be indexed in search
-            settings.setAllowSearchIndexing(false);
-        } else {
-            // Public accounts can be indexed if the user wants
-            settings.setAllowSearchIndexing(settingsDto.isAllowSearchIndexing());
+            // Log new settings
+            logInfo("NEW SETTINGS FROM DTO:");
+            logInfo("  publicProfile = " + settingsDto.isPublicProfile() + " (isPrivate = " + !settingsDto.isPublicProfile() + ")");
+            logInfo("  showPoliticalAffiliation = " + settingsDto.isShowPoliticalAffiliation());
+            logInfo("  showPostHistory = " + settingsDto.isShowPostHistory());
+            logInfo("  showVotingRecord = " + settingsDto.isShowVotingRecord());
+            logInfo("  allowDirectMessages = " + settingsDto.isAllowDirectMessages());
+            logInfo("  allowFollowers = " + settingsDto.isAllowFollowers());
+            logInfo("  allowSearchIndexing = " + settingsDto.isAllowSearchIndexing());
+            logInfo("  dataSharing = " + settingsDto.isDataSharing());
+
+            // Track privacy setting change
+            boolean wasPrivate = !settings.isPublicProfile();
+            boolean willBePrivate = !settingsDto.isPublicProfile();
+
+            logInfo("PRIVACY CHANGE: " + (wasPrivate ? "PRIVATE" : "PUBLIC") + " -> " +
+                    (willBePrivate ? "PRIVATE" : "PUBLIC"));
+
+            // Update fields from DTO
+            settings.setPublicProfile(settingsDto.isPublicProfile());
+            settings.setShowPoliticalAffiliation(settingsDto.isShowPoliticalAffiliation());
+            settings.setShowPostHistory(settingsDto.isShowPostHistory());
+            settings.setShowVotingRecord(settingsDto.isShowVotingRecord());
+            settings.setAllowDirectMessages(settingsDto.isAllowDirectMessages());
+            settings.setAllowFollowers(settingsDto.isAllowFollowers());
+
+            // Enforce related settings for private accounts
+            if (willBePrivate) {
+                // Private accounts shouldn't be indexed in search
+                logInfo("Setting allowSearchIndexing=false because account is private");
+                settings.setAllowSearchIndexing(false);
+            } else {
+                // Public accounts can be indexed if the user wants
+                logInfo("Account is public, using user preference for search indexing: " +
+                        settingsDto.isAllowSearchIndexing());
+                settings.setAllowSearchIndexing(settingsDto.isAllowSearchIndexing());
+            }
+
+            settings.setDataSharing(settingsDto.isDataSharing());
+
+            // Save settings
+            logInfo("Saving updated settings to database");
+            UserPrivacySettings updatedSettings = privacyRepository.save(settings);
+
+            // Log saved settings
+            logInfo("SETTINGS AFTER SAVE:");
+            logInfo("  publicProfile = " + updatedSettings.isPublicProfile() +
+                    " (isPrivate = " + !updatedSettings.isPublicProfile() + ")");
+            logInfo("  allowSearchIndexing = " + updatedSettings.isAllowSearchIndexing());
+            logInfo("  allowFollowers = " + updatedSettings.isAllowFollowers());
+
+            // Double-check settings are actually saved by loading fresh from DB
+            try {
+                var freshSettings = privacyRepository.findByUserId(userId);
+                if (freshSettings.isPresent()) {
+                    logInfo("VERIFICATION - Fresh DB read: publicProfile=" + freshSettings.get().isPublicProfile() +
+                            " (Should match: " + updatedSettings.isPublicProfile() + ")");
+                } else {
+                    logInfo("VERIFICATION - No settings found in fresh DB read!");
+                }
+            } catch (Exception e) {
+                logError("Error verifying settings update", e);
+            }
+
+            // If privacy state changed, log a warning
+            if (wasPrivate != willBePrivate) {
+                logInfo("!!!!! PRIVACY STATE CHANGED !!!!! From " +
+                        (wasPrivate ? "PRIVATE" : "PUBLIC") + " to " +
+                        (willBePrivate ? "PRIVATE" : "PUBLIC"));
+
+                if (!wasPrivate && willBePrivate) {
+                    logInfo("IMPORTANT: Account changed from PUBLIC to PRIVATE. Existing followers will need handling.");
+                }
+            }
+
+            return updatedSettings;
+        } catch (Exception e) {
+            logError("Error updating privacy settings for user " + userId, e);
+            throw e;
+        } finally {
+            logInfo("=============== END PRIVACY UPDATE ===============");
         }
-
-        settings.setDataSharing(settingsDto.isDataSharing());
-
-        // Save settings
-        UserPrivacySettings updatedSettings = privacyRepository.save(settings);
-
-        System.out.println("  Saved: publicProfile = " + updatedSettings.isPublicProfile());
-
-
-        // If account was public and is now private, we might need to
-        // convert existing follows to requests, but we'll leave that
-        // to the controller or another service
-
-        return updatedSettings;
     }
 
     /**
@@ -158,7 +375,10 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings updateCurrentUserSettings(UserPrivacySettingsDto settingsDto) {
-        return updateSettings(getCurrentUserId(), settingsDto);
+        logInfo("Updating current user's privacy settings");
+        Long userId = getCurrentUserId();
+        logInfo("Current user ID: " + userId);
+        return updateSettings(userId, settingsDto);
     }
 
     /**
@@ -168,14 +388,23 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings togglePrivateAccount() {
+        logInfo("Toggling private account setting for current user");
+
         UserPrivacySettings settings = getCurrentUserSettings();
+        boolean currentlyPrivate = !settings.isPublicProfile();
+        logInfo("Current privacy state: " + (currentlyPrivate ? "PRIVATE" : "PUBLIC"));
+
         UserPrivacySettingsDto dto = toDto(settings);
 
         // Toggle the private account setting (invert publicProfile)
-        dto.setPublicProfile(!dto.isPublicProfile());
+        dto.setPublicProfile(currentlyPrivate); // Invert current privacy state
+
+        boolean newPrivacyState = !dto.isPublicProfile();
+        logInfo("New privacy state after toggle: " + (newPrivacyState ? "PRIVATE" : "PUBLIC"));
 
         // If making private, enforce other privacy settings
-        if (!dto.isPublicProfile()) {
+        if (newPrivacyState) {
+            logInfo("Account will be private, setting allowSearchIndexing=false");
             dto.setAllowSearchIndexing(false);
         }
 
@@ -191,14 +420,23 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings setAccountPrivacy(Long userId, boolean isPrivate) {
+        logInfo("Setting account privacy for user " + userId + " to " + (isPrivate ? "PRIVATE" : "PUBLIC"));
+
         UserPrivacySettings settings = getSettings(userId);
         UserPrivacySettingsDto dto = toDto(settings);
+
+        // Current state
+        boolean currentlyPrivate = !settings.isPublicProfile();
+        logInfo("Current privacy state: " + (currentlyPrivate ? "PRIVATE" : "PUBLIC"));
 
         // Set the private account setting (invert for publicProfile)
         dto.setPublicProfile(!isPrivate);
 
+        logInfo("New publicProfile value: " + dto.isPublicProfile());
+
         // If making private, enforce other privacy settings
         if (isPrivate) {
+            logInfo("Account will be private, setting allowSearchIndexing=false");
             dto.setAllowSearchIndexing(false);
         }
 
@@ -210,19 +448,45 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings resetSettings(Long userId) {
-        UserPrivacySettings settings = getSettings(userId);
+        logInfo("=============== RESETTING PRIVACY SETTINGS [userId=" + userId + "] ===============");
+        try {
+            UserPrivacySettings settings = getSettings(userId);
 
-        // Reset to default values
-        settings.setPublicProfile(true); // Not private by default
-        settings.setShowPoliticalAffiliation(false);
-        settings.setShowPostHistory(true);
-        settings.setShowVotingRecord(false);
-        settings.setAllowDirectMessages(true);
-        settings.setAllowFollowers(true);
-        settings.setAllowSearchIndexing(true);
-        settings.setDataSharing(false);
+            logInfo("Current settings before reset:");
+            logInfo("  publicProfile = " + settings.isPublicProfile());
+            logInfo("  showPoliticalAffiliation = " + settings.isShowPoliticalAffiliation());
+            logInfo("  showPostHistory = " + settings.isShowPostHistory());
+            logInfo("  showVotingRecord = " + settings.isShowVotingRecord());
+            logInfo("  allowDirectMessages = " + settings.isAllowDirectMessages());
+            logInfo("  allowFollowers = " + settings.isAllowFollowers());
+            logInfo("  allowSearchIndexing = " + settings.isAllowSearchIndexing());
+            logInfo("  dataSharing = " + settings.isDataSharing());
 
-        return privacyRepository.save(settings);
+            // Reset to default values
+            logInfo("Resetting to default values");
+            settings.setPublicProfile(true); // Not private by default
+            settings.setShowPoliticalAffiliation(false);
+            settings.setShowPostHistory(true);
+            settings.setShowVotingRecord(false);
+            settings.setAllowDirectMessages(true);
+            settings.setAllowFollowers(true);
+            settings.setAllowSearchIndexing(true);
+            settings.setDataSharing(false);
+
+            logInfo("Saving reset settings");
+            UserPrivacySettings savedSettings = privacyRepository.save(settings);
+
+            logInfo("Settings after reset and save:");
+            logInfo("  publicProfile = " + savedSettings.isPublicProfile());
+            logInfo("  allowSearchIndexing = " + savedSettings.isAllowSearchIndexing());
+
+            return savedSettings;
+        } catch (Exception e) {
+            logError("Error resetting privacy settings for user " + userId, e);
+            throw e;
+        } finally {
+            logInfo("=============== END RESET PRIVACY SETTINGS ===============");
+        }
     }
 
     /**
@@ -230,13 +494,18 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings resetCurrentUserSettings() {
-        return resetSettings(getCurrentUserId());
+        logInfo("Resetting current user's privacy settings to defaults");
+        Long userId = getCurrentUserId();
+        logInfo("Current user ID: " + userId);
+        return resetSettings(userId);
     }
 
     /**
      * Convert entity to DTO
      */
     public UserPrivacySettingsDto toDto(UserPrivacySettings settings) {
+        logInfo("Converting UserPrivacySettings to DTO for user " + settings.getUserId());
+
         UserPrivacySettingsDto dto = new UserPrivacySettingsDto();
         dto.setPublicProfile(settings.isPublicProfile());
         dto.setShowPoliticalAffiliation(settings.isShowPoliticalAffiliation());
@@ -246,6 +515,10 @@ public class PrivacySettingsService {
         dto.setAllowFollowers(settings.isAllowFollowers());
         dto.setAllowSearchIndexing(settings.isAllowSearchIndexing());
         dto.setDataSharing(settings.isDataSharing());
+
+        logInfo("DTO created with publicProfile=" + dto.isPublicProfile() +
+                " (isPrivate=" + !dto.isPublicProfile() + ")");
+
         return dto;
     }
 
@@ -253,9 +526,15 @@ public class PrivacySettingsService {
      * Get a simplified privacy setting DTO that only shows if the account is private
      */
     public UserPrivacySettingsDto getSimplifiedSettings(Long userId) {
+        logInfo("Getting simplified privacy settings for user " + userId);
+
         UserPrivacySettings settings = getSettings(userId);
         UserPrivacySettingsDto dto = new UserPrivacySettingsDto();
         dto.setPublicProfile(settings.isPublicProfile());
+
+        logInfo("Simplified settings: publicProfile=" + dto.isPublicProfile() +
+                " (isPrivate=" + !dto.isPublicProfile() + ")");
+
         return dto;
     }
 }

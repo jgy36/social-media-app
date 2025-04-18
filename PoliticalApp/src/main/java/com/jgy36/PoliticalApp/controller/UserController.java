@@ -10,6 +10,7 @@ import com.jgy36.PoliticalApp.service.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
@@ -577,6 +578,90 @@ public class UserController {
         return ResponseEntity.ok(Map.of(
                 "hasRequest", hasRequest
         ));
+    }
+
+    /**
+     * Follow a user by ID - handles privacy settings appropriately
+     */
+    @PostMapping("/follow-by-id/{userId}")
+    @PreAuthorize("isAuthenticated()") // Add this to ensure authentication
+    public ResponseEntity<?> followUserById(@PathVariable Long userId) {
+        System.out.println("⭐ Follow-by-id endpoint called for user ID: " + userId);
+
+        try {
+            // Explicitly get the current user
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || authentication.getName().equals("anonymousUser")) {
+                System.out.println("❌ No valid authentication in follow-by-id");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Authentication required"));
+            }
+
+            String email = authentication.getName();
+            Optional<User> currentUserOpt = userRepository.findByEmail(email);
+
+            if (currentUserOpt.isEmpty()) {
+                System.out.println("❌ Current user not found with email: " + email);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Current user not found"));
+            }
+
+            User currentUser = currentUserOpt.get();
+            System.out.println("✅ Current user found: " + currentUser.getUsername() + " (ID: " + currentUser.getId() + ")");
+
+            // Get target user
+            Optional<User> targetUserOpt = userRepository.findById(userId);
+            if (targetUserOpt.isEmpty()) {
+                System.out.println("❌ Target user not found with ID: " + userId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Target user not found"));
+            }
+
+            User targetUser = targetUserOpt.get();
+            System.out.println("✅ Target user found: " + targetUser.getUsername() + " (ID: " + targetUser.getId() + ")");
+
+            // Check if trying to follow self
+            if (currentUser.getId().equals(targetUser.getId())) {
+                System.out.println("❌ User trying to follow themselves");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Cannot follow yourself"));
+            }
+
+            // Check privacy settings directly
+            boolean isPrivate = privacySettingsService.isAccountPrivate(userId);
+            System.out.println("🔒 Target account privacy: " + (isPrivate ? "PRIVATE" : "PUBLIC"));
+
+            // Use the followRequestService to create a follow or request
+            boolean directFollow = followService.createFollowOrRequest(userId);
+            System.out.println("📊 Result: " + (directFollow ? "Direct follow" : "Follow request"));
+
+            // Get updated stats
+            int followersCount = followService.getFollowerCount(userId);
+            int followingCount = followService.getFollowingCount(userId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            if (directFollow) {
+                response.put("message", "Successfully followed user");
+                response.put("followStatus", "following");
+                response.put("isFollowing", true);
+                response.put("isRequested", false);
+            } else {
+                response.put("message", "Follow request sent");
+                response.put("followStatus", "requested");
+                response.put("isFollowing", false);
+                response.put("isRequested", true);
+            }
+            response.put("followersCount", followersCount);
+            response.put("followingCount", followingCount);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("❌ Error in followUserById: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
+        }
     }
 
 }
