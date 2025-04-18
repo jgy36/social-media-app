@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/follow/requests")
+@CrossOrigin(origins = "http://localhost:3000") // Add this line
 public class FollowRequestController {
 
     @Autowired

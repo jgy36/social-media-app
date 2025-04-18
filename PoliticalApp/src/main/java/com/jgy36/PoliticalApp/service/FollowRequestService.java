@@ -1,13 +1,14 @@
 // PoliticalApp/src/main/java/com/jgy36/PoliticalApp/service/FollowRequestService.java
 package com.jgy36.PoliticalApp.service;
 
+import com.jgy36.PoliticalApp.entity.Follow;
 import com.jgy36.PoliticalApp.entity.FollowRequest;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.entity.UserPrivacySettings;
 import com.jgy36.PoliticalApp.exception.ResourceNotFoundException;
+import com.jgy36.PoliticalApp.repository.FollowRepository;
 import com.jgy36.PoliticalApp.repository.FollowRequestRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
-import com.jgy36.PoliticalApp.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
@@ -29,6 +30,9 @@ public class FollowRequestService {
 
     @Autowired
     private PrivacySettingsService privacySettingsService;
+
+    @Autowired
+    private FollowRepository followRepository;
 
     /**
      * Create a follow request or direct follow based on target user's privacy settings
@@ -114,9 +118,10 @@ public class FollowRequestService {
     @Transactional
     public void approveFollowRequest(Long requestId) {
         // Get current user
-        String currentUsername = SecurityUtils.getCurrentUsername();
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new IllegalStateException("Current user not found"));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Current user not found by email: " + email));
 
         // Get the request
         FollowRequest request = followRequestRepository.findById(requestId)
@@ -138,8 +143,8 @@ public class FollowRequestService {
 
         // Create the follow relationship
         User requester = request.getRequester();
-        requester.follow(currentUser);
-        userRepository.save(requester);
+        Follow follow = new Follow(requester, currentUser);
+        followRepository.save(follow);
     }
 
     /**
@@ -150,9 +155,10 @@ public class FollowRequestService {
     @Transactional
     public void rejectFollowRequest(Long requestId) {
         // Get current user
-        String currentUsername = SecurityUtils.getCurrentUsername();
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new IllegalStateException("Current user not found"));
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Current user not found by email: " + email));
 
         // Get the request
         FollowRequest request = followRequestRepository.findById(requestId)
