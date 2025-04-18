@@ -10,6 +10,8 @@ import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.utils.SecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,10 +38,11 @@ public class FollowRequestService {
      */
     @Transactional
     public boolean createFollowOrRequest(Long targetUserId) {
-        // Get current user
-        String currentUsername = SecurityUtils.getCurrentUsername();
-        User currentUser = userRepository.findByUsername(currentUsername)
-                .orElseThrow(() -> new IllegalStateException("Current user not found"));
+        // Get current user using authentication context and email (like in UserController)
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        User currentUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Current user not found by email: " + email));
 
         // Get target user
         User targetUser = userRepository.findById(targetUserId)
