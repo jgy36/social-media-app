@@ -271,8 +271,9 @@ export const searchUsers = async (query: string): Promise<UserProfile[]> => {
  */
 export const followUser = async (userId: number): Promise<FollowResponse> => {
   try {
+    // Use the new endpoint that accepts userId and handles privacy
     const response = await apiClient.post<FollowResponse>(
-      `/follow/${userId}`,
+      `/users/follow-by-id/${userId}`,
       {},
       {
         withCredentials: true,
