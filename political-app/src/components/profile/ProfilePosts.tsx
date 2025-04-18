@@ -74,12 +74,7 @@ const ProfilePosts = () => {
         const followStatusResponse = await getFollowStatus(user.id);
         console.log(`[ProfilePosts] 👥 Follow status:`, followStatusResponse);
         
-        setFollowStatus({
-          isFollowing: followStatusResponse.isFollowing || false,
-          isRequested: followStatusResponse.isRequested || false,
-          followersCount: followStatusResponse.followersCount || 0,
-          followingCount: followStatusResponse.followingCount || 0
-        });
+        setFollowStatus(followStatusResponse);
         setIsFollowing(followStatusResponse.isFollowing || false);
         setIsRequested(followStatusResponse.isRequested || false);
         

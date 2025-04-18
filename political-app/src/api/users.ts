@@ -279,13 +279,15 @@ export const followUser = async (userId: number): Promise<FollowResponse> => {
         withCredentials: true,
       }
     );
-    
+
     // Process the response to handle both follow and follow request cases
     return {
       ...response.data,
       // If the backend returns followStatus, use it to determine these values
-      isFollowing: response.data.followStatus === "following" || response.data.isFollowing,
-      isRequested: response.data.followStatus === "requested" || response.data.isRequested
+      isFollowing:
+        response.data.followStatus === "following" || response.data.isFollowing,
+      isRequested:
+        response.data.followStatus === "requested" || response.data.isRequested,
     };
   } catch (error) {
     console.error(`Error following user ${userId}:`, error);
@@ -454,20 +456,56 @@ export const getPostsByUsername = async (
   username: string
 ): Promise<PostType[]> => {
   try {
-    // Use the /profile/{username}/posts endpoint instead
-    // This endpoint respects privacy settings
-    const response = await apiClient.get<PostType[]>(`/users/profile/${username}/posts`);
+    const response = await apiClient.get(`/users/profile/${username}/posts`);
     
-    // Make sure we handle the response correctly
-    if (Array.isArray(response.data)) {
-      // Sort posts by date (newest first)
-      return response.data.sort((a, b) => {
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-    } else {
-      console.warn("Response is not an array:", response.data);
-      return [];
+    console.log("Raw posts response type:", typeof response.data);
+    
+    // Handle string responses (the root issue)
+    if (typeof response.data === 'string') {
+      console.log("Response is string - attempting to parse as JSON");
+      try {
+        // Try to parse the string as JSON
+        const parsedData = JSON.parse(response.data);
+        console.log("Successfully parsed JSON from string response");
+        
+        if (Array.isArray(parsedData)) {
+          // Process parsed array
+          return parsedData.sort((a, b) => {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          });
+        } else if (parsedData && typeof parsedData === 'object') {
+          // If parsed result is a single post object
+          if (parsedData.id && parsedData.content) {
+            return [parsedData as PostType];
+          }
+        }
+      } catch (parseError) {
+        console.error("Failed to parse response string as JSON:", parseError);
+      }
     }
+    
+    // Original processing logic
+    let postsArray: PostType[] = [];
+    
+    if (Array.isArray(response.data)) {
+      postsArray = response.data;
+    } else if (response.data && typeof response.data === 'object') {
+      // Try to handle single post or object with posts
+      if ('id' in response.data && 'content' in response.data) {
+        postsArray = [response.data as PostType];
+      } else {
+        postsArray = Object.values(response.data).filter(item => 
+          item && typeof item === 'object' && 'id' in item && 'content' in item
+        ) as PostType[];
+      }
+    }
+    
+    console.log(`Found ${postsArray.length} posts after processing`);
+    
+    // Sort posts by date (newest first)
+    return postsArray.sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
   } catch (error) {
     console.error(`Error fetching posts for user ${username}:`, error);
     return [];
@@ -480,10 +518,12 @@ export const getPostsByUsername = async (
 export const checkAccountPrivacy = async (userId: number): Promise<boolean> => {
   try {
     console.log("Checking privacy for user:", userId);
-    
+
     // This is the correct endpoint, but let's make sure it's working
-    const response = await apiClient.get<{ isPrivate: boolean }>(`/users/privacy-settings/status/${userId}`);
-    
+    const response = await apiClient.get<{ isPrivate: boolean }>(
+      `/users/privacy-settings/status/${userId}`
+    );
+
     console.log("Privacy response:", response.data);
     return response.data.isPrivate;
   } catch (error) {
@@ -493,12 +533,19 @@ export const checkAccountPrivacy = async (userId: number): Promise<boolean> => {
   }
 };
 
-export const checkFollowRequestStatus = async (userId: number): Promise<boolean> => {
+export const checkFollowRequestStatus = async (
+  userId: number
+): Promise<boolean> => {
   try {
-    const response = await apiClient.get<{ hasRequest: boolean }>(`/follow/request-status/${userId}`);
+    const response = await apiClient.get<{ hasRequest: boolean }>(
+      `/follow/request-status/${userId}`
+    );
     return response.data.hasRequest;
   } catch (error) {
-    console.error(`Error checking follow request status for user ${userId}:`, error);
+    console.error(
+      `Error checking follow request status for user ${userId}:`,
+      error
+    );
     return false;
   }
 };
