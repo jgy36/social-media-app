@@ -11,16 +11,16 @@ import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
 import { getUserData } from "@/utils/tokenUtils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getBadgeById } from '@/types/badges';
-import BadgeSelector from './BadgeSelector';
-import FollowButton from './FollowButton';
-import MessageButton from './MessageButton';
+import { getBadgeById } from "@/types/badges";
+import BadgeSelector from "./BadgeSelector";
+import FollowButton from "./FollowButton";
+import MessageButton from "./MessageButton";
 
 const ProfileHeader = () => {
   const user = useSelector((state: RootState) => state.user);
@@ -42,7 +42,7 @@ const ProfileHeader = () => {
 
   // Removed unused loading and error states
   const [refreshKey, setRefreshKey] = useState(Date.now());
-  
+
   // State to store the image URL with cache-busting
   const [profileImageSrc, setProfileImageSrc] = useState<string | null>(null);
   const [isPrivateAccount, setIsPrivateAccount] = useState(false);
@@ -59,7 +59,10 @@ const ProfileHeader = () => {
     // If not in Redux, try to get from tokenUtils/localStorage
     const userData = getUserData();
     if (userData.displayName) {
-      console.log("Using display name from localStorage:", userData.displayName);
+      console.log(
+        "Using display name from localStorage:",
+        userData.displayName
+      );
       setDisplayName(userData.displayName);
       return;
     }
@@ -83,11 +86,15 @@ const ProfileHeader = () => {
         try {
           if (typeof user.id === "number") {
             const followStatus = await getFollowStatus(user.id);
-            
+
             // Get post count from localStorage with user-specific key
-            const userSpecificPostCount = localStorage.getItem(`user_${user.id}_userPostsCount`);
-            const postCount = userSpecificPostCount ? parseInt(userSpecificPostCount, 10) : 0;
-            
+            const userSpecificPostCount = localStorage.getItem(
+              `user_${user.id}_userPostsCount`
+            );
+            const postCount = userSpecificPostCount
+              ? parseInt(userSpecificPostCount, 10)
+              : 0;
+
             setStats({
               followersCount: followStatus.followersCount || 0,
               followingCount: followStatus.followingCount || 0,
@@ -96,25 +103,35 @@ const ProfileHeader = () => {
             });
 
             // Try to get join date from localStorage
-            const storedJoinDate = localStorage.getItem(`user_${user.id}_joinDate`);
+            const storedJoinDate = localStorage.getItem(
+              `user_${user.id}_joinDate`
+            );
             if (storedJoinDate) {
               setJoinDate(storedJoinDate);
             } else {
               // If no stored join date, fetch the user profile from API
               try {
-                const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
-                const response = await fetch(`${API_BASE_URL}/users/profile/${user.username}`, {
-                  headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Cache-Control": "no-cache",
+                const API_BASE_URL =
+                  process.env.NEXT_PUBLIC_API_BASE_URL ||
+                  "http://localhost:8080/api";
+                const response = await fetch(
+                  `${API_BASE_URL}/users/profile/${user.username}`,
+                  {
+                    headers: {
+                      Authorization: `Bearer ${token}`,
+                      "Cache-Control": "no-cache",
+                    },
                   }
-                });
+                );
 
                 if (response.ok) {
                   const profileData = await response.json();
                   if (profileData.joinDate) {
                     setJoinDate(profileData.joinDate);
-                    localStorage.setItem(`user_${user.id}_joinDate`, profileData.joinDate);
+                    localStorage.setItem(
+                      `user_${user.id}_joinDate`,
+                      profileData.joinDate
+                    );
                   } else {
                     // Fallback: Use registration date from 3 months ago as an example
                     const fallbackDate = new Date();
@@ -123,7 +140,10 @@ const ProfileHeader = () => {
                   }
                 }
               } catch (profileError) {
-                console.error("Error fetching user profile for join date:", profileError);
+                console.error(
+                  "Error fetching user profile for join date:",
+                  profileError
+                );
                 // Use fallback date if we can't get the real one
                 const fallbackDate = new Date();
                 fallbackDate.setMonth(fallbackDate.getMonth() - 3);
@@ -146,30 +166,40 @@ const ProfileHeader = () => {
     const handlePostCountUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
       // Only update if this event is for our user
-      if (customEvent.detail && 
-          customEvent.detail.userId === user.id &&
-          customEvent.detail.count !== undefined) {
-        console.log("Posts count updated for current user:", customEvent.detail.count);
-        setStats(prevStats => ({
+      if (
+        customEvent.detail &&
+        customEvent.detail.userId === user.id &&
+        customEvent.detail.count !== undefined
+      ) {
+        console.log(
+          "Posts count updated for current user:",
+          customEvent.detail.count
+        );
+        setStats((prevStats) => ({
           ...prevStats,
-          postCount: customEvent.detail.count
+          postCount: customEvent.detail.count,
         }));
       }
     };
 
     // Add event listener for post count updates
-    window.addEventListener('userPostsCountUpdated', handlePostCountUpdate);
-    
+    window.addEventListener("userPostsCountUpdated", handlePostCountUpdate);
+
     // Cleanup event listener on unmount
     return () => {
-      window.removeEventListener('userPostsCountUpdated', handlePostCountUpdate);
+      window.removeEventListener(
+        "userPostsCountUpdated",
+        handlePostCountUpdate
+      );
     };
   }, [user.id]);
 
   // Initialize profile image on component mount
   useEffect(() => {
     if (user.profileImageUrl) {
-      setProfileImageSrc(getProfileImageUrl(user.profileImageUrl, user.username));
+      setProfileImageSrc(
+        getProfileImageUrl(user.profileImageUrl, user.username)
+      );
     }
   }, [user.profileImageUrl, user.username]);
 
@@ -178,61 +208,70 @@ const ProfileHeader = () => {
     const handleProfileUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
       if (customEvent.detail) {
-        console.log("ProfileHeader - Profile update event received:", customEvent.detail);
-        
+        console.log(
+          "ProfileHeader - Profile update event received:",
+          customEvent.detail
+        );
+
         // Get the image URL
         const imageUrl = String(customEvent.detail);
         console.log("Setting profile image to:", imageUrl);
-        
+
         // Process the URL and add cache busting
         const processedUrl = getProfileImageUrl(imageUrl, user.username);
         setProfileImageSrc(processedUrl);
-        
+
         // Also update the refresh key to force re-render
         setRefreshKey(Date.now());
       }
     };
 
-    window.addEventListener('profileImageUpdated', handleProfileUpdate);
-    
+    window.addEventListener("profileImageUpdated", handleProfileUpdate);
+
     return () => {
-      window.removeEventListener('profileImageUpdated', handleProfileUpdate);
+      window.removeEventListener("profileImageUpdated", handleProfileUpdate);
     };
   }, [user.username]);
-  
+
   // Listen for display name updates
   useEffect(() => {
     const handleDisplayNameUpdate = (event: Event) => {
       const customEvent = event as CustomEvent;
       if (customEvent.detail && customEvent.detail.displayName) {
-        console.log("Display name update event received:", customEvent.detail.displayName);
+        console.log(
+          "Display name update event received:",
+          customEvent.detail.displayName
+        );
         setDisplayName(customEvent.detail.displayName);
       }
     };
 
-    window.addEventListener('userProfileUpdated', handleDisplayNameUpdate);
-    
+    window.addEventListener("userProfileUpdated", handleDisplayNameUpdate);
+
     return () => {
-      window.removeEventListener('userProfileUpdated', handleDisplayNameUpdate);
+      window.removeEventListener("userProfileUpdated", handleDisplayNameUpdate);
     };
   }, []);
-  
+
   // Add this effect to check account privacy
   useEffect(() => {
     const checkPrivacy = async () => {
       if (user?.id && user.id !== currentUser.id) {
         try {
+          console.log("Checking privacy for user ID:", user.id);
           const isPrivate = await checkAccountPrivacy(user.id);
+          console.log("Privacy check result:", isPrivate);
           setIsPrivateAccount(isPrivate);
         } catch (error) {
           console.error("Error checking account privacy:", error);
+          // If there's an error, let's default to treating as private for safety
+          setIsPrivateAccount(true);
         }
       }
     };
-    
+
     checkPrivacy();
   }, [user?.id, currentUser.id]);
-
   // Handle stats changes
   const handleStatsChange = (
     newFollowersCount: number,
@@ -246,10 +285,8 @@ const ProfileHeader = () => {
   };
 
   // Handle follow change from FollowButton
-  const handleFollowChange = (
-    isFollowing: boolean,
-    followerCount: number  ) => {
-    setStats(prevStats => ({
+  const handleFollowChange = (isFollowing: boolean, followerCount: number) => {
+    setStats((prevStats) => ({
       ...prevStats,
       followersCount: followerCount,
       isFollowing: isFollowing,
@@ -257,8 +294,8 @@ const ProfileHeader = () => {
   };
 
   // Format the join date for display
-  const formattedJoinDate = joinDate 
-    ? new Date(joinDate).toLocaleDateString() 
+  const formattedJoinDate = joinDate
+    ? new Date(joinDate).toLocaleDateString()
     : "Unknown";
 
   return (
@@ -268,13 +305,19 @@ const ProfileHeader = () => {
         <Avatar className="h-24 w-24 border-2 border-primary/20">
           <AvatarImage
             key={refreshKey} // Force re-render on refreshKey change
-            src={profileImageSrc || getProfileImageUrl(user.profileImageUrl, user.username)}
+            src={
+              profileImageSrc ||
+              getProfileImageUrl(user.profileImageUrl, user.username)
+            }
             alt={user.username || "User"}
             onError={(e) => {
               console.error("Failed to load profile image:", e);
-              
+
               // Try one more time with the image proxy directly
-              if (user.profileImageUrl && !e.currentTarget.src.includes('dicebear')) {
+              if (
+                user.profileImageUrl &&
+                !e.currentTarget.src.includes("dicebear")
+              ) {
                 console.log("Retrying with direct proxy URL");
                 e.currentTarget.src = getFullImageUrl(user.profileImageUrl);
               } else {
@@ -297,38 +340,43 @@ const ProfileHeader = () => {
         <h2 className="text-2xl font-bold">{displayName}</h2>
         <p className="text-muted-foreground">@{user.username || "unknown"}</p>
 
-        {user.bio 
-          ? <p className="mt-2">{user.bio}</p>
-          : !user.bio && isAuthenticated && user.id === currentUser.id && (
+        {user.bio ? (
+          <p className="mt-2">{user.bio}</p>
+        ) : (
+          !user.bio &&
+          isAuthenticated &&
+          user.id === currentUser.id && (
             <div className="mt-2 text-sm text-muted-foreground italic">
               No bio added yet.
             </div>
           )
-        }
-        
+        )}
+
         {/* User Badges display area */}
         {user.id && (
           <div className="mt-3">
             {/* Show badge status text above the buttons */}
-            {isAuthenticated && user.id === currentUser.id && userBadges.length === 0 && (
-              <div className="text-sm text-muted-foreground italic mb-2">
-                No badges selected yet.
-              </div>
-            )}
-            
+            {isAuthenticated &&
+              user.id === currentUser.id &&
+              userBadges.length === 0 && (
+                <div className="text-sm text-muted-foreground italic mb-2">
+                  No badges selected yet.
+                </div>
+              )}
+
             {/* Display selected badges if any */}
             {userBadges.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2">
-                {userBadges.map(badgeId => {
+                {userBadges.map((badgeId) => {
                   const badge = getBadgeById(badgeId);
                   if (!badge) return null;
-                  
+
                   return (
                     <TooltipProvider key={badgeId}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge 
-                            variant="secondary" 
+                          <Badge
+                            variant="secondary"
                             className="cursor-help hover:bg-secondary/80"
                           >
                             {badge.name}
@@ -343,25 +391,25 @@ const ProfileHeader = () => {
                 })}
               </div>
             )}
-            
+
             {/* Buttons row for current user only */}
             {isAuthenticated && user.id === currentUser.id && (
               <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => router.push("/settings")}
                   className="flex items-center gap-1"
                 >
-                  {user.bio ? 'Edit Bio' : 'Add Bio'}
+                  {user.bio ? "Edit Bio" : "Add Bio"}
                 </Button>
 
-                <Button 
-                  variant="outline" 
-                  size="sm" 
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setIsSelectorOpen(true)}
                 >
-                  {userBadges.length > 0 ? 'Edit Badges' : 'Add Badges'}
+                  {userBadges.length > 0 ? "Edit Badges" : "Add Badges"}
                 </Button>
               </div>
             )}
@@ -403,25 +451,31 @@ const ProfileHeader = () => {
               />
             )}
             {user.id && (
-              <MessageButton 
-                username={user.username || ""} 
-                userId={user.id} 
+              <MessageButton
+                username={user.username || ""}
+                userId={user.id}
                 variant="outline"
               />
             )}
           </div>
         ) : (
           <Button
-            onClick={() => router.push(`/login?redirect=${encodeURIComponent(`/profile/${user.username}`)}`)}
+            onClick={() =>
+              router.push(
+                `/login?redirect=${encodeURIComponent(
+                  `/profile/${user.username}`
+                )}`
+              )
+            }
             className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
           >
             Log in to interact
           </Button>
         )}
       </div>
-      
+
       {/* Badge Selector Modal */}
-      <BadgeSelector 
+      <BadgeSelector
         isOpen={isSelectorOpen}
         onClose={() => setIsSelectorOpen(false)}
         selectedBadges={userBadges}

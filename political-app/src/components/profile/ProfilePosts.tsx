@@ -32,6 +32,47 @@ const ProfilePosts = () => {
     followersCount: 0,
     followingCount: 0,
   });
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Add this to the useEffect dependencies for fetching posts:
+  useEffect(() => {
+    const fetchPosts = async () => {
+      // ... existing code ...
+    };
+
+    fetchPosts();
+  }, [user?.username, user?.id, refreshTrigger, isFollowing]); // Added isFollowing and refreshTrigger
+
+  // Modify the effect that checks privacy:
+  useEffect(() => {
+    const checkPrivacyAndAccess = async () => {
+      if (!user?.id) return;
+
+      try {
+        // Check if the profile is private
+        console.log("Checking privacy for profile: ", user.id);
+        const privacyResponse = await checkAccountPrivacy(user.id);
+        console.log("Privacy check result:", privacyResponse);
+        setIsPrivate(privacyResponse);
+
+        // If private, we need to check if current user is following
+        if (privacyResponse && currentUser?.id !== user.id) {
+          console.log("Account is private, checking follow status");
+          const followStatusResponse = await getFollowStatus(user.id);
+          console.log("Follow status:", followStatusResponse);
+          setFollowStatus(followStatusResponse);
+          setIsFollowing(followStatusResponse.isFollowing);
+
+          // Trigger a refresh of posts when follow status changes
+          setRefreshTrigger((prev) => prev + 1);
+        }
+      } catch (error) {
+        console.error("Error checking profile privacy:", error);
+      }
+    };
+
+    checkPrivacyAndAccess();
+  }, [user?.id, currentUser?.id]);
 
   // Add this effect to check privacy status
   useEffect(() => {

@@ -453,18 +453,20 @@ export const getPostsByUsername = async (
   username: string
 ): Promise<PostType[]> => {
   try {
-    // First get the user ID from the username
-    const userResponse = await apiClient.get<UserProfile>(`/users/profile/${username}`);
-    const userId = userResponse.data.id;
-
-    if (!userId) {
-      console.error(`Could not find user ID for username: ${username}`);
+    // Use the /profile/{username}/posts endpoint instead
+    // This endpoint respects privacy settings
+    const response = await apiClient.get<PostType[]>(`/users/profile/${username}/posts`);
+    
+    // Make sure we handle the response correctly
+    if (Array.isArray(response.data)) {
+      // Sort posts by date (newest first)
+      return response.data.sort((a, b) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    } else {
+      console.warn("Response is not an array:", response.data);
       return [];
     }
-
-    // Then use the user ID to fetch posts
-    const response = await apiClient.get<PostType[]>(`/posts/user/${userId}`);
-    return response.data;
   } catch (error) {
     console.error(`Error fetching posts for user ${username}:`, error);
     return [];
@@ -477,13 +479,16 @@ export const getPostsByUsername = async (
 export const checkAccountPrivacy = async (userId: number): Promise<boolean> => {
   try {
     console.log("Checking privacy for user:", userId);
-    // Make sure this matches your controller endpoint
-    const response = await apiClient.get<{ isPrivate: boolean }>(`/users/${userId}/privacy-status`);
+    
+    // This is the correct endpoint, but let's make sure it's working
+    const response = await apiClient.get<{ isPrivate: boolean }>(`/users/privacy-settings/status/${userId}`);
+    
     console.log("Privacy response:", response.data);
     return response.data.isPrivate;
   } catch (error) {
     console.error(`Error checking privacy status for user ${userId}:`, error);
-    return false; // Default to public if we can't determine
+    // Instead of defaulting to false, throw the error so we can debug it
+    throw error;
   }
 };
 
