@@ -63,8 +63,10 @@ public class PrivacySettingsService {
      */
     @Transactional
     public UserPrivacySettings getUserSettings(User user) {
+        // Always get fresh settings from the database
         return privacyRepository.findByUserId(user.getId())
                 .orElseGet(() -> {
+                    System.out.println("Creating default privacy settings for user: " + user.getUsername());
                     UserPrivacySettings settings = new UserPrivacySettings(user);
                     return privacyRepository.save(settings);
                 });
@@ -110,6 +112,11 @@ public class PrivacySettingsService {
     public UserPrivacySettings updateSettings(Long userId, UserPrivacySettingsDto settingsDto) {
         UserPrivacySettings settings = getSettings(userId);
 
+        // Log before update
+        System.out.println("PRIVACY UPDATE - User ID: " + userId);
+        System.out.println("  Before: publicProfile = " + settings.isPublicProfile());
+        System.out.println("  After: publicProfile = " + settingsDto.isPublicProfile());
+
         // Track old privacy setting to detect changes
         boolean wasPrivate = !settings.isPublicProfile();
         boolean willBePrivate = !settingsDto.isPublicProfile();
@@ -135,6 +142,9 @@ public class PrivacySettingsService {
 
         // Save settings
         UserPrivacySettings updatedSettings = privacyRepository.save(settings);
+
+        System.out.println("  Saved: publicProfile = " + updatedSettings.isPublicProfile());
+
 
         // If account was public and is now private, we might need to
         // convert existing follows to requests, but we'll leave that

@@ -5,8 +5,11 @@ import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.dto.PostRequest;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.exception.ResourceNotFoundException;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.service.PostService;
+import com.jgy36.PoliticalApp.service.PrivacySettingsService;
+import com.jgy36.PoliticalApp.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,12 +28,16 @@ import java.util.stream.Collectors;
 public class PostController {
 
     private final PostService postService;
-    private final UserRepository userRepository; // ✅ Ensure this is declared
+    private final UserRepository userRepository;// ✅ Ensure this is declared
+    private final UserService userService; // ✅ Ensure this is declared
+    private final PrivacySettingsService privacySettingsService; // ✅ Ensure this is declared
 
 
-    public PostController(PostService postService, UserRepository userRepository) {
+    public PostController(PostService postService, UserRepository userRepository, UserService userService, PrivacySettingsService privacySettingsService) {
         this.postService = postService;
         this.userRepository = userRepository;
+        this.userService = userService;
+        this.privacySettingsService = privacySettingsService;
     }
 
     // ✅ Get all posts
@@ -202,6 +209,32 @@ public class PostController {
     // In PostController.java
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<PostDTO>> getUserPosts(@PathVariable Long userId) {
+        // Get current user (if authenticated)
+        User currentUser = null;
+        try {
+            currentUser = userService.getCurrentUser();
+        } catch (Exception e) {
+            // User not authenticated
+        }
+
+        // Check if target user account is private
+        boolean isPrivate = privacySettingsService.isAccountPrivate(userId);
+        boolean isOwner = currentUser != null && currentUser.getId().equals(userId);
+        boolean isFollowing = false;
+
+        // Check following status if user is authenticated
+        if (currentUser != null) {
+            User targetUser = userRepository.findById(userId)
+                    .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            isFollowing = currentUser.getFollowing().contains(targetUser);
+        }
+
+        // If private and not owner and not following, return empty list
+        if (isPrivate && !isOwner && !isFollowing) {
+            return ResponseEntity.ok(Collections.emptyList());
+        }
+
+        // Otherwise return posts as normal
         List<Post> posts = postService.getPostsByUserId(userId);
         List<PostDTO> postDTOs = posts.stream()
                 .map(post -> new PostDTO(post))

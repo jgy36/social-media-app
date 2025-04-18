@@ -67,22 +67,27 @@ public class FollowRequestService {
             return false; // Request already exists
         }
 
-        // ⚠️ Debug the privacy check
-        UserPrivacySettings privacySettings = privacySettingsService.getUserSettings(targetUser);
+        // Get privacy settings directly from the repository instead of user object
+        // This ensures we're getting the latest settings from the database
+        UserPrivacySettings privacySettings = privacySettingsService
+                .getSettings(targetUserId);
+
         boolean isPrivate = !privacySettings.isPublicProfile();
 
-        System.out.println("DEBUG - Privacy check for user " + targetUser.getUsername());
+        System.out.println("CRITICAL DEBUG - Privacy check for user " + targetUser.getUsername());
         System.out.println("Is private account? " + isPrivate);
         System.out.println("Privacy settings: publicProfile=" + privacySettings.isPublicProfile());
 
         // If account is public, directly follow
         if (!isPrivate) {
+            System.out.println("Creating direct follow - public account");
             currentUser.follow(targetUser);
             userRepository.save(currentUser);
             return true;
         }
 
         // If account is private, create follow request
+        System.out.println("Creating follow request - private account");
         FollowRequest followRequest = new FollowRequest(currentUser, targetUser);
         followRequestRepository.save(followRequest);
         return false;
