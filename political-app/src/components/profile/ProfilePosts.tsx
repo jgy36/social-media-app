@@ -74,11 +74,18 @@ const ProfilePosts = () => {
         const followStatusResponse = await getFollowStatus(user.id);
         console.log(`[ProfilePosts] 👥 Follow status:`, followStatusResponse);
         
-        setFollowStatus(followStatusResponse);
+        // Fix the type error by ensuring all properties are defined
+        setFollowStatus({
+          isFollowing: followStatusResponse.isFollowing || false,
+          isRequested: followStatusResponse.isRequested || false,
+          followersCount: followStatusResponse.followersCount || 0,
+          followingCount: followStatusResponse.followingCount || 0,
+        });
+        
         setIsFollowing(followStatusResponse.isFollowing || false);
         setIsRequested(followStatusResponse.isRequested || false);
         
-        console.log(`[ProfilePosts] Updated follow state: isFollowing=${followStatusResponse.isFollowing}, isRequested=${followStatusResponse.isRequested}`);
+        console.log(`[ProfilePosts] Updated follow state: isFollowing=${followStatusResponse.isFollowing}, isRequested=${followStatusResponse.isRequested || false}`);
       } else {
         console.log("[ProfilePosts] Account is public, showing posts");
       }
@@ -97,7 +104,7 @@ const ProfilePosts = () => {
         console.log(`[ProfilePosts] Follow status changed for current profile: isFollowing=${customEvent.detail.isFollowing}, isRequested=${customEvent.detail.isRequested}`);
         
         setIsFollowing(customEvent.detail.isFollowing);
-        setIsRequested(customEvent.detail.isRequested);
+        setIsRequested(customEvent.detail.isRequested || false);
         
         // Trigger a refresh of posts if following status changed to true
         if (customEvent.detail.isFollowing && !isFollowing) {

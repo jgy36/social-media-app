@@ -15,9 +15,16 @@ export interface NotificationPreferences {
   likeNotifications: boolean;
 }
 
+// Define community notification action interface
+interface CommunityNotificationAction {
+  communityId: string;
+  enabled: boolean;
+}
+
 // State interface
 interface NotificationPreferencesState {
   preferences: NotificationPreferences;
+  communityPreferences: Record<string, boolean>; // Added for per-community settings
   isLoading: boolean;
   error: string | null;
 }
@@ -56,6 +63,7 @@ const loadSavedPreferences = (): NotificationPreferences => {
 // Initial state
 const initialState: NotificationPreferencesState = {
   preferences: loadSavedPreferences(),
+  communityPreferences: {}, // Added for per-community settings
   isLoading: false,
   error: null,
 };
@@ -133,6 +141,31 @@ const notificationPreferencesSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    
+    // Set notification preference for a specific community
+    setNotificationPreference: (state, action: PayloadAction<CommunityNotificationAction>) => {
+      const { communityId, enabled } = action.payload;
+      state.communityPreferences[communityId] = enabled;
+    },
+    
+    // Toggle notification preference for a specific community
+    toggleNotificationPreference: (state, action: PayloadAction<string>) => {
+      const communityId = action.payload;
+      const currentValue = state.communityPreferences[communityId] ?? false;
+      state.communityPreferences[communityId] = !currentValue;
+    },
+    
+    // Update preference from server, only if different from current state
+    updatePreferenceFromServer: (state, action: PayloadAction<CommunityNotificationAction>) => {
+      const { communityId, enabled } = action.payload;
+      const currentValue = state.communityPreferences[communityId];
+      
+      // Only update if the value is different or not set yet
+      if (currentValue === undefined || currentValue !== enabled) {
+        console.log(`Updating notification for ${communityId} to ${enabled} (from server)`);
+        state.communityPreferences[communityId] = enabled;
+      }
+    },
   },
   extraReducers: (builder) => {
     // Handle fetchNotificationPreferences
@@ -193,7 +226,10 @@ const notificationPreferencesSlice = createSlice({
 export const { 
   togglePreference, 
   resetPreferences,
-  clearError
+  clearError,
+  setNotificationPreference,     
+  toggleNotificationPreference,
+  updatePreferenceFromServer     // Added this export
 } = notificationPreferencesSlice.actions;
 
 export default notificationPreferencesSlice.reducer;

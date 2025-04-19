@@ -456,56 +456,70 @@ export const getPostsByUsername = async (
   username: string
 ): Promise<PostType[]> => {
   try {
-    const response = await apiClient.get(`/users/profile/${username}/posts`);
+    console.log(`Fetching posts for username: ${username}`);
+    
+    const response = await apiClient.get(`/users/profile/${username}/posts`, {
+      headers: {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache'
+      },
+      // Force response type to be JSON
+      responseType: 'json'
+    });
     
     console.log("Raw posts response type:", typeof response.data);
     
-    // Handle string responses (the root issue)
+    // Handle string responses (if still occurring)
     if (typeof response.data === 'string') {
       console.log("Response is string - attempting to parse as JSON");
       try {
-        // Try to parse the string as JSON
+        // Try to parse the JSON string
         const parsedData = JSON.parse(response.data);
         console.log("Successfully parsed JSON from string response");
         
         if (Array.isArray(parsedData)) {
-          // Process parsed array
-          return parsedData.sort((a, b) => {
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          });
+          return parsedData;
         } else if (parsedData && typeof parsedData === 'object') {
-          // If parsed result is a single post object
+          // Check if it's a single post
           if (parsedData.id && parsedData.content) {
             return [parsedData as PostType];
           }
         }
+        
+        // If we can't determine the structure, return empty array
+        console.error("Unknown data structure in parsed JSON:", parsedData);
+        return [];
       } catch (parseError) {
         console.error("Failed to parse response string as JSON:", parseError);
+        return [];
       }
     }
     
-    // Original processing logic
-    let postsArray: PostType[] = [];
-    
+    // Handle array response (expected case after backend fix)
     if (Array.isArray(response.data)) {
-      postsArray = response.data;
-    } else if (response.data && typeof response.data === 'object') {
-      // Try to handle single post or object with posts
+      console.log(`Found ${response.data.length} posts in array response`);
+      return response.data;
+    } 
+    
+    // Handle object response
+    if (response.data && typeof response.data === 'object') {
+      // Check if it's a single post
       if ('id' in response.data && 'content' in response.data) {
-        postsArray = [response.data as PostType];
-      } else {
-        postsArray = Object.values(response.data).filter(item => 
-          item && typeof item === 'object' && 'id' in item && 'content' in item
-        ) as PostType[];
+        console.log("Found single post object, converting to array");
+        return [response.data as PostType];
       }
+      
+      // Try to extract posts from an object
+      const extractedPosts = Object.values(response.data).filter(item => 
+        item && typeof item === 'object' && 'id' in item && 'content' in item
+      ) as PostType[];
+      
+      console.log(`Extracted ${extractedPosts.length} posts from object`);
+      return extractedPosts;
     }
     
-    console.log(`Found ${postsArray.length} posts after processing`);
-    
-    // Sort posts by date (newest first)
-    return postsArray.sort((a, b) => {
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    console.log("No valid post data found in response");
+    return [];
   } catch (error) {
     console.error(`Error fetching posts for user ${username}:`, error);
     return [];
