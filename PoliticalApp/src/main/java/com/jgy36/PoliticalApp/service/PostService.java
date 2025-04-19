@@ -249,8 +249,11 @@ public class PostService {
     }
 
     // ✅ Find posts by a specific user
-    public List<Post> getPostsByUserId(Long userId) {
-        return postRepository.findByAuthorId(userId);
+    // Update this method in PostService.java
+    public List<PostDTO> getPostsByUserId(Long userId) {
+        return postRepository.findByAuthorId(userId).stream()
+                .map(PostDTO::new)
+                .collect(Collectors.toList());
     }
 
     // ✅ Create a post in a specific community

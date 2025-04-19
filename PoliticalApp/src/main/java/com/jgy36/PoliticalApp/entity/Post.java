@@ -30,7 +30,7 @@ public class Post {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts"})
+    @JsonIgnoreProperties({"password", "email", "verificationToken", "following", "savedPosts", "hibernateLazyInitializer", "handler", "posts", "likedPosts", "comments"})
     private User author;
 
     @Column(nullable = false, updatable = false)
@@ -76,13 +76,15 @@ public class Post {
     @Column(nullable = false)
     private int repostCount = 0;
     // Add this relationship to get the original post (if this is a repost)
+    // For the original post relationship
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_post_id", insertable = false, updatable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "author", "likes", "comments", "hashtags", "reposts"})
     private Post originalPost;
-    // Add this to get reposts of this post
+
+    // For reposts relationship
     @OneToMany(mappedBy = "originalPost")
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "originalPost", "likes", "comments", "hashtags"})
     private Set<Post> reposts = new HashSet<>();
     @Column(nullable = true)
     private LocalDateTime updatedAt;

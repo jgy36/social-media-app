@@ -9,6 +9,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 @ControllerAdvice
@@ -67,6 +69,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                 createErrorResponse("Internal Server Error", ex.getMessage())
         );
+    }
+
+    @ExceptionHandler(HttpMessageNotWritableException.class)
+    public ResponseEntity<Map<String, Object>> handleJsonSerializationException(HttpMessageNotWritableException ex) {
+        System.err.println("JSON Serialization error: " + ex.getMessage());
+        ex.printStackTrace();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", "Unable to serialize response to JSON");
+        response.put("message", ex.getMessage());
+
+        // Return a simple, serializable response
+        return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     // ✅ Inner class for consistent error response format

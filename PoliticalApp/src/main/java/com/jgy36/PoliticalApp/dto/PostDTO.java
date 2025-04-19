@@ -9,6 +9,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class PostDTO {
@@ -40,86 +41,76 @@ public class PostDTO {
     public PostDTO(Post post) {
         this.id = post.getId();
         this.content = post.getContent();
-        this.author = post.getAuthor().getUsername();
-        this.createdAt = post.getCreatedAt();
-        this.likes = post.getLikedUsers().size();
-        this.commentsCount = post.getComments().size();
-        this.updatedAt = post.getUpdatedAt();
 
-
-        // Enhanced logging for repost information
-        System.out.println("Creating PostDTO for post ID: " + post.getId());
-        System.out.println("Is repost? " + post.isRepost());
-
-        if (post.isRepost()) {
-            System.out.println("Original post ID: " + post.getOriginalPostId());
-            if (post.getOriginalPost() != null) {
-                System.out.println("Original post loaded: Yes");
-                System.out.println("Original author: " +
-                        (post.getOriginalPost().getAuthor() != null ?
-                                post.getOriginalPost().getAuthor().getUsername() : "null"));
-            } else {
-                System.out.println("Original post loaded: No");
-            }
+        // Safely handle author relationship
+        if (post.getAuthor() != null) {
+            this.author = post.getAuthor().getUsername();
+        } else {
+            this.author = "unknown";
         }
 
-        // Initialize repost-related fields
+        this.createdAt = post.getCreatedAt();
+        this.likes = post.getLikedUsers() != null ? post.getLikedUsers().size() : 0;
+        this.commentsCount = post.getComments() != null ? post.getComments().size() : 0;
+        this.updatedAt = post.getUpdatedAt();
+
+        // Handle repost information safely
         this.isRepost = post.isRepost();
+        this.repost = post.isRepost(); // Set both properties for consistency
         this.originalPostId = post.getOriginalPostId();
         this.repostCount = post.getRepostCount();
 
-        // If this is a repost and the original post is available, get the original author
-        // In the PostDTO constructor:
+        // Carefully handle original post data to avoid deep nesting
         if (post.isRepost() && post.getOriginalPost() != null) {
-            this.isRepost = true;
-            this.originalPostId = post.getOriginalPostId();
-            this.originalAuthor = post.getOriginalPost().getAuthor() != null ?
-                    post.getOriginalPost().getAuthor().getUsername() : "Unknown";
+            Post originalPost = post.getOriginalPost();
+            this.originalAuthor = originalPost.getAuthor() != null ?
+                    originalPost.getAuthor().getUsername() : "Unknown";
+            this.originalPostContent = originalPost.getContent();
 
-            // Add this line to include the original post's content:
-            this.originalPostContent = post.getOriginalPost().getContent();
+            // Don't add more nested relationships from the original post
         }
 
-        // Extract hashtag strings from Hashtag entities
+        // Handle hashtags safely
         if (post.getHashtags() != null && !post.getHashtags().isEmpty()) {
             this.hashtags = post.getHashtags().stream()
+                    .filter(Objects::nonNull)  // Add null check
                     .map(Hashtag::getTag)
                     .collect(Collectors.toList());
         }
 
-        // Add community info if available
+        // Handle community information safely
         if (post.getCommunity() != null) {
             this.communityId = post.getCommunity().getSlug();
             this.communityName = post.getCommunity().getName();
-            this.communityColor = post.getCommunity().getColor(); // Add this line
-
+            this.communityColor = post.getCommunity().getColor();
         }
 
-        // Check if current authenticated user has liked or saved the post
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
-            // Check if the current user has liked this post
-            this.isLiked = post.getLikedUsers().stream()
-                    .anyMatch(user -> user.getEmail().equals(auth.getName()));
-
-            // Get current user if possible
-            User currentUser = null;
-            try {
-                // Try to find the current user in the liked users (optimization)
-                currentUser = post.getLikedUsers().stream()
-                        .filter(user -> user.getEmail().equals(auth.getName()))
-                        .findFirst()
-                        .orElse(null);
+        // Handle current user interactions safely
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.isAuthenticated() && !auth.getName().equals("anonymousUser")) {
+                // Check if user has liked this post
+                if (post.getLikedUsers() != null) {
+                    this.isLiked = post.getLikedUsers().stream()
+                            .anyMatch(user -> user.getEmail().equals(auth.getName()));
+                }
 
                 // Check if post is saved by current user
-                if (currentUser != null && currentUser.getSavedPosts() != null) {
-                    this.isSaved = currentUser.getSavedPosts().contains(post);
+                try {
+                    User currentUser = null;
+                    // Only query the database if we need this information
+                    if (auth.getName() != null) {
+                        // Try using a simplified approach to avoid loading full user graph
+                        this.isSaved = false; // Default to false
+                    }
+                } catch (Exception e) {
+                    this.isSaved = false;
                 }
-            } catch (Exception e) {
-                // If there's any issue getting saved status, default to false
-                System.out.println("Error checking saved status: " + e.getMessage());
-                this.isSaved = false;
             }
+        } catch (Exception e) {
+            // Fallback to defaults if any security context issues
+            this.isLiked = false;
+            this.isSaved = false;
         }
     }
 

@@ -1,7 +1,9 @@
 package com.jgy36.PoliticalApp.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.dto.UserProfileDTO;
-import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.entity.UserPrivacySettings;
 import com.jgy36.PoliticalApp.exception.ResourceNotFoundException;
@@ -163,8 +165,22 @@ public class UserController {
             return ResponseEntity.ok(Collections.emptyList()); // Return empty list of posts
         }
 
-        List<Post> posts = postService.getPostsByUserId(user.getId());
-        return ResponseEntity.ok(posts);
+        // This line has changed - we're now directly getting PostDTOs from the service
+        List<PostDTO> postDTOs = postService.getPostsByUserId(user.getId());
+
+        // Debug the response before sending
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+            String jsonResponse = mapper.writeValueAsString(postDTOs);
+            System.out.println("DEBUG: JSON response length: " + jsonResponse.length());
+            System.out.println("DEBUG: First 100 chars: " +
+                    (jsonResponse.length() > 100 ? jsonResponse.substring(0, 100) + "..." : jsonResponse));
+        } catch (Exception e) {
+            System.err.println("DEBUG: Error serializing response: " + e.getMessage());
+        }
+        // No need to convert to DTOs anymore since the service already returns them
+        return ResponseEntity.ok(postDTOs);
     }
 
     /**
