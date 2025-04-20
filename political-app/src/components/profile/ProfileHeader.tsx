@@ -6,7 +6,7 @@ import SettingsDropdown from "./SettingsDropdown";
 import UserStats from "./UserStats";
 import { getFollowStatus, checkAccountPrivacy } from "@/api/users"; // Add checkAccountPrivacy import
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Calendar } from "lucide-react"; // Removed unused Pencil
+import { Calendar, Lock } from "lucide-react"; // Removed unused Pencil
 import { getProfileImageUrl, getFullImageUrl } from "@/utils/imageUtils";
 import { getUserData } from "@/utils/tokenUtils";
 import { Button } from "@/components/ui/button";
@@ -338,7 +338,20 @@ const ProfileHeader = () => {
       <div className="flex-1 text-center md:text-left">
         {/* Display name with fallback logic */}
         <h2 className="text-2xl font-bold">{displayName}</h2>
-        <p className="text-muted-foreground">@{user.username || "unknown"}</p>
+        <div className="flex items-center justify-center md:justify-start gap-2">
+          <p className="text-muted-foreground">@{user.username || "unknown"}</p>
+
+          {/* Private Account Badge */}
+          {isPrivateAccount && (
+            <Badge
+              variant="secondary"
+              className="flex items-center gap-1 bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+            >
+              <Lock className="h-3 w-3" />
+              <span className="text-xs">Private Account</span>
+            </Badge>
+          )}
+        </div>
 
         {user.bio ? (
           <p className="mt-2">{user.bio}</p>

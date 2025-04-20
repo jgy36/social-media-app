@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { Card } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import {
   getPostsByUsername,
   checkAccountPrivacy,
@@ -34,20 +34,30 @@ const ProfilePosts = () => {
   // Function to check privacy status - separated to keep code clean
   const checkPrivacyAndAccess = useCallback(async () => {
     if (!user?.id) {
-      console.log("[ProfilePosts] No user ID available, skipping privacy check");
+      console.log(
+        "[ProfilePosts] No user ID available, skipping privacy check"
+      );
       return;
     }
 
-    console.log(`[ProfilePosts] 🔒 PRIVACY CHECK for user ID: ${user.id} (${user.username || 'unknown'})`);
-    console.log(`[ProfilePosts] Current user ID: ${currentUser?.id || 'not logged in'}`);
-    
+    console.log(
+      `[ProfilePosts] 🔒 PRIVACY CHECK for user ID: ${user.id} (${
+        user.username || "unknown"
+      })`
+    );
+    console.log(
+      `[ProfilePosts] Current user ID: ${currentUser?.id || "not logged in"}`
+    );
+
     try {
       // Check if this is the user's own profile
       const isOwnProfile = currentUser?.id === user.id;
       console.log(`[ProfilePosts] Is own profile? ${isOwnProfile}`);
-      
+
       if (isOwnProfile) {
-        console.log("[ProfilePosts] User viewing own profile - always show posts");
+        console.log(
+          "[ProfilePosts] User viewing own profile - always show posts"
+        );
         setIsPrivate(false);
         setIsFollowing(true);
         return;
@@ -56,16 +66,22 @@ const ProfilePosts = () => {
       // Check if the profile is private
       console.log(`[ProfilePosts] Checking privacy for profile ID: ${user.id}`);
       const privacyResponse = await checkAccountPrivacy(user.id);
-      console.log(`[ProfilePosts] 🔒 Privacy check result: isPrivate=${privacyResponse}`);
+      console.log(
+        `[ProfilePosts] 🔒 Privacy check result: isPrivate=${privacyResponse}`
+      );
       setIsPrivate(privacyResponse);
       setLastPrivacyCheck(Date.now());
 
       // If private, check if current user is following
       if (privacyResponse) {
-        console.log(`[ProfilePosts] Account is private, checking follow status`);
-        
+        console.log(
+          `[ProfilePosts] Account is private, checking follow status`
+        );
+
         if (!currentUser?.id) {
-          console.log("[ProfilePosts] Not authenticated, can't see private profile posts");
+          console.log(
+            "[ProfilePosts] Not authenticated, can't see private profile posts"
+          );
           setIsFollowing(false);
           setIsRequested(false);
           return;
@@ -73,7 +89,7 @@ const ProfilePosts = () => {
 
         const followStatusResponse = await getFollowStatus(user.id);
         console.log(`[ProfilePosts] 👥 Follow status:`, followStatusResponse);
-        
+
         // Fix the type error by ensuring all properties are defined
         setFollowStatus({
           isFollowing: followStatusResponse.isFollowing || false,
@@ -81,11 +97,15 @@ const ProfilePosts = () => {
           followersCount: followStatusResponse.followersCount || 0,
           followingCount: followStatusResponse.followingCount || 0,
         });
-        
+
         setIsFollowing(followStatusResponse.isFollowing || false);
         setIsRequested(followStatusResponse.isRequested || false);
-        
-        console.log(`[ProfilePosts] Updated follow state: isFollowing=${followStatusResponse.isFollowing}, isRequested=${followStatusResponse.isRequested || false}`);
+
+        console.log(
+          `[ProfilePosts] Updated follow state: isFollowing=${
+            followStatusResponse.isFollowing
+          }, isRequested=${followStatusResponse.isRequested || false}`
+        );
       } else {
         console.log("[ProfilePosts] Account is public, showing posts");
       }
@@ -98,34 +118,46 @@ const ProfilePosts = () => {
   useEffect(() => {
     const handleFollowStatusChange = (event: Event) => {
       const customEvent = event as CustomEvent;
-      console.log("[ProfilePosts] 👂 Received followStatusChanged event:", customEvent.detail);
-      
+      console.log(
+        "[ProfilePosts] 👂 Received followStatusChanged event:",
+        customEvent.detail
+      );
+
       if (customEvent.detail && customEvent.detail.targetUserId === user?.id) {
-        console.log(`[ProfilePosts] Follow status changed for current profile: isFollowing=${customEvent.detail.isFollowing}, isRequested=${customEvent.detail.isRequested}`);
-        
+        console.log(
+          `[ProfilePosts] Follow status changed for current profile: isFollowing=${customEvent.detail.isFollowing}, isRequested=${customEvent.detail.isRequested}`
+        );
+
         setIsFollowing(customEvent.detail.isFollowing);
         setIsRequested(customEvent.detail.isRequested || false);
-        
+
         // Trigger a refresh of posts if following status changed to true
         if (customEvent.detail.isFollowing && !isFollowing) {
-          console.log("[ProfilePosts] 🔄 Follow status changed to following, refreshing posts");
-          setRefreshTrigger(prev => prev + 1);
+          console.log(
+            "[ProfilePosts] 🔄 Follow status changed to following, refreshing posts"
+          );
+          setRefreshTrigger((prev) => prev + 1);
         }
       }
     };
-    
+
     console.log("[ProfilePosts] Adding followStatusChanged event listener");
-    window.addEventListener('followStatusChanged', handleFollowStatusChange);
-    
+    window.addEventListener("followStatusChanged", handleFollowStatusChange);
+
     return () => {
       console.log("[ProfilePosts] Removing followStatusChanged event listener");
-      window.removeEventListener('followStatusChanged', handleFollowStatusChange);
+      window.removeEventListener(
+        "followStatusChanged",
+        handleFollowStatusChange
+      );
     };
   }, [user?.id, isFollowing]);
 
   // Check privacy and follow status on component mount or user ID change
   useEffect(() => {
-    console.log(`[ProfilePosts] User ID changed or component mounted, checking privacy: ${user?.id}`);
+    console.log(
+      `[ProfilePosts] User ID changed or component mounted, checking privacy: ${user?.id}`
+    );
     checkPrivacyAndAccess();
   }, [user?.id, currentUser?.id, checkPrivacyAndAccess]);
 
@@ -137,12 +169,20 @@ const ProfilePosts = () => {
         return;
       }
 
-      console.log(`[ProfilePosts] 📥 Fetching posts for username: ${user.username}`);
-      console.log(`[ProfilePosts] isPrivate=${isPrivate}, isFollowing=${isFollowing}, isOwnProfile=${currentUser?.id === user.id}`);
-      
+      console.log(
+        `[ProfilePosts] 📥 Fetching posts for username: ${user.username}`
+      );
+      console.log(
+        `[ProfilePosts] isPrivate=${isPrivate}, isFollowing=${isFollowing}, isOwnProfile=${
+          currentUser?.id === user.id
+        }`
+      );
+
       // If the account is private and we're not following and not the owner, don't fetch posts
       if (isPrivate && !isFollowing && currentUser?.id !== user.id) {
-        console.log("[ProfilePosts] 🚫 Private account, not following, skipping post fetch");
+        console.log(
+          "[ProfilePosts] 🚫 Private account, not following, skipping post fetch"
+        );
         setPosts([]);
         setLoading(false);
         return;
@@ -152,9 +192,13 @@ const ProfilePosts = () => {
       setError(null);
 
       try {
-        console.log(`[ProfilePosts] Calling getPostsByUsername for: ${user.username}`);
+        console.log(
+          `[ProfilePosts] Calling getPostsByUsername for: ${user.username}`
+        );
         const postsData = await getPostsByUsername(user.username);
-        console.log(`[ProfilePosts] Received ${postsData.length} posts from API`);
+        console.log(
+          `[ProfilePosts] Received ${postsData.length} posts from API`
+        );
 
         // Process the posts
         const formattedPosts = postsData.map((post) => {
@@ -183,7 +227,9 @@ const ProfilePosts = () => {
           );
         });
 
-        console.log(`[ProfilePosts] Setting ${sortedPosts.length} sorted posts`);
+        console.log(
+          `[ProfilePosts] Setting ${sortedPosts.length} sorted posts`
+        );
         setPosts(sortedPosts);
 
         // Update post count in localStorage with user-specific key
@@ -214,7 +260,14 @@ const ProfilePosts = () => {
     };
 
     fetchPosts();
-  }, [user?.username, user?.id, isPrivate, isFollowing, currentUser?.id, refreshTrigger]);
+  }, [
+    user?.username,
+    user?.id,
+    isPrivate,
+    isFollowing,
+    currentUser?.id,
+    refreshTrigger,
+  ]);
 
   // Force privacy check every 30 seconds if viewing someone else's profile
   useEffect(() => {
@@ -222,14 +275,14 @@ const ProfilePosts = () => {
       const intervalId = setInterval(() => {
         const now = Date.now();
         const timeSinceLastCheck = now - lastPrivacyCheck;
-        
+
         // If it's been more than 30 seconds since last check
         if (timeSinceLastCheck > 30000) {
           console.log("[ProfilePosts] 🔄 Performing periodic privacy check");
           checkPrivacyAndAccess();
         }
       }, 30000);
-      
+
       return () => clearInterval(intervalId);
     }
   }, [user?.id, currentUser?.id, lastPrivacyCheck, checkPrivacyAndAccess]);
@@ -264,19 +317,19 @@ const ProfilePosts = () => {
 
   // Add the privacy check right here, before returning the normal post list
   if (isPrivate && !isFollowing && currentUser?.id !== user.id) {
-    const requestMessage = isRequested 
+    const requestMessage = isRequested
       ? "Follow request sent. You'll be able to see posts once approved."
       : "This account is private. Follow this user to see their posts.";
-      
-    console.log(`[ProfilePosts] 🔒 Showing private account message: ${requestMessage}`);
-    
+
+    console.log(
+      `[ProfilePosts] 🔒 Showing private account message: ${requestMessage}`
+    );
+
     return (
       <div className="mt-6">
         <h2 className="text-lg font-bold mb-4">Posts</h2>
         <Card className="p-4 text-center">
-          <p className="text-muted-foreground">
-            {requestMessage}
-          </p>
+          <p className="text-muted-foreground">{requestMessage}</p>
         </Card>
       </div>
     );
@@ -285,8 +338,12 @@ const ProfilePosts = () => {
   // Changed "Your Posts" to just "Posts" for better user experience
   const isOwnProfile = currentUser?.id === user.id;
   const headerText = isOwnProfile ? "Your Posts" : "Posts";
-  
-  console.log(`[ProfilePosts] Rendering ${posts.length} posts for ${isOwnProfile ? 'current user' : 'other user'}`);
+
+  console.log(
+    `[ProfilePosts] Rendering ${posts.length} posts for ${
+      isOwnProfile ? "current user" : "other user"
+    }`
+  );
 
   return (
     <div className="mt-6">
@@ -294,9 +351,17 @@ const ProfilePosts = () => {
       {posts.length === 0 ? (
         <Card className="p-4 text-center text-muted-foreground">
           <p>
-            {isOwnProfile
-              ? "You haven't posted anything yet."
-              : "No posts yet."}
+            {isPrivate && !isFollowing && !isOwnProfile ? (
+              <>
+                <Lock className="h-4 w-4 mx-auto mb-2" />
+                This account is private. You need to follow this user to see
+                their posts.
+              </>
+            ) : isOwnProfile ? (
+              "You haven't posted anything yet."
+            ) : (
+              "No posts yet."
+            )}
           </p>
         </Card>
       ) : (

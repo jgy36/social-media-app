@@ -8,9 +8,10 @@ import Navbar from "@/components/navbar/Navbar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge"; // Make sure this is imported
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
-import { Calendar } from "lucide-react";
+import { Calendar, Lock } from "lucide-react";
 import axios from "axios";
 import {
   getPreviousSection,
@@ -19,7 +20,11 @@ import {
 import BackButton from "@/components/navigation/BackButton";
 import UserStats from "@/components/profile/UserStats";
 import FollowButton from "@/components/profile/FollowButton";
-import { getFollowStatus, getPostsByUsername } from "@/api/users"; // Update import
+import {
+  getFollowStatus,
+  getPostsByUsername,
+  checkAccountPrivacy,
+} from "@/api/users"; // Update import
 import MessageButton from "@/components/profile/MessageButton";
 import UserBadges from "@/components/profile/Userbadges";
 import { initializeBadges } from "@/redux/slices/badgeSlice";
@@ -36,6 +41,7 @@ interface UserProfile {
   followingCount: number;
   postsCount: number;
   isFollowing?: boolean;
+  isPrivate?: boolean; // Add this line
 }
 
 const API_BASE_URL =
@@ -70,7 +76,7 @@ const UserProfilePage = () => {
       dispatch(initializeBadges());
     }
   }, [isCurrentUserProfile, dispatch]);
-  
+
   useEffect(() => {
     // Get and store the source section when component mounts
     const prevSection = getPreviousSection();
@@ -102,22 +108,25 @@ const UserProfilePage = () => {
         // If profile found, also get follow status
         if (userProfile && userProfile.id) {
           try {
-            const followStatusResponse = (await getFollowStatus(
-              userProfile.id
-            )) as {
-              isFollowing: boolean;
-              followersCount: number;
-              followingCount: number;
-            };
-            // Update profile with follow status and counts
+            // Get follow status
+            const followStatusResponse = await getFollowStatus(userProfile.id);
+
+            // Check if account is private
+            const isPrivate = await checkAccountPrivacy(userProfile.id);
+
+            // Update profile with follow status, counts and privacy
             userProfile = {
               ...userProfile,
               isFollowing: followStatusResponse.isFollowing,
               followersCount: followStatusResponse.followersCount,
               followingCount: followStatusResponse.followingCount,
+              isPrivate: isPrivate,
             };
           } catch (followErr) {
-            console.warn("Could not fetch follow status:", followErr);
+            console.warn(
+              "Could not fetch follow status or privacy:",
+              followErr
+            );
           }
         }
 
@@ -132,20 +141,26 @@ const UserProfilePage = () => {
           if (Array.isArray(userPosts)) {
             // Sort posts by date (newest first) - ADDED THIS SORTING CODE
             const sortedPosts = [...userPosts].sort((a, b) => {
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              return (
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+              );
             });
             setPosts(sortedPosts);
           } else if (
             userPosts &&
             typeof userPosts === "object" &&
-            'data' in userPosts &&
+            "data" in userPosts &&
             Array.isArray((userPosts as { data: PostType[] }).data)
           ) {
             // Handle case where API returns { data: [...posts] }
             const postsData = (userPosts as { data: PostType[] }).data;
             // Sort posts by date (newest first) - ADDED THIS SORTING CODE
             const sortedPosts = [...postsData].sort((a, b) => {
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+              return (
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime()
+              );
             });
             setPosts(sortedPosts);
           } else {
@@ -315,7 +330,17 @@ const UserProfilePage = () => {
                 <h2 className="text-2xl font-bold">
                   {profile.displayName || profile.username}
                 </h2>
-                <p className="text-muted-foreground">@{profile.username}</p>
+                <div className="flex items-center justify-center md:justify-start gap-2">
+                  <p className="text-muted-foreground">@{profile.username}</p>
+
+                  {/* Private Account Badge */}
+                  {profile.isPrivate && (
+                    <Badge className="flex items-center gap-1 bg-slate-300 text-slate-800 dark:bg-slate-600 dark:text-slate-200">
+                      <Lock className="h-3 w-3" />
+                      <span className="text-xs">Private Account</span>
+                    </Badge>
+                  )}
+                </div>
 
                 {profile.bio && <p className="mt-2">{profile.bio}</p>}
 
@@ -432,10 +457,26 @@ const UserProfilePage = () => {
             ) : (
               isAuthenticated && (
                 <Card className="p-8 text-center">
-                  <h3 className="text-lg font-medium mb-2">No posts yet</h3>
-                  <p className="text-muted-foreground">
-                    This user hasn&apos;t posted anything.
-                  </p>
+                  {profile.isPrivate &&
+                  !profile.isFollowing &&
+                  !isCurrentUserProfile ? (
+                    <>
+                      <Lock className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                      <h3 className="text-lg font-medium mb-2">
+                        Private Account
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Follow this user to see their posts.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-lg font-medium mb-2">No posts yet</h3>
+                      <p className="text-muted-foreground">
+                        This user hasn&apos;t posted anything.
+                      </p>
+                    </>
+                  )}
                 </Card>
               )
             )}
