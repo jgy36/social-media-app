@@ -55,22 +55,7 @@ public class GlobalExceptionHandler {
         );
     }
 
-    // ✅ Handle JSON serialization errors
-    @ExceptionHandler(HttpMessageNotWritableException.class)
-    public ResponseEntity<ErrorResponse> handleJsonWriteError(HttpMessageNotWritableException ex) {
-        return ResponseEntity.status(HttpStatus.OK).body(
-                createErrorResponse("Success", "Operation completed successfully")
-        );
-    }
-
-    // ✅ Fallback for unexpected errors (500)
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                createErrorResponse("Internal Server Error", ex.getMessage())
-        );
-    }
-
+    // ✅ Handle JSON serialization errors - KEEP THIS ONE, REMOVE THE DUPLICATE
     @ExceptionHandler(HttpMessageNotWritableException.class)
     public ResponseEntity<Map<String, Object>> handleJsonSerializationException(HttpMessageNotWritableException ex) {
         System.err.println("JSON Serialization error: " + ex.getMessage());
@@ -82,6 +67,14 @@ public class GlobalExceptionHandler {
 
         // Return a simple, serializable response
         return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+    // ✅ Fallback for unexpected errors (500)
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                createErrorResponse("Internal Server Error", ex.getMessage())
+        );
     }
 
     // ✅ Inner class for consistent error response format

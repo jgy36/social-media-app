@@ -240,10 +240,7 @@ public class PostController {
         }
 
         // Otherwise return posts as normal
-        List<Post> posts = postService.getPostsByUserId(userId);
-        List<PostDTO> postDTOs = posts.stream()
-                .map(post -> new PostDTO(post))
-                .collect(Collectors.toList());
+        List<PostDTO> postDTOs = postService.getPostsByUserId(userId);
         return ResponseEntity.ok(postDTOs);
     }
 
