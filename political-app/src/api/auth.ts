@@ -70,7 +70,7 @@ export const register = async (
   return safeApiCall(async () => {
     console.log("Registering user with data:", {
       ...userData,
-      password: "********" // Hide password in logs
+      password: "********", // Hide password in logs
     });
 
     const response = await apiClient.post<ApiResponse<AuthResponse>>(
@@ -82,23 +82,24 @@ export const register = async (
     // Store user data in localStorage for immediate access
     if (response.data.success && response.data.data?.user) {
       const user = response.data.data.user;
-      
+
       // Set all userData in localStorage with proper isolation
       if (user.id) {
         // Store the current user ID
         localStorage.setItem("currentUserId", String(user.id));
-        
+
         // Store display name (from response or registration data)
-        const displayName = user.displayName || userData.displayName || userData.username;
+        const displayName =
+          user.displayName || userData.displayName || userData.username;
         localStorage.setItem(`user_${user.id}_displayName`, displayName);
-        
+
         // Store other user information
         localStorage.setItem(`user_${user.id}_username`, user.username);
         localStorage.setItem(`user_${user.id}_email`, user.email);
-        
+
         // Mark as authenticated
-        localStorage.setItem(`user_${user.id}_isAuthenticated`, 'true');
-        
+        localStorage.setItem(`user_${user.id}_isAuthenticated`, "true");
+
         console.log("User data stored with ID:", user.id);
       }
     }
@@ -300,8 +301,15 @@ export const loginWithCommunities = async (
 };
 
 /**
+ * Response type for username availability check
+ */
+interface UsernameAvailabilityResponse {
+  available: boolean;
+  message?: string;
+}
+
+/**
  * Check if a username is available
- * Uses a simple check approach that works with the existing backend
  */
 export const checkUsernameAvailability = async (username: string): Promise<{
   available: boolean;
@@ -315,35 +323,29 @@ export const checkUsernameAvailability = async (username: string): Promise<{
   }
 
   try {
-    // Use a minimal request to see if username is taken
-    // We only provide the username and dummy values for other required fields
-    await apiClient.post(
-      "/auth/register",
-      {
-        username,
-        email: `check-${Date.now()}@example.com`, // Unique dummy email
-        password: "temporaryPassword123",
-        displayName: "Availability Check"
-      },
-      { withCredentials: true }
+    // Don't include authentication headers for this public endpoint
+    const response = await apiClient.post<UsernameAvailabilityResponse>(
+      `/auth/check-username`, 
+      { username },
+      { 
+        withCredentials: true,
+        // Explicitly tell axios not to send auth headers
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      }
     );
     
-    // If we reach here, there was no username conflict
-    // (There will likely be other validation errors, but we ignore those)
-    return { available: true, message: null };
+    return {
+      available: response.data.available,
+      message: response.data.message || null
+    };
   } catch (error: any) {
-    const errorMessage = error.response?.data?.message || '';
-    
-    // Check if the error contains the username exists message
-    if (errorMessage.toLowerCase().includes('username already exists')) {
-      return {
-        available: false,
-        message: "Username already exists. Please choose another."
-      };
-    }
-    
-    // For any other errors, assume username is available
-    // The full validation will happen during actual registration
-    return { available: true, message: null };
+    // Error handling
+    console.error("Error checking username availability:", error);
+    return {
+      available: false,
+      message: "Error checking username availability. Please try again."
+    };
   }
 };
