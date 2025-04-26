@@ -27,15 +27,18 @@ public class SecurityConfig {
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtTokenFilter jwtTokenFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final com.jgy36.PoliticalApp.config.security.RequestDebugFilter requestDebugFilter;
+
 
     // Using constructor injection instead of @Autowired field injection
     public SecurityConfig(
             UserDetailsServiceImpl userDetailsService,
             JwtTokenFilter jwtTokenFilter,
-            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint) {
+            JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint, com.jgy36.PoliticalApp.config.security.RequestDebugFilter requestDebugFilter) {
         this.userDetailsService = userDetailsService;
         this.jwtTokenFilter = jwtTokenFilter;
         this.jwtAuthenticationEntryPoint = jwtAuthenticationEntryPoint;
+        this.requestDebugFilter = requestDebugFilter;
     }
 
     @Bean
@@ -80,6 +83,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                .addFilterBefore(requestDebugFilter, UsernamePasswordAuthenticationFilter.class)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

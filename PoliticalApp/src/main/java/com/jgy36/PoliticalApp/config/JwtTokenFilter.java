@@ -50,6 +50,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 "/api/auth/register",
                 "/api/auth/login",
                 "/api/auth/refresh",
+                "/api/auth/check-username", // Add the new endpoint here
                 "/swagger-ui",
                 "/v3/api-docs"
         };
@@ -62,7 +63,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             }
         }
 
-        // Extract Authorization header
+        // Rest of your existing code remains unchanged
         final String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         logger.debug("🔑 Authorization Header: {}", header);
 

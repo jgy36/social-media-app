@@ -366,4 +366,50 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
         }
     }
+
+    /**
+     * Check username availability via POST with detailed logging
+     */
+    @PostMapping("/check-username")
+    @CrossOrigin(
+            origins = "http://localhost:3000",
+            allowCredentials = "true",
+            allowedHeaders = {
+                    "Authorization", "Content-Type", "Accept", "X-Requested-With",
+                    "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers",
+                    "Cache-Control", "Pragma", "Expires"
+            },
+            exposedHeaders = {"Authorization"}
+    )
+    public ResponseEntity<?> checkUsernameAvailabilityPost(@RequestBody Map<String, String> request) {
+        logger.info("✅ Received username check request: " + request);
+        try {
+            String username = request.get("username");
+            if (username == null || username.isEmpty()) {
+                logger.warn("❌ Username check failed: username is null or empty");
+                return ResponseEntity.badRequest().body(Map.of(
+                        "available", false,
+                        "message", "Username is required"
+                ));
+            }
+
+            logger.info("🔍 Checking if username exists: " + username);
+            boolean exists = userRepository.existsByUsernameIgnoreCase(username);
+            logger.info("🔍 Username exists check result: " + exists);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("available", !exists);
+
+            if (exists) {
+                response.put("message", "Username already exists. Please choose another.");
+            }
+
+            logger.info("✅ Username check completed successfully: " + response);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("❌ Error checking username availability: " + e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error checking username availability: " + e.getMessage()));
+        }
+    }
 }
