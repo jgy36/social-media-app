@@ -298,7 +298,25 @@ const SearchComponent: React.FC<SearchComponentProps> = ({
 
   return (
     <div className="relative w-full max-w-md" onClick={handlePopoverClick}>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover
+        open={open}
+        onOpenChange={(newOpen) => {
+          // Only update if closing or if we're already typing
+          if (!newOpen || query.trim() !== "") {
+            setOpen(newOpen);
+            // Restore focus with a slightly longer delay
+            if (inputRef.current) {
+              // Use a longer timeout to ensure DOM updates complete first
+              setTimeout(() => {
+                inputRef.current?.focus();
+                // Place cursor at the end of text
+                const length = inputRef.current.value.length;
+                inputRef.current.setSelectionRange(length, length);
+              }, 10);
+            }
+          }
+        }}
+      >
         <PopoverTrigger asChild>
           <div className="relative flex items-center">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -306,7 +324,22 @@ const SearchComponent: React.FC<SearchComponentProps> = ({
               ref={inputRef}
               placeholder="Search users, communities, hashtags..."
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                const newQuery = e.target.value;
+                setQuery(newQuery);
+
+                // Custom handling to maintain focus
+                if (newQuery.trim() !== "" && !open) {
+                  // Defer opening until after input processing
+                  setTimeout(() => {
+                    setOpen(true);
+                    // Ensure focus is maintained
+                    inputRef.current?.focus();
+                  }, 0);
+                } else if (newQuery.trim() === "") {
+                  setOpen(false);
+                }
+              }}
               onKeyDown={handleKeyDown}
               onFocus={handleInputFocus}
               onClick={handleInputClick}
@@ -330,8 +363,20 @@ const SearchComponent: React.FC<SearchComponentProps> = ({
           className="p-0 w-96"
           align="start"
           onClick={handlePopoverClick}
+          sideOffset={5}
+          // Stop PopoverContent from managing focus
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            inputRef.current?.focus();
+          }}
+          onFocusOutside={(e) => {
+            // Only prevent default when focusing inside or on the input
+            if (e.target === inputRef.current) {
+              e.preventDefault();
+            }
+          }}
         >
-          <Command>
+          <Command shouldFilter={false}>
             <CommandList>
               <CommandEmpty>
                 {isSearchLoading || loading
