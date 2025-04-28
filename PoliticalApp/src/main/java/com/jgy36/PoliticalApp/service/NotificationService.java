@@ -98,25 +98,52 @@ public class NotificationService {
         UserNotificationPreferences prefs = preferencesRepository.findByUserId(recipient.getId())
                 .orElse(null);
 
-        if (prefs == null) return true; // Default to sending if no preferences found
-
-        switch (notificationType) {
-            case "comment_created":
-                return prefs.isNewCommentNotifications();
-            case "mention":
-                return prefs.isMentionNotifications();
-            case "like":
-                return prefs.isLikeNotifications();
-            case "follow":
-            case "follow_request":
-                return prefs.isFollowNotifications();
-            case "direct_message":
-                return prefs.isDirectMessageNotifications();
-            case "community_update":
-                return prefs.isCommunityUpdates();
-            default:
-                return true;
+        if (prefs == null) {
+            System.out.println("DEBUG: No notification preferences found for user " + recipient.getUsername() + ", using defaults");
+            return true; // Default to sending if no preferences found
         }
+
+        boolean shouldSend = switch (notificationType) {
+            case "comment_created" -> {
+                boolean result = prefs.isNewCommentNotifications();
+                System.out.println("DEBUG: User " + recipient.getUsername() + " comment notifications enabled: " + result);
+                yield result;
+            }
+            case "mention" -> {
+                boolean result = prefs.isMentionNotifications();
+                System.out.println("DEBUG: User " + recipient.getUsername() + " mention notifications enabled: " + result);
+                yield result;
+            }
+            case "like" -> {
+                boolean result = prefs.isLikeNotifications();
+                System.out.println("DEBUG: User " + recipient.getUsername() + " like notifications enabled: " + result);
+                yield result;
+            }
+            case "follow", "follow_request" -> {
+                boolean result = prefs.isFollowNotifications();
+                System.out.println("DEBUG: User " + recipient.getUsername() + " follow notifications enabled: " + result);
+                yield result;
+            }
+            case "direct_message" -> {
+                boolean result = prefs.isDirectMessageNotifications();
+                System.out.println("DEBUG: User " + recipient.getUsername() + " direct message notifications enabled: " + result);
+                yield result;
+            }
+            case "community_update" -> {
+                boolean result = prefs.isCommunityUpdates();
+                System.out.println("DEBUG: User " + recipient.getUsername() + " community update notifications enabled: " + result);
+                yield result;
+            }
+            default -> {
+                System.out.println("DEBUG: Unknown notification type: " + notificationType + " for user " + recipient.getUsername() + ", defaulting to true");
+                yield true;
+            }
+        };
+
+        System.out.println("DEBUG: Final notification decision for user " + recipient.getUsername() +
+                ", type: " + notificationType + " = " + shouldSend);
+
+        return shouldSend;
     }
 
     // Create comment notification

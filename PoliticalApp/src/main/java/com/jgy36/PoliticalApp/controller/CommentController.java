@@ -8,8 +8,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/posts") // ✅ Clearer API Structure
@@ -64,5 +67,22 @@ public class CommentController {
 
         CommentDTO reply = commentService.replyToComment(commentId, commentRequest.getContent());
         return ResponseEntity.ok(reply);
+    }
+
+    // Add this to CommentController.java
+    @GetMapping("/test-mention-regex")
+    public ResponseEntity<Map<String, Object>> testMentionRegex(@RequestParam String text) {
+        Pattern pattern = Pattern.compile("@(\\w+(?:-\\w+)*)");
+        Matcher matcher = pattern.matcher(text);
+
+        List<String> mentions = new ArrayList<>();
+        while (matcher.find()) {
+            mentions.add(matcher.group(1));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "text", text,
+                "mentions", mentions
+        ));
     }
 }
