@@ -23,22 +23,59 @@ const NotificationIcon = () => {
   const popoverRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Add near the top of the component, right after your state variables
+  console.log("NotificationIcon - Redux user state:", user);
+  console.log("NotificationIcon - Token from localStorage:", localStorage.getItem("token"));
+  
+  // Wrap the debug function in useCallback to prevent it from changing on every render
+  const checkAuthState = React.useCallback(() => {
+    const reduxToken = user.token;
+    const localToken = localStorage.getItem("token");
+    console.log("Auth check - Redux has token:", !!reduxToken);
+    console.log("Auth check - localStorage has token:", !!localToken);
+    if (localToken && !reduxToken) {
+      console.warn("Token mismatch: localStorage has token but Redux doesn't!");
+    }
+  }, [user.token]);
+
   // Fetch notifications on component mount
   useEffect(() => {
+    // Call checkAuthState at the beginning of the effect
+    checkAuthState();
+    
     const fetchNotifications = async () => {
-      if (!user.token) return;
+      if (!user.token) {
+        console.log("No user token available, skipping notification fetch");
+        return;
+      }
 
+      console.log("Starting to fetch notifications...");
       setIsLoading(true);
       setError(null);
 
       try {
+        console.log("Sending request to notifications endpoint");
         const data = await getNotifications();
+        console.log("Notifications fetch result:", data.length > 0 ? `${data.length} notifications found` : "No notifications found");
+        if (data.length > 0) {
+          console.log("First notification:", data[0]);
+        }
         setNotifications(data);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching notifications:", err);
+        // More detailed error logging
+        if (err.response) {
+          console.error("Error response data:", err.response.data);
+          console.error("Error response status:", err.response.status);
+        } else if (err.request) {
+          console.error("No response received:", err.request);
+        } else {
+          console.error("Request setup error:", err.message);
+        }
         setError("Failed to load notifications.");
       } finally {
         setIsLoading(false);
+        console.log("Notification loading complete, isLoading set to false");
       }
     };
 
@@ -46,9 +83,13 @@ const NotificationIcon = () => {
 
     // Optional: Set up a polling interval to fetch notifications periodically
     const interval = setInterval(fetchNotifications, 60000); // Refresh every minute
+    console.log("Notification polling interval set up (60s)");
     
-    return () => clearInterval(interval); // Clean up on unmount
-  }, [user.token]);
+    return () => {
+      console.log("Cleaning up notification polling interval");
+      clearInterval(interval); // Clean up on unmount
+    };
+  }, [checkAuthState, user.token]);
 
   // Update unread count whenever notifications change
   useEffect(() => {
@@ -140,75 +181,74 @@ const NotificationIcon = () => {
   };
 
   // Handler to navigate based on notification content
-// Updated handleNotificationClick function for NotificationIcon.tsx
-const handleNotificationClick = (notification: Notification) => {
-  markAsRead(notification.id);
-  
-  // Use notification type and reference IDs for navigation
-  switch (notification.notificationType) {
-    case 'comment_created':
-      // Navigate to the post with the comment
-      router.push(`/post/${notification.referenceId}`);
-      break;
-      
-    case 'comment_reply':
-      // Navigate to the post with focus on the comment
-      router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
-      break;
-      
-    case 'mention':
-      // Navigate to the post with the mention, possibly highlighting the comment
-      if (notification.secondaryReferenceId) {
-        // Mention in a comment
-        router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
-      } else {
-        // Mention in a post
+  const handleNotificationClick = (notification: Notification) => {
+    markAsRead(notification.id);
+    
+    // Use notification type and reference IDs for navigation
+    switch (notification.notificationType) {
+      case 'comment_created':
+        // Navigate to the post with the comment
         router.push(`/post/${notification.referenceId}`);
-      }
-      break;
-      
-    case 'like':
-      // If secondary reference exists, it's a comment like
-      if (notification.secondaryReferenceId) {
+        break;
+        
+      case 'comment_reply':
+        // Navigate to the post with focus on the comment
         router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
-      } else {
-        // Post like
-        router.push(`/post/${notification.referenceId}`);
-      }
-      break;
-      
-    case 'follow':
-    case 'follow_request':
-    case 'follow_request_approved':
-    case 'follow_request_rejected':
-      // Navigate to the profile of the user who triggered the action
-      router.push(`/profile/${notification.referenceId}`);
-      break;
-      
-    case 'direct_message':
-      // Navigate to messages
-      router.push(`/messages/${notification.referenceId}`);
-      break;
-      
-    case 'community_update':
-      // Navigate to community
-      if (notification.communityId) {
-        router.push(`/community/${notification.communityId}`);
-      }
-      break;
-      
-    default:
-      // Fallback to existing message parsing logic
-      const username = parseUsernameFromNotification(notification.message);
-      if (username) {
-        router.push(`/profile/${username}`);
-      }
-      break;
-  }
-  
-  // Close the popover
-  closePopover();
-};
+        break;
+        
+      case 'mention':
+        // Navigate to the post with the mention, possibly highlighting the comment
+        if (notification.secondaryReferenceId) {
+          // Mention in a comment
+          router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
+        } else {
+          // Mention in a post
+          router.push(`/post/${notification.referenceId}`);
+        }
+        break;
+        
+      case 'like':
+        // If secondary reference exists, it's a comment like
+        if (notification.secondaryReferenceId) {
+          router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
+        } else {
+          // Post like
+          router.push(`/post/${notification.referenceId}`);
+        }
+        break;
+        
+      case 'follow':
+      case 'follow_request':
+      case 'follow_request_approved':
+      case 'follow_request_rejected':
+        // Navigate to the profile of the user who triggered the action
+        router.push(`/profile/${notification.referenceId}`);
+        break;
+        
+      case 'direct_message':
+        // Navigate to messages
+        router.push(`/messages/${notification.referenceId}`);
+        break;
+        
+      case 'community_update':
+        // Navigate to community
+        if (notification.communityId) {
+          router.push(`/community/${notification.communityId}`);
+        }
+        break;
+        
+      default:
+        // Fallback to existing message parsing logic
+        const username = parseUsernameFromNotification(notification.message);
+        if (username) {
+          router.push(`/profile/${username}`);
+        }
+        break;
+    }
+    
+    // Close the popover
+    closePopover();
+  };
 
   return (
     <Popover onOpenChange={handlePopoverOpenChange}>
@@ -236,14 +276,14 @@ const handleNotificationClick = (notification: Notification) => {
           <p>No notifications yet.</p>
         ) : (
           <div className="divide-y divide-border">
-  {notifications.map((notification) => (
-    <NotificationDisplay
-      key={notification.id}
-      notification={notification}
-      onClick={handleNotificationClick}
-    />
-  ))}
-</div>
+            {notifications.map((notification) => (
+              <NotificationDisplay
+                key={notification.id}
+                notification={notification}
+                onClick={handleNotificationClick}
+              />
+            ))}
+          </div>
         )}
         {notifications.length > 0 && (
           <div className="flex justify-end mt-4">

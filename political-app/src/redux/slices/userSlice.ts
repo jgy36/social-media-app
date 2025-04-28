@@ -53,6 +53,8 @@ export const restoreAuthState = createAsyncThunk(
     try {
       // Import auth module dynamically to avoid circular dependencies
       const auth = await import("@/api/auth");
+      // Import getToken function to retrieve token from localStorage
+      const { getToken } = await import("@/utils/tokenUtils");
 
       // Check with the server if we have a valid session
       const isAuthenticated = await auth.checkAndRestoreSession();
@@ -60,6 +62,8 @@ export const restoreAuthState = createAsyncThunk(
       if (isAuthenticated) {
         // Get user info from localStorage
         const userData = getUserData();
+        // Get token from localStorage
+        const token = getToken();
 
         // Add this new code: If authenticated, also restore badges
         if (userData.id) {
@@ -78,7 +82,7 @@ export const restoreAuthState = createAsyncThunk(
           return {
             id: userData.id ? parseInt(String(userData.id)) : null,
             username: userData.username,
-            token: null, // Don't attempt to store token in Redux state
+            token: token, // Use token from localStorage instead of null
             email: userData.email,
             displayName: userData.displayName,
             bio: userData.bio,
