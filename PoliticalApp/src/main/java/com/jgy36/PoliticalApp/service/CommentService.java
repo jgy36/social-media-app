@@ -92,7 +92,7 @@ public class CommentService {
         Comment comment = new Comment(content, user, post);
         Comment savedComment = commentRepository.save(comment);
 
-        // ✅ Notify post author if different from commenter
+        // Notify post author if different from commenter
         if (!post.getAuthor().equals(user)) {
             notificationService.createNotification(
                     post.getAuthor(),
@@ -104,7 +104,7 @@ public class CommentService {
             );
         }
 
-        // ✅ Notify users who previously commented
+        // Notify users who previously commented
         commentRepository.findByPost(post).stream()
                 .map(Comment::getUser)
                 .distinct()
@@ -118,12 +118,14 @@ public class CommentService {
                         post.getCommunity() != null ? post.getCommunity().getSlug() : null
                 ));
 
-        // ✅ Detect Mentions and Notify Users
-        Matcher matcher = Pattern.compile("@(\\w+)").matcher(content);
+        // Detect Mentions and Notify Users - IMPROVED REGEX FOR HYPHENATED USERNAMES
+        Matcher matcher = Pattern.compile("@(\\w+(?:-\\w+)*)").matcher(content);
         while (matcher.find()) {
             String mentionedUsername = matcher.group(1);
+            System.out.println("COMMENT DEBUG: Found mention @" + mentionedUsername + " in comment for post " + post.getId());
             userRepository.findByUsername(mentionedUsername).ifPresent(mentionedUser -> {
                 if (!mentionedUser.equals(user)) {
+                    System.out.println("COMMENT DEBUG: Creating notification for user " + mentionedUser.getUsername());
                     notificationService.createNotification(
                             mentionedUser,
                             user.getUsername() + " mentioned you in a comment",
@@ -132,6 +134,8 @@ public class CommentService {
                             savedComment.getId(),
                             post.getCommunity() != null ? post.getCommunity().getSlug() : null
                     );
+                } else {
+                    System.out.println("COMMENT DEBUG: Not creating notification for self-mention");
                 }
             });
         }

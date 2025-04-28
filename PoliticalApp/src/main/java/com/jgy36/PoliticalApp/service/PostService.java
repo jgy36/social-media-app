@@ -1,8 +1,12 @@
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.dto.PostDTO;
-import com.jgy36.PoliticalApp.entity.*;
+import com.jgy36.PoliticalApp.entity.Community;
+import com.jgy36.PoliticalApp.entity.Hashtag;
+import com.jgy36.PoliticalApp.entity.Post;
+import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.repository.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,6 +30,8 @@ public class PostService {
     private final CommunityRepository communityRepository;
     private final PostLikeRepository postLikeRepository;
     private final NotificationService notificationService;
+    @Autowired
+    private LikeService likeService;
 
     public PostService(
             PostRepository postRepository,
@@ -81,7 +87,32 @@ public class PostService {
             post.addHashtag(hashtag);
         }
 
-        return postRepository.save(post);
+        // Save the post first to get an ID
+        Post savedPost = postRepository.save(post);
+
+        // Detect mentions and create notifications
+        Matcher mentionMatcher = Pattern.compile("@(\\w+(?:-\\w+)*)").matcher(content);
+        while (mentionMatcher.find()) {
+            String mentionedUsername = mentionMatcher.group(1);
+            System.out.println("POST DEBUG: Found mention @" + mentionedUsername + " in post ID " + savedPost.getId());
+            userRepository.findByUsername(mentionedUsername).ifPresent(mentionedUser -> {
+                if (!mentionedUser.equals(user)) {
+                    System.out.println("POST DEBUG: Creating notification for user " + mentionedUser.getUsername());
+                    notificationService.createNotification(
+                            mentionedUser,
+                            user.getUsername() + " mentioned you in a post",
+                            "mention",
+                            savedPost.getId(),
+                            null,
+                            savedPost.getCommunity() != null ? savedPost.getCommunity().getSlug() : null
+                    );
+                } else {
+                    System.out.println("POST DEBUG: Not creating notification for self-mention");
+                }
+            });
+        }
+
+        return savedPost;
     }
 
     // Method to extract hashtags from content
@@ -155,30 +186,17 @@ public class PostService {
 
     // ✅ Like/Unlike a post
     @Transactional
-    public int toggleLike(Long postId, String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found with email: " + email));
+    public int toggleLike(Long postId, String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new NoSuchElementException("User not found"));
 
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Post not found with ID: " + postId));
+        Post post = getPostById(postId);
 
-        Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
+        // Delegate to LikeService to handle the notification
+        likeService.likePost(postId);
 
-        if (existingLike.isPresent()) {
-            // Remove like
-            postLikeRepository.deleteByPostAndUser(post, user);
-            post.getLikedUsers().remove(user);
-        } else {
-            // Add like
-            PostLike newLike = new PostLike();
-            newLike.setPost(post);
-            newLike.setUser(user);
-            postLikeRepository.save(newLike);
-            post.getLikedUsers().add(user);
-        }
-
-        postRepository.save(post);
-        return post.getLikedUsers().size();
+        // Return updated like count (keep your existing logic here)
+        return post.getLikes().size();
     }
 
     // ✅ Get users who liked a post
@@ -433,7 +451,32 @@ public class PostService {
             post.addHashtag(hashtag);
         }
 
-        return postRepository.save(post);
+        // Save the updated post
+        Post updatedPost = postRepository.save(post);
+
+        // Detect mentions and create notifications
+        Matcher mentionMatcher = Pattern.compile("@(\\w+(?:-\\w+)*)").matcher(content);
+        while (mentionMatcher.find()) {
+            String mentionedUsername = mentionMatcher.group(1);
+            System.out.println("POST DEBUG: Found mention @" + mentionedUsername + " in updated post ID " + updatedPost.getId());
+            userRepository.findByUsername(mentionedUsername).ifPresent(mentionedUser -> {
+                if (!mentionedUser.equals(user)) {
+                    System.out.println("POST DEBUG: Creating notification for user " + mentionedUser.getUsername());
+                    notificationService.createNotification(
+                            mentionedUser,
+                            user.getUsername() + " mentioned you in an updated post",
+                            "mention",
+                            updatedPost.getId(),
+                            null,
+                            updatedPost.getCommunity() != null ? updatedPost.getCommunity().getSlug() : null
+                    );
+                } else {
+                    System.out.println("POST DEBUG: Not creating notification for self-mention");
+                }
+            });
+        }
+
+        return updatedPost;
     }
 }
 

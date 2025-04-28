@@ -49,6 +49,23 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
+    public void createNotification(User recipient, String message, String notificationType,
+                                   Long referenceId, Long secondaryReferenceId, String communityId) {
+        // Check user preferences before creating notification
+        if (!shouldSendNotification(recipient, notificationType)) {
+            return; // Don't create notification if user has disabled this type
+        }
+
+        Notification notification = new Notification();
+        notification.setRecipient(recipient);
+        notification.setMessage(message);
+        notification.setNotificationType(notificationType);
+        notification.setReferenceId(referenceId);
+        notification.setSecondaryReferenceId(secondaryReferenceId);
+        notification.setCommunityId(communityId);
+        notificationRepository.save(notification);
+    }
+
     // Update the markAllAsRead method in NotificationService.java
     public void markAllAsRead() {
         // Get current user using the same approach as in getUserNotifications
@@ -68,18 +85,6 @@ public class NotificationService {
         notificationRepository.saveAll(unreadNotifications);
     }
 
-    // New method with support for reference data
-    public void createNotification(User recipient, String message, String notificationType,
-                                   Long referenceId, Long secondaryReferenceId, String communityId) {
-        Notification notification = new Notification();
-        notification.setRecipient(recipient);
-        notification.setMessage(message);
-        notification.setNotificationType(notificationType);
-        notification.setReferenceId(referenceId);
-        notification.setSecondaryReferenceId(secondaryReferenceId);
-        notification.setCommunityId(communityId);
-        notificationRepository.save(notification);
-    }
 
     // Simplified overload for common cases
     public void createPostNotification(User recipient, User actor, Post post) {
