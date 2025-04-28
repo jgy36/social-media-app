@@ -13,7 +13,7 @@ interface NotificationToggleProps {
   communityId: string;
   initialState?: boolean;
 }
-
+ 
 const NotificationToggle: React.FC<NotificationToggleProps> = ({ 
   communityId,
   initialState 

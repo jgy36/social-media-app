@@ -12,7 +12,7 @@ export interface Notification {
   };
   // Add these new fields
   notificationType: string;
-  referenceId?: number;
+  referenceId?: number; 
   secondaryReferenceId?: number;
   communityId?: string;
   actorUsername?: string; // Username of the user who triggered the notification

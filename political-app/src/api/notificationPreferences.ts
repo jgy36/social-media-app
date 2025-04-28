@@ -12,7 +12,7 @@ export interface NotificationPreferences {
   communityUpdates: boolean;
   directMessageNotifications: boolean;
   followNotifications: boolean;
-  likeNotifications: boolean;
+  likeNotifications: boolean; 
 }
 
 /**

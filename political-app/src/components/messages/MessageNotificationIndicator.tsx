@@ -10,7 +10,7 @@ interface MessageNotificationIndicatorProps {
   showCount?: boolean;
 }
 
-const MessageNotificationIndicator = ({
+const MessageNotificationIndicator = ({ 
   className,
   showCount = true,
 }: MessageNotificationIndicatorProps) => {

@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from 'date-fns';
 import { useRouter } from 'next/router';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead, Notification } from '@/api/notifications';
+import NotificationDisplay from '@/components/notifications/NotificationDisplay';
 
 const NotificationIcon = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); 
   const [unreadCount, setUnreadCount] = useState(0);
   const user = useSelector((state: RootState) => state.user);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -139,47 +140,69 @@ const NotificationIcon = () => {
   };
 
   // Handler to navigate based on notification content
-  // src/components/navbar/NotificationIcon.tsx
-// src/components/navbar/NotificationIcon.tsx
+// Updated handleNotificationClick function for NotificationIcon.tsx
 const handleNotificationClick = (notification: Notification) => {
   markAsRead(notification.id);
   
-  // Use the notification type and reference IDs for navigation
+  // Use notification type and reference IDs for navigation
   switch (notification.notificationType) {
-    case 'post_created':
-      router.push(`/post/${notification.referenceId}`);
-      break;
-      
     case 'comment_created':
-      router.push(`/post/${notification.secondaryReferenceId}#comment-${notification.referenceId}`);
-      break;
-      
-    case 'like_post':
+      // Navigate to the post with the comment
       router.push(`/post/${notification.referenceId}`);
       break;
       
-    case 'like_comment':
-      router.push(`/post/${notification.secondaryReferenceId}#comment-${notification.referenceId}`);
+    case 'comment_reply':
+      // Navigate to the post with focus on the comment
+      router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
       break;
       
-    case 'follow':
-      // referenceId contains the user ID of who followed you
-      const actorUsername = notification.actorUsername; // Changed variable name
-      if (actorUsername) {
-        router.push(`/profile/${actorUsername}`);
+    case 'mention':
+      // Navigate to the post with the mention, possibly highlighting the comment
+      if (notification.secondaryReferenceId) {
+        // Mention in a comment
+        router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
+      } else {
+        // Mention in a post
+        router.push(`/post/${notification.referenceId}`);
       }
       break;
       
-    case 'community_invitation':
-      router.push(`/community/${notification.communityId}`);
+    case 'like':
+      // If secondary reference exists, it's a comment like
+      if (notification.secondaryReferenceId) {
+        router.push(`/post/${notification.referenceId}#comment-${notification.secondaryReferenceId}`);
+      } else {
+        // Post like
+        router.push(`/post/${notification.referenceId}`);
+      }
+      break;
+      
+    case 'follow':
+    case 'follow_request':
+    case 'follow_request_approved':
+    case 'follow_request_rejected':
+      // Navigate to the profile of the user who triggered the action
+      router.push(`/profile/${notification.referenceId}`);
+      break;
+      
+    case 'direct_message':
+      // Navigate to messages
+      router.push(`/messages/${notification.referenceId}`);
+      break;
+      
+    case 'community_update':
+      // Navigate to community
+      if (notification.communityId) {
+        router.push(`/community/${notification.communityId}`);
+      }
       break;
       
     default:
       // Fallback to existing message parsing logic
-      const parsedUsername = parseUsernameFromNotification(notification.message); // Changed variable name
-      if (parsedUsername) {
-        router.push(`/profile/${parsedUsername}`);
-      } 
+      const username = parseUsernameFromNotification(notification.message);
+      if (username) {
+        router.push(`/profile/${username}`);
+      }
       break;
   }
   
@@ -213,22 +236,14 @@ const handleNotificationClick = (notification: Notification) => {
           <p>No notifications yet.</p>
         ) : (
           <div className="divide-y divide-border">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                className="py-2 px-1 cursor-pointer hover:bg-secondary/50 rounded-md transition-colors relative"
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <p className="text-sm">{notification.message}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {timeAgo(notification.createdAt)}
-                </p>
-                {!notification.read && (
-                  <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-blue-500"></div>
-                )}
-              </div>
-            ))}
-          </div>
+  {notifications.map((notification) => (
+    <NotificationDisplay
+      key={notification.id}
+      notification={notification}
+      onClick={handleNotificationClick}
+    />
+  ))}
+</div>
         )}
         {notifications.length > 0 && (
           <div className="flex justify-end mt-4">

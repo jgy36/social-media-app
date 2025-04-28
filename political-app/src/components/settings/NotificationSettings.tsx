@@ -1,4 +1,4 @@
-// src/components/settings/NotificationSettings.tsx
+// Modified NotificationSettings.tsx
 import React, { useState, useEffect } from "react";
 import {
   Card,
@@ -100,9 +100,6 @@ const NotificationSettings: React.FC = () => {
         description: "Your notification preferences have been updated",
         duration: 3000,
       });
-      
-      // Update Redux store if needed
-      // dispatch(updateNotificationPreferences(preferences));
     } catch (error) {
       console.error('Error saving notification preferences:', error);
       setError('Failed to save notification preferences');
@@ -158,20 +155,6 @@ const NotificationSettings: React.FC = () => {
         )}
         
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="email-notifications">Email Notifications</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive important notifications via email
-              </p>
-            </div>
-            <Switch 
-              id="email-notifications"
-              checked={preferences.emailNotifications}
-              onCheckedChange={() => handleTogglePreference('emailNotifications')}
-            />
-          </div>
-
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label htmlFor="comment-notifications">New Comment Notifications</Label>
@@ -239,20 +222,6 @@ const NotificationSettings: React.FC = () => {
               id="message-notifications"
               checked={preferences.directMessageNotifications}
               onCheckedChange={() => handleTogglePreference('directMessageNotifications')}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="political-updates">Political Updates</Label>
-              <p className="text-sm text-muted-foreground">
-                Receive updates about politicians you follow
-              </p>
-            </div>
-            <Switch 
-              id="political-updates"
-              checked={preferences.politicalUpdates}
-              onCheckedChange={() => handleTogglePreference('politicalUpdates')}
             />
           </div>
 
