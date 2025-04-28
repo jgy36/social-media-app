@@ -1,4 +1,3 @@
-// PoliticalApp/src/main/java/com/jgy36/PoliticalApp/service/FollowRequestService.java
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.entity.Follow;
@@ -33,6 +32,9 @@ public class FollowRequestService {
 
     @Autowired
     private FollowRepository followRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     /**
      * Create a follow request or direct follow based on target user's privacy settings
@@ -90,6 +92,17 @@ public class FollowRequestService {
             System.out.println("Creating direct follow - public account");
             currentUser.follow(targetUser);
             userRepository.save(currentUser);
+
+            // Create follow notification for public account
+            notificationService.createNotification(
+                    targetUser,
+                    currentUser.getUsername() + " started following you",
+                    "follow",           // notification type
+                    currentUser.getId(), // reference ID (follower ID)
+                    null,               // no secondary reference
+                    null                // no community context
+            );
+
             return true;
         }
 
@@ -97,17 +110,18 @@ public class FollowRequestService {
         System.out.println("Creating follow request - private account");
         FollowRequest followRequest = new FollowRequest(currentUser, targetUser);
         followRequestRepository.save(followRequest);
-        return false;
-    }
 
-    /**
-     * Get all follow requests for a user
-     *
-     * @param user User to get requests for
-     * @return List of follow requests
-     */
-    public List<FollowRequest> getFollowRequestsForUser(User user) {
-        return followRequestRepository.findByTargetAndStatus(user, FollowRequest.RequestStatus.PENDING);
+        // Create follow request notification for private account
+        notificationService.createNotification(
+                targetUser,
+                currentUser.getUsername() + " requested to follow you",
+                "follow_request",      // notification type
+                currentUser.getId(),   // reference ID (requester ID)
+                followRequest.getId(), // secondary reference (request ID)
+                null                   // no community context
+        );
+
+        return false;
     }
 
     /**
@@ -145,6 +159,16 @@ public class FollowRequestService {
         User requester = request.getRequester();
         Follow follow = new Follow(requester, currentUser);
         followRepository.save(follow);
+
+        // Create notification for request approval
+        notificationService.createNotification(
+                requester,
+                currentUser.getUsername() + " accepted your follow request",
+                "follow_request_approved", // notification type
+                currentUser.getId(),       // reference ID (target user ID)
+                null,                      // no secondary reference
+                null                       // no community context
+        );
     }
 
     /**
@@ -177,7 +201,30 @@ public class FollowRequestService {
         // Reject the request
         request.setStatus(FollowRequest.RequestStatus.REJECTED);
         followRequestRepository.save(request);
+
+        // Optional: Notify requester that their request was rejected
+        notificationService.createNotification(
+                request.getRequester(),
+                currentUser.getUsername() + " declined your follow request",
+                "follow_request_rejected", // notification type
+                currentUser.getId(),       // reference ID (target user ID)
+                null,                      // no secondary reference
+                null                       // no community context
+        );
     }
+
+    /**
+     * Get all follow requests for a user
+     *
+     * @param user User to get requests for
+     * @return List of follow requests
+     */
+    public List<FollowRequest> getFollowRequestsForUser(User user) {
+        return followRequestRepository.findByTargetAndStatus(user, FollowRequest.RequestStatus.PENDING);
+    }
+
+    // Other methods remain unchanged
+    // ...
 
     /**
      * Check if user has a pending follow request to the target

@@ -92,25 +92,50 @@ public class CommentService {
         Comment comment = new Comment(content, user, post);
         Comment savedComment = commentRepository.save(comment);
 
+        // ✅ Notify post author if different from commenter
+        if (!post.getAuthor().equals(user)) {
+            notificationService.createNotification(
+                    post.getAuthor(),
+                    user.getUsername() + " commented on your post",
+                    "comment_created",
+                    post.getId(),
+                    savedComment.getId(),
+                    post.getCommunity() != null ? post.getCommunity().getSlug() : null
+            );
+        }
+
         // ✅ Notify users who previously commented
         commentRepository.findByPost(post).stream()
-                .filter(prevComment -> !prevComment.getUser().equals(user))
-                .forEach(prevComment -> notificationService.createNotification(
-                        prevComment.getUser(),
-                        user.getUsername() + " also commented on a post you interacted with"
+                .map(Comment::getUser)
+                .distinct()
+                .filter(commentUser -> !commentUser.equals(user) && !commentUser.equals(post.getAuthor()))
+                .forEach(prevUser -> notificationService.createNotification(
+                        prevUser,
+                        user.getUsername() + " also commented on a post you interacted with",
+                        "comment_created",
+                        post.getId(),
+                        savedComment.getId(),
+                        post.getCommunity() != null ? post.getCommunity().getSlug() : null
                 ));
 
         // ✅ Detect Mentions and Notify Users
         Matcher matcher = Pattern.compile("@(\\w+)").matcher(content);
         while (matcher.find()) {
             String mentionedUsername = matcher.group(1);
-            userRepository.findByUsername(mentionedUsername).ifPresent(mentionedUser ->
+            userRepository.findByUsername(mentionedUsername).ifPresent(mentionedUser -> {
+                if (!mentionedUser.equals(user)) {
                     notificationService.createNotification(
                             mentionedUser,
-                            user.getUsername() + " mentioned you in a comment: \"" + content + "\""
-                    )
-            );
+                            user.getUsername() + " mentioned you in a comment",
+                            "mention",
+                            post.getId(),
+                            savedComment.getId(),
+                            post.getCommunity() != null ? post.getCommunity().getSlug() : null
+                    );
+                }
+            });
         }
+
         return convertToDTO(savedComment);
     }
 
@@ -139,7 +164,11 @@ public class CommentService {
             if (!comment.getUser().equals(user)) {
                 notificationService.createNotification(
                         comment.getUser(),
-                        user.getUsername() + " liked your comment: \"" + comment.getContent() + "\""
+                        user.getUsername() + " liked your comment",
+                        "like",
+                        comment.getPost().getId(),
+                        comment.getId(),
+                        comment.getPost().getCommunity() != null ? comment.getPost().getCommunity().getSlug() : null
                 );
             }
         }
@@ -160,6 +189,36 @@ public class CommentService {
         Comment reply = new Comment(content, user, parentComment.getPost());
         reply.setParentComment(parentComment);
         Comment savedReply = commentRepository.save(reply);
+
+        // ✅ Notify parent comment author
+        if (!parentComment.getUser().equals(user)) {
+            notificationService.createNotification(
+                    parentComment.getUser(),
+                    user.getUsername() + " replied to your comment",
+                    "comment_reply",
+                    parentComment.getPost().getId(),
+                    savedReply.getId(),
+                    parentComment.getPost().getCommunity() != null ? parentComment.getPost().getCommunity().getSlug() : null
+            );
+        }
+
+        // ✅ Detect Mentions and Notify Users
+        Matcher matcher = Pattern.compile("@(\\w+)").matcher(content);
+        while (matcher.find()) {
+            String mentionedUsername = matcher.group(1);
+            userRepository.findByUsername(mentionedUsername).ifPresent(mentionedUser -> {
+                if (!mentionedUser.equals(user)) {
+                    notificationService.createNotification(
+                            mentionedUser,
+                            user.getUsername() + " mentioned you in a reply",
+                            "mention",
+                            parentComment.getPost().getId(),
+                            savedReply.getId(),
+                            parentComment.getPost().getCommunity() != null ? parentComment.getPost().getCommunity().getSlug() : null
+                    );
+                }
+            });
+        }
 
         return convertToDTO(savedReply);
     }

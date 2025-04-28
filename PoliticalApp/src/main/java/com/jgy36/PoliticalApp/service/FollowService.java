@@ -50,10 +50,14 @@ public class FollowService {
             Follow follow = new Follow(currentUser, userToFollow);
             followRepository.save(follow);
 
-            // Create notification for the followed user
+            // Create notification for the followed user with updated format
             notificationService.createNotification(
                     userToFollow,
-                    currentUser.getUsername() + " started following you"
+                    currentUser.getUsername() + " started following you",
+                    "follow",           // notification type
+                    currentUser.getId(), // reference ID (follower ID)
+                    null,               // no secondary reference
+                    null                // no community context
             );
         }
 
@@ -70,6 +74,10 @@ public class FollowService {
                 "message", wasAlreadyFollowing ? "Already following this user" : "User followed successfully"
         );
     }
+
+    // Rest of the methods remain unchanged
+    // ...
+
 
     @Transactional
     public Map<String, Object> unfollowUser(Long userId) {
