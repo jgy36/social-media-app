@@ -317,4 +317,29 @@ public class PostController {
         }
     }
 
+    // This would be added to PostController.java
+    @GetMapping("/communities")
+    @PreAuthorize("isAuthenticated()") // Requires authentication
+    public ResponseEntity<List<PostDTO>> getPostsFromCommunities() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
+        if (auth == null || !auth.isAuthenticated()) {
+            System.out.println("🚨 No valid authentication found! Returning 401.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        String email = auth.getName();
+        Optional<User> userOpt = userRepository.findByEmail(email);
+
+        if (userOpt.isEmpty()) {
+            System.out.println("🚨 User not found in DB! Returning 401.");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        User user = userOpt.get();
+        List<PostDTO> posts = postService.getPostsFromUserCommunities(user);
+        System.out.println("✅ Returning " + posts.size() + " posts from user communities.");
+        return ResponseEntity.ok(posts);
+    }
+
 }

@@ -478,6 +478,34 @@ public class PostService {
 
         return updatedPost;
     }
+
+    /**
+     * Get posts from communities the user has joined
+     */
+    public List<PostDTO> getPostsFromUserCommunities(User user) {
+        // Get communities the user is a member of
+        List<Community> userCommunities = communityRepository.findCommunitiesByMember(user);
+
+        if (userCommunities.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Post> posts = new ArrayList<>();
+
+        // Collect posts from each community
+        for (Community community : userCommunities) {
+            posts.addAll(postRepository.findByCommunityOrderByCreatedAtDesc(community));
+        }
+
+        // Sort posts by creation time (most recent first)
+        posts.sort(Comparator.comparing(Post::getCreatedAt).reversed());
+
+        // Convert to DTOs
+        return posts.stream()
+                .map(post -> new PostDTO(post))
+                .collect(Collectors.toList());
+    }
+
 }
 
 
