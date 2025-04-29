@@ -1,6 +1,6 @@
 interface FeedTabsProps {
-  activeTab: "for-you" | "following";
-  onTabChange: (tab: "for-you" | "following") => void;
+  activeTab: "for-you" | "following" | "communities";
+  onTabChange: (tab: "for-you" | "following" | "communities") => void;
 }
 
 const FeedTabs: React.FC<FeedTabsProps> = ({ activeTab, onTabChange }) => {
@@ -17,6 +17,12 @@ const FeedTabs: React.FC<FeedTabsProps> = ({ activeTab, onTabChange }) => {
         onClick={() => onTabChange("following")}
       >
         Following
+      </button>
+      <button
+        className={`px-4 py-2 ${activeTab === "communities" ? "font-bold" : ""}`}
+        onClick={() => onTabChange("communities")}
+      >
+        Communities
       </button>
     </div>
   );

@@ -300,15 +300,18 @@ const CommunitiesPage = () => {
 
           {/* Search and Create buttons - only render SearchComponent once */}
           <div className="flex gap-4 w-full md:w-auto">
-            <div className="flex-1 md:flex-initial">
-              {/* Use the improved SearchComponent */}
-              <SearchComponent />
-            </div>
+            {/* Commented out search component
+  <div className="flex-1 md:flex-initial">
+    <SearchComponent />
+  </div>
+  */}
 
-            <Button onClick={() => router.push("/community/create")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create
-            </Button>
+            {/* Commented out create button
+  <Button onClick={() => router.push("/community/create")}>
+    <Plus className="h-4 w-4 mr-2" />
+    Create
+  </Button>
+  */}
           </div>
         </div>
 

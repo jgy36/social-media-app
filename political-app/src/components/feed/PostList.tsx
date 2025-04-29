@@ -14,7 +14,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { posts } from "@/api";
 
 interface PostListProps {
-  activeTab: "for-you" | "following";
+  activeTab: "for-you" | "following" | "communities";
 }
 
 const PostList: React.FC<PostListProps> = ({ activeTab }) => {
@@ -22,21 +22,33 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
+  const [notFollowingAnyone, setNotFollowingAnyone] = useState<boolean>(false);
+  const [noJoinedCommunities, setNoJoinedCommunities] = useState<boolean>(false);
+  
   const router = useRouter();
   const token = useSelector((state: RootState) => state.user.token);
+  
+  // Get joined communities from Redux
+  const joinedCommunities = useSelector((state: RootState) => state.communities.joinedCommunities);
 
   // Use a callback to avoid recreation of this function on each render
   const loadPosts = useCallback(async () => {
-    // If we're already on "following" tab with no auth, just return early without setting loading
-    if (!token && activeTab === "following") return;
+    // If we're on protected tabs with no auth, just return early without setting loading
+    if ((!token && activeTab === "following") || (!token && activeTab === "communities")) return;
 
     setLoading(true);
     setError(null);
     setIsRetrying(false);
 
     // Properly format endpoints with leading slash
-    const endpoint =
-      activeTab === "for-you" ? "/posts/for-you" : "/posts/following";
+    let endpoint;
+    if (activeTab === "for-you") {
+      endpoint = "/posts/for-you";
+    } else if (activeTab === "following") {
+      endpoint = "/posts/following";
+    } else {
+      endpoint = "/posts/communities";
+    }
 
     try {
       console.log(`Fetching posts from endpoint: ${endpoint}`);
@@ -52,6 +64,19 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
         setError("Connection issue detected. Showing cached content.");
       }
 
+      // Set states for empty feed messages based on the active tab
+      if (activeTab === "following" && data.length === 0) {
+        setNotFollowingAnyone(joinedCommunities.length === 0);
+      } else {
+        setNotFollowingAnyone(false);
+      }
+
+      if (activeTab === "communities" && data.length === 0) {
+        setNoJoinedCommunities(joinedCommunities.length === 0);
+      } else {
+        setNoJoinedCommunities(false);
+      }
+
       setPosts(data);
     } catch (err) {
       console.error("Failed to load posts:", err);
@@ -59,13 +84,14 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, token]);
+  }, [activeTab, token, joinedCommunities]);
 
   // Trigger post loading when tab changes or on component mount
   useEffect(() => {
-    if (!token && activeTab === "following") {
+    // Redirect to landing page if not authenticated for protected tabs
+    if (!token && (activeTab === "following" || activeTab === "communities")) {
       console.warn("No auth token found! Redirecting to landing page...");
-      router.push("/"); // ✅ Redirects to landing page if no token
+      router.push("/"); 
       return;
     }
 
@@ -94,7 +120,7 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
     loadPosts();
   };
 
-  if (!token && activeTab === "following") return null; // ✅ Prevent rendering before redirecting
+  if (!token && (activeTab === "following" || activeTab === "communities")) return null; // Prevent rendering before redirecting
 
   if (loading) {
     return (
@@ -134,7 +160,11 @@ const PostList: React.FC<PostListProps> = ({ activeTab }) => {
       ) : (
         <div className="p-6 text-center bg-muted/20 dark:bg-muted/10 rounded-xl py-12 my-8">
           <p className="text-muted-foreground mb-4">
-            No posts available in your feed.
+            {activeTab === "following" && notFollowingAnyone 
+              ? "Follow a user or join a community to see posts here" 
+              : activeTab === "communities" && noJoinedCommunities
+                ? "Join a community to see posts here"
+                : "No posts available in your feed."}
           </p>
           <Button onClick={handleRetry} variant="outline" className="px-6">
             <RefreshCw className="mr-2 h-4 w-4" />

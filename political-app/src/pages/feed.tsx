@@ -10,7 +10,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import MainLayout from "@/components/layout/MainLayout";
 
 const FeedPage = () => {
-  const [activeTab, setActiveTab] = useState<"for-you" | "following">("for-you");
+  const [activeTab, setActiveTab] = useState<"for-you" | "following" | "communities">("for-you");
   const [isPostFormOpen, setIsPostFormOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -47,12 +47,13 @@ const FeedPage = () => {
           <div className="bg-background dark:bg-background rounded-xl py-2 px-4 mb-6 shadow-md">
             <Tabs 
               value={activeTab} 
-              onValueChange={(value) => setActiveTab(value as "for-you" | "following")}
+              onValueChange={(value) => setActiveTab(value as "for-you" | "following" | "communities")}
               className="w-full"
             >
-              <TabsList className="w-full flex justify-center gap-6 bg-card/50 backdrop-blur p-1 rounded-xl mb-4">
-                <TabsTrigger value="for-you" className="text-lg py-2 px-6 flex-1">For You</TabsTrigger>
-                <TabsTrigger value="following" className="text-lg py-2 px-6 flex-1">Following</TabsTrigger>
+              <TabsList className="w-full flex justify-center gap-4 bg-card/50 backdrop-blur p-1 rounded-xl mb-4">
+                <TabsTrigger value="for-you" className="text-lg py-2 px-4 flex-1">For You</TabsTrigger>
+                <TabsTrigger value="following" className="text-lg py-2 px-4 flex-1">Following</TabsTrigger>
+                <TabsTrigger value="communities" className="text-lg py-2 px-4 flex-1">Communities</TabsTrigger>
               </TabsList>
 
               {/* Make sure TabsContent is inside the Tabs component */}
@@ -62,6 +63,10 @@ const FeedPage = () => {
               
               <TabsContent value="following" className="mt-2 space-y-5">
                 <PostList activeTab="following" key={`following-${refreshTrigger}`} />
+              </TabsContent>
+              
+              <TabsContent value="communities" className="mt-2 space-y-5">
+                <PostList activeTab="communities" key={`communities-${refreshTrigger}`} />
               </TabsContent>
             </Tabs>
           </div>
