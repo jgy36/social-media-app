@@ -12,15 +12,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.imageio.ImageIO;
-import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -526,9 +521,8 @@ public class PostService {
             boolean isRepost,
             Long communityId) throws IOException {
 
+        // Create the post first
         Post post;
-
-        // Handle different post types similar to the existing createPost method
         if (isRepost && originalPostId != null) {
             post = createRepost(content, originalPostId);
         } else if (communityId != null) {
@@ -537,62 +531,47 @@ public class PostService {
             post = createPost(content);
         }
 
-        // Now add media files
+        // Save media files if provided
         if (mediaFiles != null && mediaFiles.length > 0) {
             for (int i = 0; i < mediaFiles.length; i++) {
                 MultipartFile file = mediaFiles[i];
-
-                // Skip empty files
                 if (file.isEmpty()) continue;
 
+                // Get media type
                 String mediaType = (mediaTypes != null && i < mediaTypes.length)
-                        ? mediaTypes[i]
-                        : detectMediaType(file.getContentType());
+                        ? mediaTypes[i] : detectMediaType(file.getContentType());
 
+                // Get alt text
                 String altText = (altTexts != null && i < altTexts.length)
-                        ? altTexts[i]
-                        : "";
+                        ? altTexts[i] : "";
 
-                // Generate a unique filename
-                String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+                // Generate filename (using original filename for simplicity)
+                String originalFilename = file.getOriginalFilename();
+                String filename = UUID.randomUUID().toString() + "_" +
+                        (originalFilename != null ? originalFilename : "file");
 
-                // Define storage path - ensure this directory exists and is writable
-                String uploadDir = "uploads/media";
-                File directory = new File(uploadDir);
-                if (!directory.exists()) {
-                    directory.mkdirs();
-                }
+                // Save file
+                File uploadDir = new File("uploads/media");
+                Path filePath = Paths.get(uploadDir.getAbsolutePath(), filename);
 
-                // Save the file
-                Path filePath = Paths.get(uploadDir, fileName);
-                Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+                System.out.println("Saving file to: " + filePath.toString());
+                file.transferTo(filePath.toFile());
+                System.out.println("File saved successfully");
 
-                // Create the media attachment
+                // Create media attachment
                 MediaAttachment attachment = new MediaAttachment();
                 attachment.setPost(post);
                 attachment.setMediaType(mediaType);
-                attachment.setUrl("/media/" + fileName); // URL to access the file
+                attachment.setUrl("/media/" + filename);
                 attachment.setAltText(altText);
-
-                // Set dimensions for images
-                if ("image".equals(mediaType) || "gif".equals(mediaType)) {
-                    try (InputStream is = file.getInputStream()) {
-                        BufferedImage img = ImageIO.read(is);
-                        if (img != null) {
-                            attachment.setWidth(img.getWidth());
-                            attachment.setHeight(img.getHeight());
-                        }
-                    } catch (Exception e) {
-                        System.err.println("Error reading image dimensions: " + e.getMessage());
-                    }
-                }
 
                 // Add the attachment to the post
                 post.getMediaAttachments().add(attachment);
+                System.out.println("Added attachment with URL: " + attachment.getUrl());
             }
         }
 
-        // Save and return the post with media
+        // Save the post with media attachments
         return postRepository.save(post);
     }
 
@@ -611,7 +590,6 @@ public class PostService {
 
         return "image"; // Default
     }
-
 
 }
 

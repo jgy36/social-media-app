@@ -3,6 +3,7 @@ package com.jgy36.PoliticalApp.controller;
 import com.jgy36.PoliticalApp.dto.CommunityPostRequest;
 import com.jgy36.PoliticalApp.dto.PostDTO;
 import com.jgy36.PoliticalApp.dto.PostRequest;
+import com.jgy36.PoliticalApp.entity.MediaAttachment;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
 import com.jgy36.PoliticalApp.exception.ResourceNotFoundException;
@@ -19,6 +20,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -352,17 +355,26 @@ public class PostController {
     public ResponseEntity<PostDTO> createPostWithMedia(
             @RequestPart("content") String content,
             @RequestPart(value = "media", required = false) MultipartFile[] mediaFiles,
-            @RequestPart(value = "mediaTypes", required = false) String[] mediaTypes,
-            @RequestPart(value = "altTexts", required = false) String[] altTexts,
-            @RequestPart(value = "originalPostId", required = false) String originalPostId,
-            @RequestPart(value = "repost", required = false) String repost,
-            @RequestPart(value = "communityId", required = false) String communityId) {
+            @RequestParam(value = "mediaTypes", required = false) String[] mediaTypes,
+            @RequestParam(value = "altTexts", required = false) String[] altTexts,
+            @RequestParam(value = "originalPostId", required = false) String originalPostId,
+            @RequestParam(value = "repost", required = false) String repost,
+            @RequestParam(value = "communityId", required = false) String communityId) {
 
         try {
-            System.out.println("📝 Creating post with media. Files count: " +
-                    (mediaFiles != null ? mediaFiles.length : 0));
+            System.out.println("📝 Creating post with media");
+            System.out.println("  Content: " + content);
+            System.out.println("  Files: " + (mediaFiles != null ? mediaFiles.length : 0));
 
-            // Convert parameters if needed
+            // Print file details
+            if (mediaFiles != null) {
+                for (int i = 0; i < mediaFiles.length; i++) {
+                    System.out.println("  File " + i + ": " + mediaFiles[i].getOriginalFilename() +
+                            " (" + mediaFiles[i].getSize() + " bytes)");
+                }
+            }
+
+            // Process other parameters
             Long origPostId = null;
             if (originalPostId != null && !originalPostId.isEmpty()) {
                 origPostId = Long.parseLong(originalPostId);
@@ -375,17 +387,111 @@ public class PostController {
                 commId = Long.parseLong(communityId);
             }
 
+            // Create post with media
             Post post = postService.createPostWithMedia(
                     content, mediaFiles, mediaTypes, altTexts,
                     origPostId, isRepost, commId
             );
 
-            return ResponseEntity.ok(new PostDTO(post));
+            // Print media attachment details from the created post
+            if (post.getMediaAttachments() != null) {
+                System.out.println("Post created with " + post.getMediaAttachments().size() + " media attachments");
+                for (MediaAttachment att : post.getMediaAttachments()) {
+                    System.out.println("  Attachment URL: " + att.getUrl());
+                    System.out.println("  Attachment type: " + att.getMediaType());
+                }
+            } else {
+                System.out.println("Post created but media attachments set is null");
+            }
+
+            // Create DTO and return
+            PostDTO dto = new PostDTO(post);
+
+            // Check media in DTO
+            if (dto.getMedia() != null) {
+                System.out.println("DTO has " + dto.getMedia().size() + " media items");
+                for (PostDTO.MediaDTO media : dto.getMedia()) {
+                    System.out.println("  DTO media URL: " + media.getUrl());
+                }
+            } else {
+                System.out.println("DTO media list is null");
+            }
+
+            return ResponseEntity.ok(dto);
         } catch (Exception e) {
             System.err.println("Error creating post with media: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    @GetMapping("/test-file-write")
+    public ResponseEntity<String> testFileWrite() {
+        String testContent = "This is a test file";
+        String uploadDir = "uploads/media";
+        String fileName = "test_file_" + System.currentTimeMillis() + ".txt";
+        File directory = new File(uploadDir);
+        StringBuilder response = new StringBuilder();
+
+        response.append("File Write Test Results:\n");
+        response.append("Current directory: ").append(new File(".").getAbsolutePath()).append("\n");
+        response.append("Target directory: ").append(directory.getAbsolutePath()).append("\n");
+        response.append("Directory exists: ").append(directory.exists()).append("\n");
+        response.append("Directory writable: ").append(directory.canWrite()).append("\n");
+
+        if (!directory.exists()) {
+            boolean created = directory.mkdirs();
+            response.append("Created directory: ").append(created).append("\n");
+        }
+
+        try {
+            File testFile = new File(directory, fileName);
+            Files.write(testFile.toPath(), testContent.getBytes());
+            response.append("Test file created: ").append(testFile.getAbsolutePath()).append("\n");
+            response.append("File exists: ").append(testFile.exists()).append("\n");
+            response.append("File size: ").append(testFile.length()).append(" bytes\n");
+            response.append("File content: ").append(new String(Files.readAllBytes(testFile.toPath()))).append("\n");
+        } catch (Exception e) {
+            response.append("Error writing test file: ").append(e.getMessage()).append("\n");
+            e.printStackTrace();
+        }
+
+        return ResponseEntity.ok(response.toString());
+    }
+
+    @GetMapping("/debug-image-access")
+    public ResponseEntity<Map<String, Object>> debugImageAccess() {
+        Map<String, Object> response = new HashMap<>();
+
+        // Get directory info
+        File mediaDir = new File("uploads/media");
+        response.put("directory_exists", mediaDir.exists());
+        response.put("directory_path", mediaDir.getAbsolutePath());
+
+        // Get file list
+        if (mediaDir.exists() && mediaDir.isDirectory()) {
+            File[] files = mediaDir.listFiles();
+            if (files != null && files.length > 0) {
+                List<Map<String, Object>> fileInfos = new ArrayList<>();
+
+                for (File file : files) {
+                    Map<String, Object> fileInfo = new HashMap<>();
+                    fileInfo.put("name", file.getName());
+                    fileInfo.put("size", file.length());
+                    fileInfo.put("url", "/media/" + file.getName());
+
+                    fileInfos.add(fileInfo);
+                }
+
+                response.put("files", fileInfos);
+                response.put("file_count", files.length);
+            } else {
+                response.put("files", Collections.emptyList());
+                response.put("file_count", 0);
+            }
+        }
+
+        return ResponseEntity.ok(response);
     }
 
 
