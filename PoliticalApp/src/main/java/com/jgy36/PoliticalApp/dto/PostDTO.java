@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.jgy36.PoliticalApp.entity.Hashtag;
 import com.jgy36.PoliticalApp.entity.Post;
 import com.jgy36.PoliticalApp.entity.User;
+import lombok.Getter;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -25,17 +26,26 @@ public class PostDTO {
     private int commentsCount;
     private boolean isLiked;
     private boolean isSaved;
+
+    // Add getter:
+    @Getter
     private LocalDateTime updatedAt;
     private String communityColor;
 
+    // Media attachments field
+    @Getter
+    private List<MediaDTO> media;
 
     // Repost-related fields
     private boolean isRepost;
     @JsonProperty("isRepost")
     private boolean repost;
+    @Getter
     private Long originalPostId;
     private int repostCount;
+    @Getter
     private String originalAuthor;
+    @Getter
     private String originalPostContent;
 
     public PostDTO(Post post) {
@@ -85,6 +95,24 @@ public class PostDTO {
             this.communityColor = post.getCommunity().getColor();
         }
 
+        // Handle media attachments safely
+        if (post.getMediaAttachments() != null && !post.getMediaAttachments().isEmpty()) {
+            this.media = post.getMediaAttachments().stream()
+                    .map(attachment -> {
+                        MediaDTO mediaDTO = new MediaDTO();
+                        mediaDTO.setId(attachment.getId());
+                        mediaDTO.setMediaType(attachment.getMediaType());
+                        mediaDTO.setUrl(attachment.getUrl());
+                        mediaDTO.setThumbnailUrl(attachment.getThumbnailUrl());
+                        mediaDTO.setAltText(attachment.getAltText());
+                        mediaDTO.setWidth(attachment.getWidth());
+                        mediaDTO.setHeight(attachment.getHeight());
+                        mediaDTO.setDuration(attachment.getDuration());
+                        return mediaDTO;
+                    })
+                    .collect(Collectors.toList());
+        }
+
         // Handle current user interactions safely
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -113,7 +141,6 @@ public class PostDTO {
             this.isSaved = false;
         }
     }
-
 
     // Getters and Setters
     public Long getId() {
@@ -178,29 +205,89 @@ public class PostDTO {
         this.repost = repost;
     }
 
-    public Long getOriginalPostId() {
-        return originalPostId;
-    }
-
     public int getRepostCount() {
         return repostCount;
-    }
-
-    public String getOriginalAuthor() {
-        return originalAuthor;
-    }
-
-    public String getOriginalPostContent() {
-        return originalPostContent;
-    }
-
-    // Add getter:
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
     }
 
     // Add a getter for the community color
     public String getCommunityColor() {
         return communityColor;
+    }
+
+    // Media DTO inner class
+    public static class MediaDTO {
+        private Long id;
+        private String mediaType;  // "image", "video", "gif"
+        private String url;
+        private String thumbnailUrl;
+        private String altText;
+        private Integer width;
+        private Integer height;
+        private Integer duration;
+
+        // Getters and setters
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getMediaType() {
+            return mediaType;
+        }
+
+        public void setMediaType(String mediaType) {
+            this.mediaType = mediaType;
+        }
+
+        public String getUrl() {
+            return url;
+        }
+
+        public void setUrl(String url) {
+            this.url = url;
+        }
+
+        public String getThumbnailUrl() {
+            return thumbnailUrl;
+        }
+
+        public void setThumbnailUrl(String thumbnailUrl) {
+            this.thumbnailUrl = thumbnailUrl;
+        }
+
+        public String getAltText() {
+            return altText;
+        }
+
+        public void setAltText(String altText) {
+            this.altText = altText;
+        }
+
+        public Integer getWidth() {
+            return width;
+        }
+
+        public void setWidth(Integer width) {
+            this.width = width;
+        }
+
+        public Integer getHeight() {
+            return height;
+        }
+
+        public void setHeight(Integer height) {
+            this.height = height;
+        }
+
+        public Integer getDuration() {
+            return duration;
+        }
+
+        public void setDuration(Integer duration) {
+            this.duration = duration;
+        }
     }
 }

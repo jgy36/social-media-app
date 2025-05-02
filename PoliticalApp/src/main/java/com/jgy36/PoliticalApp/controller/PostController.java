@@ -11,11 +11,13 @@ import com.jgy36.PoliticalApp.service.PostService;
 import com.jgy36.PoliticalApp.service.PrivacySettingsService;
 import com.jgy36.PoliticalApp.service.UserService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
 import java.util.regex.Matcher;
@@ -341,5 +343,50 @@ public class PostController {
         System.out.println("✅ Returning " + posts.size() + " posts from user communities.");
         return ResponseEntity.ok(posts);
     }
+
+    // Add this to PoliticalApp/src/main/java/com/jgy36/PoliticalApp/controller/PostController.java
+// Add this method alongside the other POST endpoints
+
+    @PostMapping(value = "/with-media", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<PostDTO> createPostWithMedia(
+            @RequestPart("content") String content,
+            @RequestPart(value = "media", required = false) MultipartFile[] mediaFiles,
+            @RequestPart(value = "mediaTypes", required = false) String[] mediaTypes,
+            @RequestPart(value = "altTexts", required = false) String[] altTexts,
+            @RequestPart(value = "originalPostId", required = false) String originalPostId,
+            @RequestPart(value = "repost", required = false) String repost,
+            @RequestPart(value = "communityId", required = false) String communityId) {
+
+        try {
+            System.out.println("📝 Creating post with media. Files count: " +
+                    (mediaFiles != null ? mediaFiles.length : 0));
+
+            // Convert parameters if needed
+            Long origPostId = null;
+            if (originalPostId != null && !originalPostId.isEmpty()) {
+                origPostId = Long.parseLong(originalPostId);
+            }
+
+            boolean isRepost = "true".equalsIgnoreCase(repost);
+
+            Long commId = null;
+            if (communityId != null && !communityId.isEmpty()) {
+                commId = Long.parseLong(communityId);
+            }
+
+            Post post = postService.createPostWithMedia(
+                    content, mediaFiles, mediaTypes, altTexts,
+                    origPostId, isRepost, commId
+            );
+
+            return ResponseEntity.ok(new PostDTO(post));
+        } catch (Exception e) {
+            System.err.println("Error creating post with media: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
 
 }

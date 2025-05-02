@@ -1,10 +1,7 @@
 package com.jgy36.PoliticalApp.service;
 
 import com.jgy36.PoliticalApp.dto.PostDTO;
-import com.jgy36.PoliticalApp.entity.Community;
-import com.jgy36.PoliticalApp.entity.Hashtag;
-import com.jgy36.PoliticalApp.entity.Post;
-import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.entity.*;
 import com.jgy36.PoliticalApp.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -12,8 +9,18 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -505,6 +512,106 @@ public class PostService {
                 .map(post -> new PostDTO(post))
                 .collect(Collectors.toList());
     }
+
+    // Add this to PoliticalApp/src/main/java/com/jgy36/PoliticalApp/service/PostService.java
+// Add this new method after the other createPost methods
+
+    @Transactional
+    public Post createPostWithMedia(
+            String content,
+            MultipartFile[] mediaFiles,
+            String[] mediaTypes,
+            String[] altTexts,
+            Long originalPostId,
+            boolean isRepost,
+            Long communityId) throws IOException {
+
+        Post post;
+
+        // Handle different post types similar to the existing createPost method
+        if (isRepost && originalPostId != null) {
+            post = createRepost(content, originalPostId);
+        } else if (communityId != null) {
+            post = createCommunityPost(communityId.toString(), content);
+        } else {
+            post = createPost(content);
+        }
+
+        // Now add media files
+        if (mediaFiles != null && mediaFiles.length > 0) {
+            for (int i = 0; i < mediaFiles.length; i++) {
+                MultipartFile file = mediaFiles[i];
+
+                // Skip empty files
+                if (file.isEmpty()) continue;
+
+                String mediaType = (mediaTypes != null && i < mediaTypes.length)
+                        ? mediaTypes[i]
+                        : detectMediaType(file.getContentType());
+
+                String altText = (altTexts != null && i < altTexts.length)
+                        ? altTexts[i]
+                        : "";
+
+                // Generate a unique filename
+                String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+
+                // Define storage path - ensure this directory exists and is writable
+                String uploadDir = "uploads/media";
+                File directory = new File(uploadDir);
+                if (!directory.exists()) {
+                    directory.mkdirs();
+                }
+
+                // Save the file
+                Path filePath = Paths.get(uploadDir, fileName);
+                Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+
+                // Create the media attachment
+                MediaAttachment attachment = new MediaAttachment();
+                attachment.setPost(post);
+                attachment.setMediaType(mediaType);
+                attachment.setUrl("/media/" + fileName); // URL to access the file
+                attachment.setAltText(altText);
+
+                // Set dimensions for images
+                if ("image".equals(mediaType) || "gif".equals(mediaType)) {
+                    try (InputStream is = file.getInputStream()) {
+                        BufferedImage img = ImageIO.read(is);
+                        if (img != null) {
+                            attachment.setWidth(img.getWidth());
+                            attachment.setHeight(img.getHeight());
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error reading image dimensions: " + e.getMessage());
+                    }
+                }
+
+                // Add the attachment to the post
+                post.getMediaAttachments().add(attachment);
+            }
+        }
+
+        // Save and return the post with media
+        return postRepository.save(post);
+    }
+
+    // Helper method to detect media type
+    private String detectMediaType(String contentType) {
+        if (contentType == null) return "image";
+
+        if (contentType.startsWith("image/")) {
+            if (contentType.contains("gif")) {
+                return "gif";
+            }
+            return "image";
+        } else if (contentType.startsWith("video/")) {
+            return "video";
+        }
+
+        return "image"; // Default
+    }
+
 
 }
 

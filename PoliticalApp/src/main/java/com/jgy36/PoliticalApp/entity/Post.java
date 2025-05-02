@@ -63,6 +63,12 @@ public class Post {
     @JsonManagedReference
     private Set<Hashtag> hashtags = new HashSet<>();
 
+    // Add this to PoliticalApp/src/main/java/com/jgy36/PoliticalApp/entity/Post.java
+// Add this right after the existing relationships (like comments, hashtags, etc.)
+
+    @OneToMany(mappedBy = "post", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties("post")
+    private Set<MediaAttachment> mediaAttachments = new HashSet<>();
     // Optional community relationship - if your app has communities
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "community_id", referencedColumnName = "id")
@@ -81,7 +87,6 @@ public class Post {
     @JoinColumn(name = "original_post_id", insertable = false, updatable = false)
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "author", "likes", "comments", "hashtags", "reposts"})
     private Post originalPost;
-
     // For reposts relationship
     @OneToMany(mappedBy = "originalPost")
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler", "originalPost", "likes", "comments", "hashtags"})
@@ -93,6 +98,15 @@ public class Post {
         this.content = content;
         this.author = author;
         this.createdAt = LocalDateTime.now();
+    }
+
+    // Add getter and setter if they're not already handled by Lombok
+    public Set<MediaAttachment> getMediaAttachments() {
+        return mediaAttachments;
+    }
+
+    public void setMediaAttachments(Set<MediaAttachment> mediaAttachments) {
+        this.mediaAttachments = mediaAttachments;
     }
 
     public int getLikeCount() {
