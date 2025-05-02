@@ -7,9 +7,9 @@ import { createPost } from '@/api/posts';
 import { searchHashtags, getUnifiedSearchResults } from '@/api/search';
 import { searchCommunities } from '@/api/communities';
 import { getNotifications, Notification } from '@/api/notifications';
-import { LoginRequest, RegisterRequest, AuthResponse, ApiResponse, PostResponse } from '@/api/types';
-import { CreatePostRequest } from '@/api/posts'; // Import from posts instead of types
+import { LoginRequest, RegisterRequest, AuthResponse, ApiResponse, PostResponse, CreatePostRequest } from '@/api/types';
 import { ApiSearchResult } from '@/types/search';
+import { apiClient } from '@/api/apiClient';
 
 
 /**
@@ -92,7 +92,76 @@ export const useRegister = () => {
  * Hook for creating posts
  */
 export const useCreatePost = () => {
-  const { loading, error, execute } = useApi<PostResponse, [CreatePostRequest]>(createPost);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  
+  const execute = async (postData: CreatePostRequest): Promise<PostResponse | null> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      let response;
+      
+      // Check if we have media files
+      if (postData.media && postData.media.length > 0) {
+        console.log("Using media upload endpoint with", postData.media.length, "files");
+        
+        // Use FormData for multipart/form-data requests
+        const formData = new FormData();
+        formData.append("content", postData.content);
+        
+        // Add other fields if present
+        if (postData.originalPostId) {
+          formData.append("originalPostId", postData.originalPostId.toString());
+        }
+        
+        if (postData.repost) {
+          formData.append("repost", String(postData.repost));
+        }
+        
+        if (postData.communityId) {
+          formData.append("communityId", postData.communityId.toString());
+        }
+        
+        // Add media files
+        postData.media.forEach((file, index) => {
+          formData.append("media", file);
+        });
+        
+        // Add media types if present
+        if (postData.mediaTypes) {
+          postData.mediaTypes.forEach((type, index) => {
+            formData.append("mediaTypes", type);
+          });
+        }
+        
+        // Add alt texts if present
+        if (postData.altTexts) {
+          postData.altTexts.forEach((text, index) => {
+            formData.append("altTexts", text || "");
+          });
+        }
+        
+        response = await apiClient.post<PostResponse>("/posts/with-media", formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+      } else {
+        // If no media, use regular JSON endpoint
+        response = await apiClient.post<PostResponse>("/posts", postData);
+      }
+      
+      setLoading(false);
+      return response.data;
+    } catch (err) {
+      console.error("Error in useCreatePost:", err);
+      setError(err instanceof Error ? err : new Error(String(err)));
+      setLoading(false);
+      return null;
+    }
+  };
+  
   return { loading, error, execute };
 };
 

@@ -5,7 +5,7 @@ import { likePost, deletePost } from "@/api/posts";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Heart, MessageCircle, Repeat } from "lucide-react";
+import { Heart, MessageCircle, Repeat, Film } from "lucide-react";
 import { useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { useRouter } from "next/router";
@@ -20,6 +20,7 @@ import MoreOptionsMenu from "@/components/feed/MoreOptionsMenu";
 import { toast } from "@/hooks/use-toast";
 import React from "react";
 import EditPostModal from "./EditPostModal";
+import MediaDisplay from "@/components/feed/MediaDisplay";
 
 // In the Post component, add this state variable
 
@@ -297,6 +298,11 @@ const Post: React.FC<PostProps> = ({
         <p className="text-foreground leading-relaxed">
           {renderContentWithHashtags(postContent, handleHashtagClick)}
         </p>
+
+        {/* Display media content - Add this block */}
+        {post.media && post.media.length > 0 && (
+          <MediaDisplay media={post.media} />
+        )}
 
         {/* Add this "edited" indicator here */}
         {post.updatedAt && post.updatedAt !== post.createdAt && (

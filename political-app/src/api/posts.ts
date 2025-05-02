@@ -17,19 +17,21 @@ export const getPosts = async (endpoint: string): Promise<PostResponse[]> => {
     const normalizedEndpoint = endpoint.startsWith("/")
       ? endpoint
       : `/${endpoint}`;
-    
+
     return await safeApiCall(async () => {
-      const response = await resilientApiClient.get<PostResponse[]>(normalizedEndpoint);
-      
+      const response = await resilientApiClient.get<PostResponse[]>(
+        normalizedEndpoint
+      );
+
       // Normalize properties for all posts in the response
-      return response.data.map(post => {
+      return response.data.map((post) => {
         return {
           ...post,
           // Ensure isRepost is set correctly regardless of which property exists
           isRepost: post.isRepost || post.repost || false,
           // Ensure repostCount/repostsCount are consistent
           repostCount: post.repostCount || post.repostsCount || 0,
-          repostsCount: post.repostsCount || post.repostCount || 0
+          repostsCount: post.repostsCount || post.repostCount || 0,
         };
       });
     }, `Fetching posts from ${endpoint}`);
@@ -106,7 +108,10 @@ export const getPostsByUsername = async (
 export const createPost = async (
   postData: CreatePostRequest
 ): Promise<PostResponse> => {
-  console.log("📝 createPost API call with data:", JSON.stringify(postData, null, 2));
+  console.log("📝 createPost API call with data:", JSON.stringify({
+    ...postData,
+    media: postData.media ? `${postData.media.length} files` : 'none'
+  }, null, 2));
   
   return safeApiCall(async () => {
     // Ensure repost flag is set correctly if we have an originalPostId
@@ -115,10 +120,58 @@ export const createPost = async (
       postData.repost = true;
     }
     
-    const response = await apiClient.post<PostResponse>("/posts", postData);
+    let response;
+    
+    // Check if we have media files
+    if (postData.media && postData.media.length > 0) {
+      console.log("📝 Uploading post with media files");
+      // Use FormData for multipart/form-data requests
+      const formData = new FormData();
+      formData.append("content", postData.content);
+      
+      // Add other fields if present
+      if (postData.originalPostId) {
+        formData.append("originalPostId", postData.originalPostId.toString());
+      }
+      
+      if (postData.repost) {
+        formData.append("repost", String(postData.repost));
+      }
+      
+      if (postData.communityId) {
+        formData.append("communityId", postData.communityId.toString());
+      }
+      
+      // Add media files
+      postData.media.forEach((file, index) => {
+        formData.append("media", file);
+      });
+      
+      // Add media types if present
+      if (postData.mediaTypes) {
+        postData.mediaTypes.forEach((type) => {
+          formData.append("mediaTypes", type);
+        });
+      }
+      
+      // Add alt texts if present
+      if (postData.altTexts) {
+        postData.altTexts.forEach((text) => {
+          formData.append("altTexts", text || "");
+        });
+      }
+      
+      response = await apiClient.post<PostResponse>("/posts/with-media", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+    } else {
+      // Regular JSON request without media
+      response = await apiClient.post<PostResponse>("/posts", postData);
+    }
     
     // Log the raw response for debugging
-    console.log("📝 Raw API response:", response);
     console.log("📝 Response data:", JSON.stringify(response.data, null, 2));
     
     // Initialize an enhanced response that will include fields we need
@@ -164,8 +217,12 @@ export const createPost = async (
 export interface CreatePostRequest {
   content: string;
   originalPostId?: number;
-  repost?: boolean;  // This should be "repost", not "isRepost" to match the backend
+  repost?: boolean; // This should be "repost", not "isRepost" to match the backend
   communityId?: number;
+  // Add these fields:
+  media?: File[];
+  mediaTypes?: string[];
+  altTexts?: string[];
 }
 
 /**
@@ -318,9 +375,11 @@ export const likeComment = async (
   commentId: number
 ): Promise<{ message: string; likesCount: number; isLiked: boolean }> => {
   return safeApiCall(async () => {
-    const response = await apiClient.post<{ message: string; likesCount: number; isLiked: boolean }>(
-      `/posts/comments/${commentId}/like`
-    );
+    const response = await apiClient.post<{
+      message: string;
+      likesCount: number;
+      isLiked: boolean;
+    }>(`/posts/comments/${commentId}/like`);
     return response.data;
   }, `Liking comment ${commentId}`);
 };
@@ -339,11 +398,13 @@ export const updatePost = async (
   content: string
 ): Promise<PostResponse> => {
   return safeApiCall(async () => {
-    const response = await apiClient.put<PostResponse>(`/posts/${postId}`, { content });
-    
+    const response = await apiClient.put<PostResponse>(`/posts/${postId}`, {
+      content,
+    });
+
     // Log debug information
     console.log(`Post ${postId} updated successfully`, response.data);
-    
+
     return response.data;
   }, `Updating post ${postId}`);
 };

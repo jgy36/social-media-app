@@ -79,6 +79,10 @@ export interface CreatePostRequest {
   originalPostId?: number;
   repost?: boolean; // This should be "repost", not "isRepost" to match the backend
   communityId?: string | number; // Note: accepting both string and number types for compatibility
+  // Add these new fields for media support:
+  media?: File[];
+  mediaTypes?: string[];
+  altTexts?: string[];
 }
 
 // Instead of extending with an empty interface, directly export the type

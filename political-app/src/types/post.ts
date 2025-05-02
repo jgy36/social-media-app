@@ -15,6 +15,7 @@ export interface PostType {
   communityId?: string;
   communityName?: string;
   communityColor?: string; // Add community color field
+  media?: MediaType[]; // Add this field
 
   // Repost-related fields - support both property names
   isRepost?: boolean;
@@ -22,4 +23,16 @@ export interface PostType {
   originalPostId?: number;
   originalAuthor?: string;
   originalPostContent?: string;
+}
+
+// Add this interface right after the existing PostType interface
+export interface MediaType {
+  id: number;
+  mediaType: string; // 'image', 'video', 'gif'
+  url: string;
+  thumbnailUrl?: string;
+  altText?: string;
+  width?: number;
+  height?: number;
+  duration?: number;
 }
