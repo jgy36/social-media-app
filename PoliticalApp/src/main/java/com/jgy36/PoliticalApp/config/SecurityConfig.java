@@ -107,6 +107,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/media/**").permitAll()  // <-- Add this line
+                        // Add this line for test endpoints
+                        .requestMatchers("/api/test/**").permitAll()  // Test endpoints
 
 
                         // PROTECTED Endpoints (Require JWT Token)

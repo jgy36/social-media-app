@@ -24,6 +24,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -63,6 +64,9 @@ public class AuthController {
     /**
      * ✅ Register a new user.
      */
+    /**
+     * ✅ Register a new user.
+     */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request, HttpServletResponse response) {
         try {
@@ -74,57 +78,13 @@ public class AuthController {
                     request.getDisplayName() // Pass display name to service
             );
 
-            // Clear any existing authentication context
-            SecurityContextHolder.clearContext();
+            // Don't authenticate or create a session, just return success message
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("success", true);
+            responseData.put("message", "Registration successful! Please check your email to verify your account.");
+            responseData.put("email", newUser.getEmail());
 
-            // Authenticate with the NEW user's credentials
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-            );
-
-            // Set the new authentication
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-
-            // Generate JWT token specifically for the NEW user
-            String token = jwtTokenUtil.generateToken(request.getEmail());
-
-            // Set JWT in HTTP-only cookie
-            Cookie jwtCookie = new Cookie("jwt", token);
-            jwtCookie.setHttpOnly(true);
-            jwtCookie.setSecure(false); // Set to true in production with HTTPS
-            jwtCookie.setPath("/");
-            jwtCookie.setMaxAge(24 * 60 * 60); // 24 hours in seconds
-            response.addCookie(jwtCookie);
-
-            // Generate a new session ID
-            String sessionId = UUID.randomUUID().toString();
-            Cookie sessionCookie = new Cookie("session_id", sessionId);
-            sessionCookie.setPath("/");
-            sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
-            response.addCookie(sessionCookie);
-
-            // Set the token as Authorization header
-            response.setHeader("Authorization", "Bearer " + token);
-
-            // Prepare user response
-            Map<String, Object> userResponse = new HashMap<>();
-            userResponse.put("id", newUser.getId());
-            userResponse.put("username", newUser.getUsername());
-            userResponse.put("email", newUser.getEmail());
-            userResponse.put("displayName", newUser.getDisplayName());
-            userResponse.put("bio", newUser.getBio());
-            userResponse.put("profileImageUrl", newUser.getProfileImageUrl());
-            userResponse.put("role", newUser.getRole());
-
-            // Prepare full response
-            Map<String, Object> fullResponse = new HashMap<>();
-            fullResponse.put("token", token);
-            fullResponse.put("user", userResponse);
-            fullResponse.put("sessionId", sessionId);
-            fullResponse.put("success", true);
-            fullResponse.put("message", "User registered successfully");
-
-            return ResponseEntity.ok(fullResponse);
+            return ResponseEntity.ok(responseData);
         } catch (Exception e) {
             // Log the error for debugging
             System.err.println("Registration error: " + e.getMessage());
@@ -142,8 +102,24 @@ public class AuthController {
     /**
      * ✅ Login endpoint: Authenticates user and returns JWT token with complete profile data.
      */
+    /**
+     * ✅ Login endpoint: Authenticates user and returns JWT token with complete profile data.
+     */
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
+        // First check if user exists and is verified
+        User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+        // Check if user is verified
+        if (!user.isVerified()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "success", false,
+                    "message", "Please verify your email before logging in.",
+                    "errorCode", "EMAIL_NOT_VERIFIED"
+            ));
+        }
+
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
@@ -153,8 +129,9 @@ public class AuthController {
         String username = ((org.springframework.security.core.userdetails.User) authentication.getPrincipal()).getUsername();
         String token = jwtTokenUtil.generateToken(username); // ✅ Generate the JWT token
 
-        User user = userRepository.findByEmail(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        // No need to fetch user again, we already have it from above
+        // User user = userRepository.findByEmail(username)
+        //         .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         // ✅ Set JWT in HTTP-only cookie
         Cookie jwtCookie = new Cookie("jwt", token);
@@ -410,6 +387,41 @@ public class AuthController {
             logger.error("❌ Error checking username availability: " + e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error checking username availability: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Verify user email with token
+     */
+    @GetMapping("/verify")
+    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
+        try {
+            User user = userRepository.findByVerificationToken(token)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid verification token"));
+
+            // Check if token is expired
+            if (user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Verification token has expired. Please register again."
+                ));
+            }
+
+            // Verify the user
+            user.setVerified(true);
+            user.setVerificationToken(null);
+            user.setVerificationTokenExpiresAt(null);
+            userRepository.save(user);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Email verified successfully! You can now login."
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "Error verifying email: " + e.getMessage()
+            ));
         }
     }
 }
