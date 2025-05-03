@@ -95,10 +95,11 @@ const PostForm = ({ onPostCreated }: PostFormProps) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!content.trim() && mediaFiles.length === 0) {
-      setLocalError("Post must have either text or media content");
-      return;
-    }
+    // Always require text content, regardless of media
+  if (!content.trim()) {
+    setLocalError("Please type something in the input field. Posts must have text content.");
+    return;
+  }
     
     if (!user.token) {
       setLocalError("You must be logged in to post.");

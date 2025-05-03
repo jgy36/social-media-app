@@ -18,6 +18,7 @@ import { apiClient } from "@/api/apiClient";
 import SaveButton from "@/components/feed/SaveButton";
 import ShareButton from "@/components/feed/ShareButton";
 import RepostButton from "@/components/feed/RepostButton";
+import MediaDisplay from "@/components/feed/MediaDisplay";
 
 const PostDetail = () => {
   const router = useRouter();
@@ -31,11 +32,15 @@ const PostDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [likesCount, setLikesCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
-  
+
   // Track comment likes
-  const [commentLikes, setCommentLikes] = useState<{ [commentId: number]: number }>({});
-  const [likedComments, setLikedComments] = useState<{ [commentId: number]: boolean }>({});
-  
+  const [commentLikes, setCommentLikes] = useState<{
+    [commentId: number]: number;
+  }>({});
+  const [likedComments, setLikedComments] = useState<{
+    [commentId: number]: boolean;
+  }>({});
+
   // For reply functionality
   const [replyPrefill, setReplyPrefill] = useState("");
 
@@ -79,16 +84,16 @@ const PostDetail = () => {
         try {
           const commentsData = await getPostComments(numericPostId);
           setComments(commentsData || []);
-          
+
           // Initialize comment likes tracking
           const initialLikes: { [commentId: number]: number } = {};
           const initialLiked: { [commentId: number]: boolean } = {};
-          
-          commentsData.forEach(comment => {
+
+          commentsData.forEach((comment) => {
             initialLikes[comment.id] = comment.likesCount || 0;
             initialLiked[comment.id] = comment.likedByCurrentUser || false;
           });
-          
+
           setCommentLikes(initialLikes);
           setLikedComments(initialLiked);
         } catch (commentError) {
@@ -120,35 +125,37 @@ const PostDetail = () => {
       console.error("Error liking post:", error);
     }
   };
-  
+
   const handleCommentLike = async (commentId: number) => {
     if (!user.token) {
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
-    
+
     try {
       // Call the like comment API
-      const response = await apiClient.post(`/posts/comments/${commentId}/like`);
-      
+      const response = await apiClient.post(
+        `/posts/comments/${commentId}/like`
+      );
+
       // Toggle the liked state in UI
-      setLikedComments(prev => ({
+      setLikedComments((prev) => ({
         ...prev,
-        [commentId]: !prev[commentId]
+        [commentId]: !prev[commentId],
       }));
-      
+
       // Update like count (increment if we just liked, decrement if we unliked)
-      setCommentLikes(prev => ({
+      setCommentLikes((prev) => ({
         ...prev,
-        [commentId]: likedComments[commentId] 
-          ? Math.max(0, (prev[commentId] || 0) - 1) 
-          : (prev[commentId] || 0) + 1
+        [commentId]: likedComments[commentId]
+          ? Math.max(0, (prev[commentId] || 0) - 1)
+          : (prev[commentId] || 0) + 1,
       }));
-      
+
       toast({
         title: likedComments[commentId] ? "Comment unliked" : "Comment liked",
-        description: likedComments[commentId] 
-          ? "You removed your like from this comment" 
+        description: likedComments[commentId]
+          ? "You removed your like from this comment"
           : "You liked this comment",
         duration: 2000,
       });
@@ -174,16 +181,16 @@ const PostDetail = () => {
     try {
       const commentsData = await getPostComments(post.id);
       setComments(commentsData || []);
-      
+
       // Reset comment like tracking with new data
       const initialLikes: { [commentId: number]: number } = {};
       const initialLiked: { [commentId: number]: boolean } = {};
-      
-      commentsData.forEach(comment => {
+
+      commentsData.forEach((comment) => {
         initialLikes[comment.id] = comment.likesCount || 0;
         initialLiked[comment.id] = comment.likedByCurrentUser || false;
       });
-      
+
       setCommentLikes(initialLikes);
       setLikedComments(initialLiked);
     } catch (error) {
@@ -193,20 +200,20 @@ const PostDetail = () => {
     setIsCommentModalOpen(false);
     setReplyPrefill(""); // Reset the reply prefill
   };
-  
+
   const handleReply = (username: string) => {
     if (!user.token) {
       router.push(`/login?redirect=${encodeURIComponent(router.asPath)}`);
       return;
     }
-    
+
     // Set the prefill text with the username
     setReplyPrefill(`@${username} `);
-    
+
     // Open the comment modal
     setIsCommentModalOpen(true);
   };
-  
+
   // Handle navigation to a user's profile
   const navigateToUserProfile = (username: string) => {
     if (username && username !== "Anonymous") {
@@ -277,13 +284,13 @@ const PostDetail = () => {
             {/* Modified: Username is now clickable and @ symbol is removed, added date */}
             <div className="flex flex-col">
               <h3 className="font-semibold text-lg flex items-center gap-2">
-                <AuthorAvatar 
-                  username={post.author} 
-                  size={24} 
+                <AuthorAvatar
+                  username={post.author}
+                  size={24}
                   className="cursor-pointer"
                   onClick={() => navigateToUserProfile(post.author)}
                 />
-                <span 
+                <span
                   className="cursor-pointer hover:underline"
                   onClick={() => navigateToUserProfile(post.author)}
                 >
@@ -293,16 +300,23 @@ const PostDetail = () => {
               {/* Added date to post */}
               <span className="text-xs text-muted-foreground mt-1 ml-9">
                 {new Date(post.createdAt).toLocaleString(undefined, {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
                 })}
               </span>
             </div>
 
             <p className="mt-2 text-md text-foreground">{post.content}</p>
+
+            {/* Display media content if available */}
+            {post.media && post.media.length > 0 && (
+              <div className="mt-3">
+                <MediaDisplay media={post.media} />
+              </div>
+            )}
 
             {/* Add the original post content section for reposts */}
             {(post.isRepost === true || post.repost === true) &&
@@ -334,7 +348,9 @@ const PostDetail = () => {
                           {post.originalAuthor || "Unknown"}
                         </span>
                       </div>
-                      <p className="text-foreground">{post.originalPostContent}</p>
+                      <p className="text-foreground">
+                        {post.originalPostContent}
+                      </p>
                     </div>
                   ) : (
                     <div className="border rounded-md border-border/30 bg-muted/20 dark:bg-muted/10 p-3 mt-2 text-sm">
@@ -370,13 +386,10 @@ const PostDetail = () => {
               <MessageCircle className="h-4 w-4" />
               {comments.length} Comments
             </Button>
-            
+
             {/* Added SaveButton */}
-            <SaveButton 
-              postId={post.id} 
-              isSaved={post.isSaved ?? false} 
-            />
-            
+            <SaveButton postId={post.id} isSaved={post.isSaved ?? false} />
+
             {/* Added RepostButton */}
             <RepostButton
               postId={post.id}
@@ -384,12 +397,9 @@ const PostDetail = () => {
               content={post.content}
               repostsCount={post.repostsCount || post.repostCount || 0}
             />
-            
+
             {/* Added ShareButton */}
-            <ShareButton 
-              postId={post.id} 
-              sharesCount={post.sharesCount ?? 0} 
-            />
+            <ShareButton postId={post.id} sharesCount={post.sharesCount ?? 0} />
           </div>
         </Card>
 
@@ -407,12 +417,18 @@ const PostDetail = () => {
                       username={comment.user?.username || "Anonymous"}
                       size={20}
                       className="cursor-pointer"
-                      onClick={() => comment.user && navigateToUserProfile(comment.user.username)}
+                      onClick={() =>
+                        comment.user &&
+                        navigateToUserProfile(comment.user.username)
+                      }
                     />
                     {/* Modified: Username is now clickable */}
-                    <span 
+                    <span
                       className="text-sm font-medium cursor-pointer hover:underline"
-                      onClick={() => comment.user && navigateToUserProfile(comment.user.username)}
+                      onClick={() =>
+                        comment.user &&
+                        navigateToUserProfile(comment.user.username)
+                      }
                     >
                       {comment.user?.username || "Anonymous"}
                     </span>
@@ -421,23 +437,29 @@ const PostDetail = () => {
                     <p className="text-sm">{comment.content}</p>
                   </div>
                 </div>
-                  
+
                 {/* Comment action buttons */}
                 <div className="mt-2 flex items-center text-xs text-muted-foreground">
                   {/* Like button */}
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className={`h-6 px-2 text-xs rounded-full ${likedComments[comment.id] ? "text-red-500" : ""}`}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`h-6 px-2 text-xs rounded-full ${
+                      likedComments[comment.id] ? "text-red-500" : ""
+                    }`}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleCommentLike(comment.id);
                     }}
                   >
-                    <Heart className={`h-3 w-3 mr-1 ${likedComments[comment.id] ? "fill-current" : ""}`} />
+                    <Heart
+                      className={`h-3 w-3 mr-1 ${
+                        likedComments[comment.id] ? "fill-current" : ""
+                      }`}
+                    />
                     {commentLikes[comment.id] || 0}
                   </Button>
-                  
+
                   {/* Reply button */}
                   <Button
                     variant="ghost"
@@ -451,7 +473,7 @@ const PostDetail = () => {
                     <Reply className="h-3 w-3 mr-1" />
                     Reply
                   </Button>
-                  
+
                   <span className="text-xs text-muted-foreground ml-auto">
                     {new Date(comment.createdAt).toLocaleDateString()}
                   </span>
