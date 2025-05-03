@@ -533,46 +533,76 @@ public class PostService {
 
         // Save media files if provided
         if (mediaFiles != null && mediaFiles.length > 0) {
-            for (int i = 0; i < mediaFiles.length; i++) {
-                MultipartFile file = mediaFiles[i];
-                if (file.isEmpty()) continue;
-
-                // Get media type
-                String mediaType = (mediaTypes != null && i < mediaTypes.length)
-                        ? mediaTypes[i] : detectMediaType(file.getContentType());
-
-                // Get alt text
-                String altText = (altTexts != null && i < altTexts.length)
-                        ? altTexts[i] : "";
-
-                // Generate filename (using original filename for simplicity)
-                String originalFilename = file.getOriginalFilename();
-                String filename = UUID.randomUUID().toString() + "_" +
-                        (originalFilename != null ? originalFilename : "file");
-
-                // Save file
+            try {
                 File uploadDir = new File("uploads/media");
-                Path filePath = Paths.get(uploadDir.getAbsolutePath(), filename);
+                if (!uploadDir.exists()) {
+                    boolean created = uploadDir.mkdirs();
+                    System.out.println("Created upload directory: " + created);
+                }
 
-                System.out.println("Saving file to: " + filePath.toString());
-                file.transferTo(filePath.toFile());
-                System.out.println("File saved successfully");
+                System.out.println("Upload directory path: " + uploadDir.getAbsolutePath());
+                System.out.println("Upload directory exists: " + uploadDir.exists());
+                System.out.println("Upload directory is writable: " + uploadDir.canWrite());
 
-                // Create media attachment
-                MediaAttachment attachment = new MediaAttachment();
-                attachment.setPost(post);
-                attachment.setMediaType(mediaType);
-                attachment.setUrl("/media/" + filename);
-                attachment.setAltText(altText);
+                for (int i = 0; i < mediaFiles.length; i++) {
+                    MultipartFile file = mediaFiles[i];
+                    if (file.isEmpty()) {
+                        System.out.println("Skipping empty file at index " + i);
+                        continue;
+                    }
 
-                // Add the attachment to the post
-                post.getMediaAttachments().add(attachment);
-                System.out.println("Added attachment with URL: " + attachment.getUrl());
+                    // Get media type
+                    String mediaType = (mediaTypes != null && i < mediaTypes.length)
+                            ? mediaTypes[i] : detectMediaType(file.getContentType());
+
+                    // Get alt text
+                    String altText = (altTexts != null && i < altTexts.length)
+                            ? altTexts[i] : "";
+
+                    // Generate filename with UUID to ensure uniqueness
+                    String originalFilename = file.getOriginalFilename();
+                    String filename = UUID.randomUUID().toString() + "_" +
+                            (originalFilename != null ? originalFilename : "file");
+
+                    // Make sure path exists
+                    Path filePath = Paths.get(uploadDir.getAbsolutePath(), filename);
+
+                    System.out.println("Saving file to: " + filePath.toString());
+
+                    try {
+                        // Save file to disk - using transferTo which is more reliable
+                        file.transferTo(filePath.toFile());
+                        System.out.println("File saved successfully to " + filePath);
+                    } catch (IOException e) {
+                        System.err.println("Error saving file: " + e.getMessage());
+                        e.printStackTrace();
+                        throw e;
+                    }
+
+                    // Create media attachment
+                    MediaAttachment attachment = new MediaAttachment();
+                    attachment.setPost(post);
+                    attachment.setMediaType(mediaType);
+                    attachment.setUrl("/media/" + filename);
+                    attachment.setAltText(altText);
+
+                    // Add the attachment to the post
+                    post.getMediaAttachments().add(attachment);
+                    System.out.println("Added attachment with URL: " + attachment.getUrl());
+                }
+            } catch (Exception e) {
+                System.err.println("Error saving media files: " + e.getMessage());
+                e.printStackTrace();
+                throw new IOException("Failed to save media files", e);
             }
         }
 
-        // Save the post with media attachments
-        return postRepository.save(post);
+        // Save the post with media attachments and flush to ensure immediate persistence
+        Post savedPost = postRepository.saveAndFlush(post);
+        System.out.println("Post saved with ID: " + savedPost.getId() +
+                " and " + savedPost.getMediaAttachments().size() + " attachments");
+
+        return savedPost;
     }
 
     // Helper method to detect media type

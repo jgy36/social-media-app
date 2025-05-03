@@ -22,6 +22,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -492,6 +494,36 @@ public class PostController {
         }
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/test-media-access")
+    public ResponseEntity<Map<String, Object>> testMediaAccess() {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            // Create test file with timestamp
+            File uploadDir = new File("uploads/media");
+            if (!uploadDir.exists()) {
+                uploadDir.mkdirs();
+            }
+
+            String fileName = "test_image_" + System.currentTimeMillis() + ".txt";
+            Path filePath = Paths.get(uploadDir.getAbsolutePath(), fileName);
+
+            // Create a simple test file
+            Files.write(filePath, "Test image content".getBytes());
+
+            response.put("testFileCreated", true);
+            response.put("testFileName", fileName);
+            response.put("testFilePath", filePath.toString());
+            response.put("testFileUrl", "/media/" + fileName);
+            response.put("testFileDirectAccess", "http://localhost:8080/media/" + fileName);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
     }
 
 

@@ -17,10 +17,21 @@ public class MediaConfig implements WebMvcConfigurer {
         String absolutePath = uploadsDir.getAbsolutePath();
 
         System.out.println("🖼️ Media config: Serving files from: " + absolutePath);
+        System.out.println("🖼️ Media directory exists: " + uploadsDir.exists());
+        System.out.println("🖼️ Media directory is writable: " + uploadsDir.canWrite());
 
-        // Use file: protocol with the absolute path
+        // Make sure directory exists
+        if (!uploadsDir.exists()) {
+            boolean created = uploadsDir.mkdirs();
+            System.out.println("🖼️ Created media directory: " + created);
+        }
+
+        // Use file: protocol with absolute path ending with trailing slash
+        String resourceLocation = "file:" + absolutePath + File.separator;
+        System.out.println("🖼️ Resource location: " + resourceLocation);
+
         registry.addResourceHandler("/media/**")
-                .addResourceLocations("file:" + absolutePath + "/")
+                .addResourceLocations(resourceLocation)
                 .setCacheControl(CacheControl.noCache());
 
         // List files in directory for debugging

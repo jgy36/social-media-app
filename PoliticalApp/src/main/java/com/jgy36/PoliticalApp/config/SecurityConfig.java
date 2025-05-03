@@ -106,6 +106,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/politicians/**").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/media/**").permitAll()  // <-- Add this line
+
 
                         // PROTECTED Endpoints (Require JWT Token)
                         .requestMatchers(HttpMethod.POST, "/api/comments/**").authenticated()
