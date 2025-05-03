@@ -192,13 +192,49 @@ public class PostService {
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new NoSuchElementException("User not found"));
 
-        Post post = getPostById(postId);
+        Post post = postRepository.findById(postId)
+                .orElseThrow(() -> new NoSuchElementException("Post not found"));
 
-        // Delegate to LikeService to handle the notification
-        likeService.likePost(postId);
+        // Initialize collections if null
+        if (post.getLikedUsers() == null) {
+            post.setLikedUsers(new HashSet<>());
+        }
 
-        // Return updated like count (keep your existing logic here)
-        return post.getLikes().size();
+        // Check if PostLike already exists
+        Optional<PostLike> existingLike = postLikeRepository.findByPostAndUser(post, user);
+
+        if (existingLike.isPresent()) {
+            // Unlike: Remove the like
+            postLikeRepository.delete(existingLike.get());
+            post.getLikedUsers().remove(user);
+        } else {
+            // Like: Add the like
+            PostLike postLike = new PostLike();
+            postLike.setPost(post);
+            postLike.setUser(user);
+            postLikeRepository.save(postLike);
+
+            // Add to likedUsers collection
+            post.getLikedUsers().add(user);
+
+            // Create notification for post author (if it's not the same user)
+            if (!post.getAuthor().equals(user)) {
+                notificationService.createNotification(
+                        post.getAuthor(),
+                        user.getUsername() + " liked your post",
+                        "like",
+                        post.getId(),
+                        null,
+                        post.getCommunity() != null ? post.getCommunity().getSlug() : null
+                );
+            }
+        }
+
+        // Save the post with updated likes
+        Post savedPost = postRepository.save(post);
+
+        // Return the updated like count
+        return savedPost.getLikedUsers().size();
     }
 
     // ✅ Get users who liked a post
