@@ -114,107 +114,78 @@ const RegisterForm = () => {
   }, [password]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Reset errors
-    setDisplayNameError(null);
-    
-    // Validate all fields
-    let hasError = false;
-    
-    if (!displayName.trim()) {
-      setDisplayNameError("Please enter your name");
-      hasError = true;
-    }
-    
-    // Username validation - use cached result if available
-    if (usernameError || usernameAvailable === false) {
-      hasError = true;
-    } else if (username.trim().length < 3) {
-      setUsernameError("Username must be at least 3 characters");
-      hasError = true;
-    }
-    
-    // Email validation
-    if (email.trim() === "") {
-      setEmailError("Email is required");
-      hasError = true;
-    } else if (emailError) {
-      hasError = true;
-    }
-    
-    // Password validation
-    if (password.length < 8) {
-      setPasswordError("Password must be at least 8 characters long");
-      hasError = true;
-    }
-    
-    if (hasError) {
+  e.preventDefault();
+  
+  // Reset errors
+  setDisplayNameError(null);
+  
+  // Validate all fields
+  let hasError = false;
+  
+  if (!displayName.trim()) {
+    setDisplayNameError("Please enter your name");
+    hasError = true;
+  }
+  
+  // Username validation - use cached result if available
+  if (usernameError || usernameAvailable === false) {
+    hasError = true;
+  } else if (username.trim().length < 3) {
+    setUsernameError("Username must be at least 3 characters");
+    hasError = true;
+  }
+  
+  // Email validation
+  if (email.trim() === "") {
+    setEmailError("Email is required");
+    hasError = true;
+  } else if (emailError) {
+    hasError = true;
+  }
+  
+  // Password validation
+  if (password.length < 8) {
+    setPasswordError("Password must be at least 8 characters long");
+    hasError = true;
+  }
+  
+  if (hasError) {
+    toast({
+      variant: "destructive",
+      title: "Please correct the errors",
+      description: "Fix the highlighted fields before registering",
+    });
+    return;
+  }
+  
+  // If username is still being checked, wait
+  if (checkingUsername) {
+    toast({
+      variant: "default",
+      title: "Please wait",
+      description: "Verifying username availability...",
+    });
+    return;
+  }
+
+  try {
+    // Attempt registration
+    const result = await register({ username, email, password, displayName });
+
+    if (result && result.success) {
+      // Show success message but don't log in
       toast({
-        variant: "destructive",
-        title: "Please correct the errors",
-        description: "Fix the highlighted fields before registering",
+        title: "Registration Successful!",
+        description: "Please check your email to verify your account.",
       });
-      return;
-    }
-    
-    // If username is still being checked, wait
-    if (checkingUsername) {
-      toast({
-        variant: "default",
-        title: "Please wait",
-        description: "Verifying username availability...",
-      });
-      return;
-    }
 
-    try {
-      // Attempt registration
-      const result = await register({ username, email, password, displayName });
-
-      if (result && result.success) {
-        // Handle successful registration
-        if (result.data && result.data.token) {
-          await dispatch(loginUser({ email, password })).unwrap();
-        } else {
-          await dispatch(loginUser({ email, password })).unwrap();
-        }
-        
-        toast({
-          title: "Registration Successful",
-          description: "Welcome! Redirecting to your feed...",
-        });
-
-        // Redirect after a short delay to show the success message
-        setTimeout(() => {
-          router.push("/feed");
-        }, 2000);
-      } else {
-        // Handle API response errors
-        const errorMessage = result?.message || "Registration failed. Please try again.";
-        
-        if (errorMessage.includes("Username already exists")) {
-          setUsernameError("Username already exists. Please choose another.");
-          setUsernameAvailable(false);
-          document.getElementById("username")?.focus();
-        } else if (errorMessage.includes("Email already exists")) {
-          setEmailError("Email already exists. Please use another email or login.");
-          document.getElementById("email")?.focus();
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Registration Failed",
-            description: errorMessage,
-          });
-        }
-      }
-    } catch (err) {
-      console.error("Registration error:", err);
-      
-      // Handle client-side and other errors
-      const errorMessage = typeof err === "string" 
-        ? err 
-        : (err as Error).message || "Registration failed. Please try again.";
+      // Redirect to a verification pending page
+      setTimeout(() => {
+        router.push("/verify-email");
+      }, 2000);
+    } else {
+      // Handle API response errors
+      const errorMessage = result?.message || "Registration failed. Please try again.";
       
       if (errorMessage.includes("Username already exists")) {
         setUsernameError("Username already exists. Please choose another.");
@@ -226,12 +197,35 @@ const RegisterForm = () => {
       } else {
         toast({
           variant: "destructive",
-          title: "Registration Error",
+          title: "Registration Failed",
           description: errorMessage,
         });
       }
     }
-  };
+  } catch (err) {
+    console.error("Registration error:", err);
+    
+    // Handle client-side and other errors
+    const errorMessage = typeof err === "string" 
+      ? err 
+      : (err as Error).message || "Registration failed. Please try again.";
+    
+    if (errorMessage.includes("Username already exists")) {
+      setUsernameError("Username already exists. Please choose another.");
+      setUsernameAvailable(false);
+      document.getElementById("username")?.focus();
+    } else if (errorMessage.includes("Email already exists")) {
+      setEmailError("Email already exists. Please use another email or login.");
+      document.getElementById("email")?.focus();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Registration Error",
+        description: errorMessage,
+      });
+    }
+  }
+};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">

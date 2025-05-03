@@ -10,7 +10,7 @@ import { useLogin } from "@/hooks/useApi";
 const LoginForm = () => {
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
-  
+
   // Use our custom hook
   const { loading, error: apiError, execute: login } = useLogin();
 
@@ -30,24 +30,37 @@ const LoginForm = () => {
     try {
       // Use our API hook to login
       const result = await login({ email, password });
-      
+
       if (result && result.token) {
         // Dispatch to Redux to update global state
-        dispatch(loginUser({ 
-          email, 
-          password // You may want to avoid passing password here
-        })).unwrap();
-        
+        dispatch(
+          loginUser({
+            email,
+            password, // You may want to avoid passing password here
+          })
+        ).unwrap();
+
         console.log("Login successful, redirecting to feed");
         router.push("/feed");
       } else {
         setLocalError("Login failed - no token received");
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Login error:", err);
-      setLocalError(
-        typeof err === "string" ? err : "Login failed. Please try again."
-      );
+
+      // Type assertion for error object
+      const error = err as { response?: { data?: { errorCode?: string, message?: string } } };
+      
+      // Check for email verification error
+      if (error.response?.data?.errorCode === "EMAIL_NOT_VERIFIED") {
+      } else if (error.response?.data?.message) {
+        // Use the error message from the server if available
+        setLocalError(error.response.data.message);
+      } else {
+        setLocalError(
+          typeof err === "string" ? err : "Login failed. Please try again."
+        );
+      }
     }
   };
 
