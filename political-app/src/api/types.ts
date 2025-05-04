@@ -23,19 +23,6 @@ export interface RegisterRequest {
   displayName?: string; // Add this field
 }
 
-export interface AuthResponse {
-  token: string;
-  user: {
-    id: number;
-    username: string;
-    email: string;
-    displayName?: string;
-    bio?: string;
-    profileImageUrl?: string;
-    role?: "USER" | "ADMIN"; // Add role field to the user object
-  };
-}
-
 // User Types
 export interface UserProfile {
   id: number;
@@ -197,4 +184,28 @@ export interface HashtagInfo {
   tag: string;
   useCount: number;
   postCount?: number;
+}
+
+// src/api/types.ts
+export interface AuthResponse {
+  token?: string;
+  requires2FA?: boolean;
+  tempToken?: string;
+  user?: {
+    id: number;
+    username: string;
+    email: string;
+    displayName?: string;
+    bio?: string;
+    profileImageUrl?: string;
+    role?: "USER" | "ADMIN";  // Change from string to specific types
+  };
+  sessionId?: string;
+  success?: boolean;
+  message?: string;
+}
+
+export interface TwoFAVerificationRequest {
+  tempToken: string;
+  code: string;
 }

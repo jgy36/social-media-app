@@ -12,9 +12,12 @@ import {
   clearUserData,
   getUserData,
   setAuthenticated,
-  removeToken,
+  // Remove this: removeToken
 } from "@/utils/tokenUtils";
 
+/**
+ * Login a user
+ */
 /**
  * Login a user
  */
@@ -34,12 +37,19 @@ export const login = async (
       }
     );
 
-    // If we get a token from the server, store it
+    // Check if 2FA is required
+    if (response.data.requires2FA) {
+      // Don't set token or user data yet for 2FA flow
+      // Just return the response with tempToken
+      return response.data;
+    }
+
+    // If we get a token from the server (normal login), store it
     if (response.data.token) {
       setToken(response.data.token);
     }
 
-    // Mark as authenticated regardless (since we're using HTTP-only cookies)
+    // Mark as authenticated only for normal login (not 2FA flow)
     setAuthenticated(true);
 
     // Store user info in localStorage
@@ -52,7 +62,7 @@ export const login = async (
         displayName: response.data.user.displayName || undefined,
         bio: response.data.user.bio || undefined,
         profileImageUrl: response.data.user.profileImageUrl || undefined,
-        role: response.data.user.role || "USER", // Ensure role is set
+        role: (response.data.user.role as "USER" | "ADMIN") || "USER", // <-- UPDATE THIS LINE
       });
     }
 
@@ -308,44 +318,92 @@ interface UsernameAvailabilityResponse {
   message?: string;
 }
 
+// Add this new function for 2FA verification
+/**
+ * Verify 2FA code and complete login
+ */
+export const verify2FA = async (
+  tempToken: string,
+  code: string
+): Promise<AuthResponse> => {
+  return safeApiCall(async () => {
+    const response = await apiClient.post<AuthResponse>(
+      "/auth/verify-2fa",
+      {
+        tempToken,
+        code,
+      },
+      {
+        withCredentials: true,
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      }
+    );
+
+    // If verification successful, store token and user data
+    if (response.data.token) {
+      setToken(response.data.token);
+      setAuthenticated(true);
+
+      // Store user info in localStorage
+      if (response.data.user?.id) {
+        setUserData({
+          id: response.data.user.id,
+          username: response.data.user.username || "",
+          email: response.data.user.email || "",
+          displayName: response.data.user.displayName || undefined,
+          bio: response.data.user.bio || undefined,
+          profileImageUrl: response.data.user.profileImageUrl || undefined,
+          role: (response.data.user.role as "USER" | "ADMIN") || "USER", // <-- UPDATE THIS LINE
+        });
+      }
+    }
+
+    return response.data;
+  }, "2FA verification failed");
+};
 /**
  * Check if a username is available
  */
-export const checkUsernameAvailability = async (username: string): Promise<{
+export const checkUsernameAvailability = async (
+  username: string
+): Promise<{
   available: boolean;
   message: string | null;
 }> => {
   if (!username || username.length < 3) {
-    return { 
-      available: false, 
-      message: "Username must be at least 3 characters" 
+    return {
+      available: false,
+      message: "Username must be at least 3 characters",
     };
   }
 
   try {
     // Don't include authentication headers for this public endpoint
     const response = await apiClient.post<UsernameAvailabilityResponse>(
-      `/auth/check-username`, 
+      `/auth/check-username`,
       { username },
-      { 
+      {
         withCredentials: true,
         // Explicitly tell axios not to send auth headers
         headers: {
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       }
     );
-    
+
     return {
       available: response.data.available,
-      message: response.data.message || null
+      message: response.data.message || null,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Error handling
     console.error("Error checking username availability:", error);
     return {
       available: false,
-      message: "Error checking username availability. Please try again."
+      message: "Error checking username availability. Please try again.",
     };
   }
 };
