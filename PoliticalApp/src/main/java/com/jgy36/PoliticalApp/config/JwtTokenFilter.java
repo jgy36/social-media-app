@@ -52,7 +52,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 "/api/auth/refresh",
                 "/api/auth/check-username", // Add the new endpoint here
                 "/swagger-ui",
-                "/v3/api-docs"
+                "/v3/api-docs",
+                "/api/auth/verify",  // Add this line
+
         };
 
         for (String path : skipPaths) {

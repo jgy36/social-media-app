@@ -1,9 +1,10 @@
 package com.jgy36.PoliticalApp.service;
 
+import com.jgy36.PoliticalApp.entity.PendingUser;
 import com.jgy36.PoliticalApp.entity.Role;
 import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.repository.PendingUserRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
-import jakarta.mail.MessagingException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,6 +27,9 @@ public class UserService {
     private final AccountManagementService accountManagementService;
     private final PrivacySettingsService privacySettingsService;
     private final FollowRequestService followRequestService;
+    private final PendingUserRepository pendingUserRepository;
+    private final EmailService emailService;
+
 
     public UserService(
             UserRepository userRepository,
@@ -33,13 +37,17 @@ public class UserService {
             UserSettingsInitializer settingsInitializer,
             AccountManagementService accountManagementService,
             PrivacySettingsService privacySettingsService,
-            FollowRequestService followRequestService) {
+            FollowRequestService followRequestService,
+            PendingUserRepository pendingUserRepository,
+            EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.settingsInitializer = settingsInitializer;
         this.accountManagementService = accountManagementService;
         this.privacySettingsService = privacySettingsService;
         this.followRequestService = followRequestService;
+        this.pendingUserRepository = pendingUserRepository;
+        this.emailService = emailService;
     }
 
     /**
@@ -95,10 +103,19 @@ public class UserService {
 
             // Send verification email
             try {
+                System.out.println("=== UserService: About to send verification email ===");
+                System.out.println("AccountManagementService is null? " + (accountManagementService == null));
+                System.out.println("User email: " + user.getEmail());
+                System.out.println("User token: " + user.getVerificationToken());
+                System.out.println("User ID: " + user.getId());
+
                 accountManagementService.sendVerificationEmail(user);
-            } catch (MessagingException e) {
-                // Log error but continue (non-blocking)
-                System.err.println("Failed to send verification email: " + e.getMessage());
+                System.out.println("=== UserService: Verification email method called successfully ===");
+            } catch (Exception e) {
+                System.err.println("=== UserService: Error sending verification email ===");
+                System.err.println("Exception type: " + e.getClass().getName());
+                System.err.println("Exception message: " + e.getMessage());
+                e.printStackTrace();
             }
 
             // Return the saved user
@@ -294,4 +311,64 @@ public class UserService {
         User currentUser = getCurrentUser();
         return followRequestService.getFollowRequestsForUser(currentUser).size();
     }
+
+    @Transactional
+    public void createPendingUser(String username, String email, String password, String displayName) {
+        // Check if username/email already exists in both tables
+        if (userRepository.existsByUsername(username) || pendingUserRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("Username already exists");
+        }
+
+        if (userRepository.existsByEmail(email) || pendingUserRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email already exists");
+        }
+
+        PendingUser pendingUser = new PendingUser();
+        pendingUser.setUsername(username);
+        pendingUser.setEmail(email);
+        pendingUser.setPassword(passwordEncoder.encode(password));
+        pendingUser.setDisplayName(displayName);
+        pendingUser.setVerificationToken(UUID.randomUUID().toString());
+        pendingUser.setExpiresAt(LocalDateTime.now().plusDays(1));
+
+        pendingUserRepository.save(pendingUser);
+
+        // Send verification email directly using EmailService
+        try {
+            emailService.sendVerificationEmail(pendingUser.getEmail(), pendingUser.getVerificationToken());
+        } catch (Exception e) {
+            System.err.println("Failed to send verification email: " + e.getMessage());
+            // Don't throw the exception - user is still created
+        }
+    }
+
+    @Transactional
+    public User verifyAndCreateUser(String token) {
+        PendingUser pendingUser = pendingUserRepository.findByVerificationToken(token)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid verification token"));
+
+        if (pendingUser.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Verification token has expired");
+        }
+
+        // Create the actual user
+        User user = new User();
+        user.setUsername(pendingUser.getUsername());
+        user.setEmail(pendingUser.getEmail());
+        user.setPassword(pendingUser.getPassword()); // Already encrypted
+        user.setDisplayName(pendingUser.getDisplayName());
+        user.setRole(Role.ROLE_USER);
+        user.setVerified(true);
+
+        User savedUser = userRepository.save(user);
+
+        // Initialize settings
+        settingsInitializer.initializeSettings(savedUser);
+
+        // Delete the pending user
+        pendingUserRepository.delete(pendingUser);
+
+        return savedUser;
+    }
 }
+

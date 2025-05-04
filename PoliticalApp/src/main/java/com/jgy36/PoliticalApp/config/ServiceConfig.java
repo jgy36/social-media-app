@@ -1,5 +1,6 @@
 package com.jgy36.PoliticalApp.config;
 
+import com.jgy36.PoliticalApp.repository.PendingUserRepository;
 import com.jgy36.PoliticalApp.repository.UserRepository;
 import com.jgy36.PoliticalApp.service.*;
 import org.springframework.context.annotation.Bean;
@@ -24,15 +25,19 @@ public class ServiceConfig {
             @Lazy PasswordEncoder passwordEncoder,
             @Lazy UserSettingsInitializer userSettingsInitializer,
             @Lazy PrivacySettingsService privacySettingsService,
-            @Lazy FollowRequestService followRequestService) {
+            @Lazy FollowRequestService followRequestService,
+            @Lazy PendingUserRepository pendingUserRepository,
+            @Lazy EmailService emailService) {
 
         return new UserService(
-                userRepository,                // Was null before
-                passwordEncoder,               // Was null before
-                userSettingsInitializer,       // Was null before
+                userRepository,
+                passwordEncoder,
+                userSettingsInitializer,
                 accountManagementService,
-                privacySettingsService,        // New required parameter
-                followRequestService           // New required parameter
+                privacySettingsService,
+                followRequestService,
+                pendingUserRepository,
+                emailService
         );
     }
 }

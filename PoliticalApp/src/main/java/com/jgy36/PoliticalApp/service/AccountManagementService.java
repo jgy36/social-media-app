@@ -29,6 +29,8 @@ public class AccountManagementService {
     private final ConnectedAccountRepository connectedAccountRepository;
     private final JavaMailSender mailSender;
     private final OAuth2AuthorizedClientService authorizedClientService;
+    private final EmailService emailService;  // ADD THIS LINE
+
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -40,11 +42,12 @@ public class AccountManagementService {
             UserRepository userRepository,
             ConnectedAccountRepository connectedAccountRepository,
             JavaMailSender mailSender,
-            OAuth2AuthorizedClientService authorizedClientService) {
+            OAuth2AuthorizedClientService authorizedClientService, EmailService emailService) {
         this.userRepository = userRepository;
         this.connectedAccountRepository = connectedAccountRepository;
         this.mailSender = mailSender;
         this.authorizedClientService = authorizedClientService;
+        this.emailService = emailService;  // ADD THIS LINE
     }
 
     /**
@@ -85,33 +88,37 @@ public class AccountManagementService {
      * Send verification email to user
      */
     public void sendVerificationEmail(User user) throws MessagingException {
+        System.out.println("=== AccountManagementService.sendVerificationEmail START ===");
+        System.out.println("User: " + user);
+        System.out.println("User email: " + user.getEmail());
+        System.out.println("User token (before): " + user.getVerificationToken());
+
         // Generate token if not exists
         if (user.getVerificationToken() == null) {
+            System.out.println("Generating new verification token");
             user.setVerificationToken(generateVerificationToken());
             user.setVerificationTokenExpiresAt(LocalDateTime.now().plusHours(24));
             userRepository.save(user);
+            System.out.println("User token (after): " + user.getVerificationToken());
         }
 
-        String verificationUrl = frontendUrl + "/verify-email?token=" + user.getVerificationToken();
+        // Use EmailService to send the email
+        try {
+            System.out.println("Calling EmailService.sendVerificationEmail...");
+            emailService.sendVerificationEmail(user.getEmail(), user.getVerificationToken());
+            System.out.println("EmailService.sendVerificationEmail completed");
+        } catch (Exception e) {
+            System.err.println("Error calling EmailService: " + e.getMessage());
+            e.printStackTrace();
+            // Wrap any exception as MessagingException to maintain the method signature
+            if (e instanceof MessagingException) {
+                throw (MessagingException) e;
+            } else {
+                throw new MessagingException("Failed to send verification email", e);
+            }
+        }
 
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, StandardCharsets.UTF_8.name());
-
-        helper.setFrom(fromEmail);
-        helper.setTo(user.getEmail());
-        helper.setSubject("Verify Your Email Address");
-
-        String htmlContent = "<html><body>"
-                + "<h2>Email Verification</h2>"
-                + "<p>Hello " + user.getUsername() + ",</p>"
-                + "<p>Please click the link below to verify your email address:</p>"
-                + "<p><a href='" + verificationUrl + "'>Verify Email</a></p>"
-                + "<p>This link will expire in 24 hours.</p>"
-                + "<p>If you did not create an account, please ignore this email.</p>"
-                + "</body></html>";
-
-        helper.setText(htmlContent, true);
-        mailSender.send(message);
+        System.out.println("=== AccountManagementService.sendVerificationEmail END ===");
     }
 
     /**

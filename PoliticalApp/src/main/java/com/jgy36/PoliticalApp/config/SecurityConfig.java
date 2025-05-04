@@ -98,6 +98,7 @@ public class SecurityConfig {
 
                         // Public Endpoints
                         .requestMatchers("/api/auth/**").permitAll()  // Public Auth Routes
+                        .requestMatchers("/api/auth/verify").permitAll()  // Add this line explicitly
                         .requestMatchers(HttpMethod.GET, "/api/posts/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/comments/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/communities/**").permitAll()

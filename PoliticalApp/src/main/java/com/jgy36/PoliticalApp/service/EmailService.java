@@ -23,32 +23,62 @@ public class EmailService {
     private String frontendUrl;
 
     public void sendVerificationEmail(String toEmail, String token) {
+        logger.info("=== sendVerificationEmail START ===");
+        logger.info("Recipient email: {}", toEmail);
+        logger.info("Token: {}", token);
+        logger.info("Frontend URL: {}", frontendUrl);
+        logger.info("From email: {}", fromEmail);
+
+        if (toEmail == null) {
+            logger.error("toEmail is null!");
+            throw new IllegalArgumentException("Email cannot be null");
+        }
+
+        if (token == null) {
+            logger.error("Token is null!");
+            throw new IllegalArgumentException("Token cannot be null");
+        }
+
         String verificationUrl = frontendUrl + "/verify?token=" + token;
+        logger.info("Constructed verification URL: {}", verificationUrl);
+
         String subject = "Verify your account";
         String message = "Click the link below to verify your account:\n" + verificationUrl;
 
-        logger.info("Sending verification email to: {}", toEmail);
-        logger.info("Verification URL: {}", verificationUrl);
-        logger.info("From email: {}", fromEmail);
-
         try {
+            logger.info("Calling sendEmail method...");
             sendEmail(toEmail, subject, message);
-            logger.info("Verification email sent successfully to: {}", toEmail);
+            logger.info("sendEmail completed successfully");
         } catch (Exception e) {
-            logger.error("Failed to send verification email to: {}", toEmail, e);
+            logger.error("Exception in sendEmail: ", e);
             throw e;
         }
+
+        logger.info("=== sendVerificationEmail END ===");
     }
 
     public void sendEmail(String to, String subject, String text) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setFrom(fromEmail);
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
+        logger.info("=== sendEmail START ===");
+        logger.info("To: {}", to);
+        logger.info("Subject: {}", subject);
+        logger.info("From: {}", fromEmail);
+        logger.info("Text length: {}", text != null ? text.length() : "null");
 
-        logger.debug("Sending email: from={}, to={}, subject={}", fromEmail, to, subject);
-        mailSender.send(message);
-        logger.debug("Email sent successfully");
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(text);
+
+            logger.info("Sending mail message...");
+            mailSender.send(message);
+            logger.info("Mail sent successfully!");
+        } catch (Exception e) {
+            logger.error("Failed to send email: ", e);
+            throw e;
+        }
+
+        logger.info("=== sendEmail END ===");
     }
 }

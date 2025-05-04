@@ -70,26 +70,21 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request, HttpServletResponse response) {
         try {
-            // Register the user with display name
-            User newUser = userService.registerUser(
+            // Create pending user instead of actual user
+            userService.createPendingUser(
                     request.getUsername(),
                     request.getEmail(),
                     request.getPassword(),
-                    request.getDisplayName() // Pass display name to service
+                    request.getDisplayName()
             );
 
-            // Don't authenticate or create a session, just return success message
             Map<String, Object> responseData = new HashMap<>();
             responseData.put("success", true);
             responseData.put("message", "Registration successful! Please check your email to verify your account.");
-            responseData.put("email", newUser.getEmail());
+            responseData.put("email", request.getEmail());
 
             return ResponseEntity.ok(responseData);
         } catch (Exception e) {
-            // Log the error for debugging
-            System.err.println("Registration error: " + e.getMessage());
-            e.printStackTrace();
-
             return ResponseEntity.badRequest().body(
                     Map.of(
                             "success", false,
@@ -99,9 +94,50 @@ public class AuthController {
         }
     }
 
-    /**
-     * ✅ Login endpoint: Authenticates user and returns JWT token with complete profile data.
-     */
+    @GetMapping("/verify")
+    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
+        try {
+            // First try to verify a pending user
+            User user = userService.verifyAndCreateUser(token);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Email verified successfully! You can now login."
+            ));
+        } catch (IllegalArgumentException e) {
+            // If not found in pending users, try existing users (backward compatibility)
+            try {
+                User existingUser = userRepository.findByVerificationToken(token)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid verification token"));
+
+                // Check if token is expired
+                if (existingUser.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "message", "Verification token has expired. Please register again."
+                    ));
+                }
+
+                // Verify the user
+                existingUser.setVerified(true);
+                existingUser.setVerificationToken(null);
+                existingUser.setVerificationTokenExpiresAt(null);
+                userRepository.save(existingUser);
+
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "message", "Email verified successfully! You can now login."
+                ));
+            } catch (Exception ex) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "message", "Error verifying email: " + ex.getMessage()
+                ));
+            }
+        }
+    }
+
+
     /**
      * ✅ Login endpoint: Authenticates user and returns JWT token with complete profile data.
      */
@@ -390,38 +426,5 @@ public class AuthController {
         }
     }
 
-    /**
-     * Verify user email with token
-     */
-    @GetMapping("/verify")
-    public ResponseEntity<?> verifyEmail(@RequestParam String token) {
-        try {
-            User user = userRepository.findByVerificationToken(token)
-                    .orElseThrow(() -> new IllegalArgumentException("Invalid verification token"));
 
-            // Check if token is expired
-            if (user.getVerificationTokenExpiresAt().isBefore(LocalDateTime.now())) {
-                return ResponseEntity.badRequest().body(Map.of(
-                        "success", false,
-                        "message", "Verification token has expired. Please register again."
-                ));
-            }
-
-            // Verify the user
-            user.setVerified(true);
-            user.setVerificationToken(null);
-            user.setVerificationTokenExpiresAt(null);
-            userRepository.save(user);
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Email verified successfully! You can now login."
-            ));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "Error verifying email: " + e.getMessage()
-            ));
-        }
-    }
 }
