@@ -4,8 +4,11 @@ import com.jgy36.PoliticalApp.config.JwtTokenUtil;
 import com.jgy36.PoliticalApp.dto.AuthResponse;
 import com.jgy36.PoliticalApp.dto.LoginRequest;
 import com.jgy36.PoliticalApp.dto.RegisterRequest;
+import com.jgy36.PoliticalApp.dto.TwoFAVerificationRequest;
 import com.jgy36.PoliticalApp.entity.User;
+import com.jgy36.PoliticalApp.entity.UserSecuritySettings;
 import com.jgy36.PoliticalApp.repository.UserRepository;
+import com.jgy36.PoliticalApp.service.SecurityService;
 import com.jgy36.PoliticalApp.service.TokenBlacklistService;
 import com.jgy36.PoliticalApp.service.UserService;
 import jakarta.servlet.http.Cookie;
@@ -51,14 +54,23 @@ public class AuthController {
     private final TokenBlacklistService tokenBlacklistService;
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final SecurityService securityService;
 
-    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtTokenUtil jwtTokenUtil, TokenBlacklistService tokenBlacklistService, UserRepository userRepository, BCryptPasswordEncoder passwordEncoder) {
+
+    public AuthController(UserService userService,
+                          AuthenticationManager authenticationManager,
+                          JwtTokenUtil jwtTokenUtil,
+                          TokenBlacklistService tokenBlacklistService,
+                          UserRepository userRepository,
+                          BCryptPasswordEncoder passwordEncoder,
+                          SecurityService securityService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
         this.jwtTokenUtil = jwtTokenUtil;
         this.tokenBlacklistService = tokenBlacklistService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.securityService = securityService;
     }
 
     /**
@@ -161,33 +173,43 @@ public class AuthController {
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // ✅ Extract username from Authentication object
+        // Check if 2FA is enabled for this user
+        if (securityService.isTwoFaEnabled(user.getId())) {
+            // Generate a temporary token for 2FA verification
+            String tempToken = jwtTokenUtil.generateToken(user.getEmail(), 300); // 5 minutes validity
+
+            // Return response indicating 2FA is required
+            Map<String, Object> twoFaResponse = new HashMap<>();
+            twoFaResponse.put("requires2FA", true);
+            twoFaResponse.put("tempToken", tempToken);
+            twoFaResponse.put("message", "Please enter your 2FA verification code");
+
+            return ResponseEntity.ok(twoFaResponse);
+        }
+
+        // If no 2FA, continue with normal login flow
         String username = ((org.springframework.security.core.userdetails.User) authentication.getPrincipal()).getUsername();
-        String token = jwtTokenUtil.generateToken(username); // ✅ Generate the JWT token
+        String token = jwtTokenUtil.generateToken(username);
 
-        // No need to fetch user again, we already have it from above
-        // User user = userRepository.findByEmail(username)
-        //         .orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
-        // ✅ Set JWT in HTTP-only cookie
+        // Rest of your existing login code...
+        // Set JWT in HTTP-only cookie
         Cookie jwtCookie = new Cookie("jwt", token);
         jwtCookie.setHttpOnly(true);
-        jwtCookie.setSecure(false); // Set to true in production with HTTPS
+        jwtCookie.setSecure(false);
         jwtCookie.setPath("/");
-        jwtCookie.setMaxAge(24 * 60 * 60); // 24 hours in seconds
+        jwtCookie.setMaxAge(24 * 60 * 60);
         response.addCookie(jwtCookie);
 
-        // ✅ Add a session identifier cookie (not HTTP-only so JS can read it)
+        // Add session identifier cookie
         String sessionId = UUID.randomUUID().toString();
         Cookie sessionCookie = new Cookie("session_id", sessionId);
         sessionCookie.setPath("/");
-        sessionCookie.setMaxAge(24 * 60 * 60); // 24 hours
+        sessionCookie.setMaxAge(24 * 60 * 60);
         response.addCookie(sessionCookie);
 
-        // Also set the token as Authorization header for API clients
         response.setHeader("Authorization", "Bearer " + token);
 
-        // ✅ Return complete user info
+        // Return complete user info
         Map<String, Object> userResponse = new HashMap<>();
         userResponse.put("id", user.getId());
         userResponse.put("username", user.getUsername());
@@ -196,13 +218,86 @@ public class AuthController {
         userResponse.put("bio", user.getBio());
         userResponse.put("profileImageUrl", user.getProfileImageUrl());
 
-        // ✅ Create response with token (for API clients) and user info
         Map<String, Object> fullResponse = new HashMap<>();
-        fullResponse.put("token", token); // Still include token for API clients
+        fullResponse.put("token", token);
         fullResponse.put("user", userResponse);
         fullResponse.put("sessionId", sessionId);
+        fullResponse.put("requires2FA", false);
 
         return ResponseEntity.ok(fullResponse);
+    }
+
+    @PostMapping("/verify-2fa")
+    public ResponseEntity<?> verify2FA(@RequestBody TwoFAVerificationRequest request, HttpServletResponse response) {
+        try {
+            // Validate the temporary token
+            String email = jwtTokenUtil.getUsernameFromToken(request.getTempToken());
+
+            // Verify token hasn't expired
+            if (jwtTokenUtil.isTokenExpired(request.getTempToken())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "success", false,
+                        "message", "Verification token has expired"
+                ));
+            }
+
+            // Get user
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
+            // Get user's 2FA settings
+            UserSecuritySettings settings = securityService.getUserSecuritySettings(user.getId());
+
+            // Verify the 2FA code
+            if (!securityService.verifyTwoFaCode(settings.getTwoFaSecret(), request.getCode())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "success", false,
+                        "message", "Invalid verification code"
+                ));
+            }
+
+            // Generate real JWT token
+            String token = jwtTokenUtil.generateToken(email);
+
+            // Set JWT in HTTP-only cookie
+            Cookie jwtCookie = new Cookie("jwt", token);
+            jwtCookie.setHttpOnly(true);
+            jwtCookie.setSecure(false);
+            jwtCookie.setPath("/");
+            jwtCookie.setMaxAge(24 * 60 * 60);
+            response.addCookie(jwtCookie);
+
+            // Add session identifier cookie
+            String sessionId = UUID.randomUUID().toString();
+            Cookie sessionCookie = new Cookie("session_id", sessionId);
+            sessionCookie.setPath("/");
+            sessionCookie.setMaxAge(24 * 60 * 60);
+            response.addCookie(sessionCookie);
+
+            response.setHeader("Authorization", "Bearer " + token);
+
+            // Return complete user info
+            Map<String, Object> userResponse = new HashMap<>();
+            userResponse.put("id", user.getId());
+            userResponse.put("username", user.getUsername());
+            userResponse.put("email", user.getEmail());
+            userResponse.put("displayName", user.getDisplayName());
+            userResponse.put("bio", user.getBio());
+            userResponse.put("profileImageUrl", user.getProfileImageUrl());
+
+            Map<String, Object> fullResponse = new HashMap<>();
+            fullResponse.put("token", token);
+            fullResponse.put("user", userResponse);
+            fullResponse.put("sessionId", sessionId);
+            fullResponse.put("success", true);
+
+            return ResponseEntity.ok(fullResponse);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "success", false,
+                    "message", "Invalid or expired verification token"
+            ));
+        }
     }
 
     /**

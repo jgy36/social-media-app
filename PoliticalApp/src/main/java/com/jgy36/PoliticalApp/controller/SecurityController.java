@@ -10,6 +10,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,11 +47,21 @@ public class SecurityController {
     @PostMapping("/2fa/setup")
     public ResponseEntity<?> setupTwoFa() {
         String secret = securityService.generateTwoFaSecret();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String userEmail = auth.getName();
 
-        // Generate QR code URL
-        String qrCodeUrl = "https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=otpauth://totp/PoliticalApp:"
-                + SecurityContextHolder.getContext().getAuthentication().getName()
-                + "?secret=" + secret + "&issuer=PoliticalApp";
+        // Generate QR code URL with proper encoding
+        String otpAuth = String.format(
+                "otpauth://totp/PoliticalApp:%s?secret=%s&issuer=PoliticalApp&algorithm=SHA1&digits=6&period=30",
+                URLEncoder.encode(userEmail, StandardCharsets.UTF_8),
+                secret
+        );
+
+        // Use Google Charts API with proper URL encoding
+        String qrCodeUrl = String.format(
+                "https://chart.googleapis.com/chart?cht=qr&chs=300x300&chld=L|0&chl=%s",
+                URLEncoder.encode(otpAuth, StandardCharsets.UTF_8)
+        );
 
         Map<String, Object> response = new HashMap<>();
         response.put("secretKey", secret);

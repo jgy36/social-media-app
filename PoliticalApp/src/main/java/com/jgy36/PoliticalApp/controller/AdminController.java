@@ -14,6 +14,7 @@ public class AdminController {
 
     private final CommunityService communityService;
 
+
     public AdminController(CommunityService communityService) {
         this.communityService = communityService;
     }

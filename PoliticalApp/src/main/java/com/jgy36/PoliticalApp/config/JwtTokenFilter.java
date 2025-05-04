@@ -111,4 +111,5 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             response.getWriter().write("Invalid token");
         }
     }
+
 }

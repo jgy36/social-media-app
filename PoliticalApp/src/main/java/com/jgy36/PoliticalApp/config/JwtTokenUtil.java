@@ -27,14 +27,75 @@ public class JwtTokenUtil {
      * @return A JWT token as a String.
      */
     public String generateToken(String email) {
-        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)); // ✅ Correct key usage
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
 
         return Jwts.builder()
-                .subject(email) // ✅ Use subject() instead of setSubject()
-                .issuedAt(new Date()) // ✅ Use issuedAt()
-                .expiration(new Date(System.currentTimeMillis() + expirationMs)) // ✅ Use expiration()
-                .signWith(key, Jwts.SIG.HS256) // ✅ Correct way to sign JWT in JJWT 0.12.6
+                .subject(email)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + expirationMs))
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
+    }
+
+    /**
+     * ✅ Generates a JWT token with custom expiration time
+     *
+     * @param email             The user's email
+     * @param expirationSeconds Custom expiration time in seconds
+     * @return JWT token
+     */
+    public String generateToken(String email, int expirationSeconds) {
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + (expirationSeconds * 1000L));
+
+        return Jwts.builder()
+                .subject(email)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    /**
+     * ✅ Generates a temporary token for 2FA verification
+     */
+    public String generateTempToken(String email) {
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + 300000); // 5 minutes
+
+        return Jwts.builder()
+                .subject(email)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .claim("type", "temp")
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    /**
+     * ✅ Validates temporary token and returns claims
+     */
+    public Claims validateTempToken(String token) {
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+            Claims claims = Jwts.parser()
+                    .verifyWith(key)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            if (!"temp".equals(claims.get("type"))) {
+                throw new RuntimeException("Invalid token type");
+            }
+
+            return claims;
+        } catch (ExpiredJwtException e) {
+            throw new RuntimeException("Verification token has expired");
+        } catch (Exception e) {
+            throw new RuntimeException("Invalid verification token");
+        }
     }
 
     /**
@@ -59,7 +120,6 @@ public class JwtTokenUtil {
             return null;
         }
     }
-
 
     /**
      * ✅ Extracts the expiration date from a JWT token.
@@ -91,8 +151,8 @@ public class JwtTokenUtil {
      * @return The claims inside the token.
      */
     private Claims extractAllClaims(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)); // ✅ Ensure it's a SecretKey
-        JwtParser parser = Jwts.parser().verifyWith(key).build(); // ✅ Correct parsing method
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        JwtParser parser = Jwts.parser().verifyWith(key).build();
 
         return parser.parseSignedClaims(token).getPayload();
     }
@@ -142,10 +202,10 @@ public class JwtTokenUtil {
      * @return The expiration timestamp.
      */
     public long getExpirationFromToken(String token) {
-        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)); // ✅ Correct SecretKey usage
+        SecretKey key = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
 
         Claims claims = Jwts.parser()
-                .verifyWith(key)  // ✅ Now correctly uses SecretKey
+                .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

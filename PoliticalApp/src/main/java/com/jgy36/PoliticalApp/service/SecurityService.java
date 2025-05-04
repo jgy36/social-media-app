@@ -8,6 +8,8 @@ import com.jgy36.PoliticalApp.repository.UserSecuritySettingsRepository;
 import com.jgy36.PoliticalApp.repository.UserSessionRepository;
 import org.jboss.aerogear.security.otp.Totp;
 import org.jboss.aerogear.security.otp.api.Base32;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -22,6 +24,7 @@ import java.util.UUID;
 
 @Service
 public class SecurityService {
+    private static final Logger logger = LoggerFactory.getLogger(SecurityService.class);
     private final UserSecuritySettingsRepository securityRepository;
     private final UserRepository userRepository;
     private final UserSessionRepository sessionRepository;
@@ -95,8 +98,13 @@ public class SecurityService {
      * Verify a 2FA code
      */
     public boolean verifyTwoFaCode(String secret, String code) {
-        Totp totp = new Totp(secret);
-        return totp.verify(code);
+        try {
+            Totp totp = new Totp(secret);
+            return totp.verify(code);
+        } catch (Exception e) {
+            logger.error("Error verifying TOTP code", e);
+            return false;
+        }
     }
 
     /**
