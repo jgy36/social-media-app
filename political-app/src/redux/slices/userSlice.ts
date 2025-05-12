@@ -70,12 +70,17 @@ export const restoreAuthState = createAsyncThunk(
           try {
             // Import badge restoration functionality
             const { fetchUserBadges } = await import("./badgeSlice");
-            
+
             // Dispatch badge fetch
             dispatch(fetchUserBadges());
-            console.log("Badge restoration initiated during auth state restoration");
+            console.log(
+              "Badge restoration initiated during auth state restoration"
+            );
           } catch (badgeError) {
-            console.error("Failed to restore badges during auth restoration:", badgeError);
+            console.error(
+              "Failed to restore badges during auth restoration:",
+              badgeError
+            );
             // Continue with auth restoration even if badge fetch fails
           }
 
@@ -160,15 +165,12 @@ export const loginUser = createAsyncThunk<
     try {
       // Import the badge fetch thunk dynamically
       const { fetchUserBadges } = await import("./badgeSlice");
-      
+
       // Dispatch the thunk to restore badges from server
       dispatch(fetchUserBadges());
       console.log("Badge restoration initiated after login");
     } catch (badgesError) {
-      console.error(
-        "Failed to restore badges after login:", 
-        badgesError
-      );
+      console.error("Failed to restore badges after login:", badgesError);
       // Continue with login even if badge restoration fails
     }
 
@@ -198,12 +200,17 @@ export const registerUser = createAsyncThunk(
       email,
       password,
       displayName,
-    }: { username: string; email: string; password: string; displayName: string },
+    }: {
+      username: string;
+      email: string;
+      password: string;
+      displayName: string;
+    },
     { rejectWithValue, dispatch }
   ) => {
     try {
       console.log("Registering user with displayName:", displayName);
-      
+
       // Use the API structure for registration
       const response = await api.auth.register({
         username,
@@ -215,15 +222,15 @@ export const registerUser = createAsyncThunk(
       if (!response.success) {
         throw new Error(response.message || "Registration failed");
       }
-      
+
       // After successful registration, immediately login
       try {
         await dispatch(loginUser({ email, password })).unwrap();
-        
+
         // Explicitly update the display name in Redux state
         dispatch({
           type: "user/setDisplayName",
-          payload: displayName
+          payload: displayName,
         });
       } catch (loginError) {
         console.error("Auto-login after registration failed:", loginError);
@@ -414,7 +421,7 @@ export const logoutUser = createAsyncThunk(
 
       // Clear communities
       dispatch(clearCommunities());
-      
+
       // Also clear badges - Import the action
       const { clearBadges } = await import("./badgeSlice");
       dispatch(clearBadges());
@@ -429,7 +436,7 @@ export const logoutUser = createAsyncThunk(
       // Still clear data even if API call fails
       clearUserData();
       dispatch(clearCommunities());
-      
+
       // Make sure badges are cleared even on API failure
       const { clearBadges } = await import("./badgeSlice");
       dispatch(clearBadges());
@@ -447,25 +454,61 @@ const userSlice = createSlice({
     forceAuthenticated: (state, action: PayloadAction<boolean>) => {
       state.isAuthenticated = action.payload;
     },
-    
+
     // Add the setDisplayName reducer
     setDisplayName: (state, action: PayloadAction<string>) => {
       const displayName = action.payload;
       state.displayName = displayName;
-      
+
       // Also update in localStorage for persistence
       if (state.id) {
         const userId = state.id.toString();
         localStorage.setItem(`user_${userId}_displayName`, displayName);
-        
+
         // Dispatch a custom event that components can listen for
-        if (typeof window !== 'undefined') {
+        if (typeof window !== "undefined") {
           window.dispatchEvent(
-            new CustomEvent('userProfileUpdated', {
-              detail: { displayName }
+            new CustomEvent("userProfileUpdated", {
+              detail: { displayName },
             })
           );
         }
+      }
+    },
+    // Add setAuthState reducer for handling 2FA auth
+    setAuthState: (
+      state,
+      action: PayloadAction<{
+        token: string;
+        user?: {
+          id?: number;
+          username?: string;
+          email?: string;
+          displayName?: string;
+          bio?: string;
+          profileImageUrl?: string;
+          role?: "USER" | "ADMIN";
+        };
+      }>
+    ) => {
+      // Set token
+      state.token = action.payload.token;
+      state.isAuthenticated = true;
+      state.loading = false;
+      state.error = null;
+
+      // Set user data if available
+      if (action.payload.user) {
+        if (action.payload.user.id) state.id = action.payload.user.id;
+        if (action.payload.user.username)
+          state.username = action.payload.user.username;
+        if (action.payload.user.email) state.email = action.payload.user.email;
+        if (action.payload.user.displayName)
+          state.displayName = action.payload.user.displayName;
+        if (action.payload.user.bio) state.bio = action.payload.user.bio;
+        if (action.payload.user.profileImageUrl)
+          state.profileImageUrl = action.payload.user.profileImageUrl;
+        if (action.payload.user.role) state.role = action.payload.user.role;
       }
     },
   },
@@ -628,6 +671,6 @@ const userSlice = createSlice({
   },
 });
 
-export const { forceAuthenticated, setDisplayName } = userSlice.actions;
-
+export const { forceAuthenticated, setDisplayName, setAuthState } =
+  userSlice.actions;
 export default userSlice.reducer;

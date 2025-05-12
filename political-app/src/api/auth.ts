@@ -25,48 +25,51 @@ export const login = async (
   credentials: LoginRequest
 ): Promise<AuthResponse> => {
   return safeApiCall(async () => {
-    const response = await apiClient.post<AuthResponse>(
-      "/auth/login",
-      credentials,
-      {
-        withCredentials: true, // Ensure cookies are sent/received
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+    try {
+      const response = await apiClient.post<AuthResponse>(
+        "/auth/login",
+        credentials,
+        {
+          withCredentials: true,
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+        }
+      );
+
+      // Check if 2FA is required
+      if (response.data.requires2FA) {
+        return response.data;
       }
-    );
 
-    // Check if 2FA is required
-    if (response.data.requires2FA) {
-      // Don't set token or user data yet for 2FA flow
-      // Just return the response with tempToken
+      // If we get a token from the server (normal login), store it
+      if (response.data.token) {
+        setToken(response.data.token);
+        setAuthenticated(true);
+
+        // Store user info in localStorage
+        if (response.data.user?.id) {
+          setUserData({
+            id: response.data.user.id,
+            username: response.data.user.username || "",
+            email: response.data.user.email || "",
+            displayName: response.data.user.displayName || undefined,
+            bio: response.data.user.bio || undefined,
+            profileImageUrl: response.data.user.profileImageUrl || undefined,
+            role: (response.data.user.role as "USER" | "ADMIN") || "USER",
+          });
+        }
+      }
+
       return response.data;
+    } catch (error: any) {
+      // Handle specific error cases
+      if (error.response?.data?.errorCode === "EMAIL_NOT_VERIFIED") {
+        throw new Error(error.response.data.message || "Please verify your email before logging in");
+      }
+      throw error; // Re-throw other errors
     }
-
-    // If we get a token from the server (normal login), store it
-    if (response.data.token) {
-      setToken(response.data.token);
-    }
-
-    // Mark as authenticated only for normal login (not 2FA flow)
-    setAuthenticated(true);
-
-    // Store user info in localStorage
-    if (response.data.user?.id) {
-      setUserData({
-        id: response.data.user.id,
-        username: response.data.user.username || "",
-        email: response.data.user.email || "",
-        // Convert null to undefined to avoid type issues
-        displayName: response.data.user.displayName || undefined,
-        bio: response.data.user.bio || undefined,
-        profileImageUrl: response.data.user.profileImageUrl || undefined,
-        role: (response.data.user.role as "USER" | "ADMIN") || "USER", // <-- UPDATE THIS LINE
-      });
-    }
-
-    return response.data;
   }, "Login error");
 };
 
