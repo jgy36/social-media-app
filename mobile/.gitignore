@@ -1,0 +1,109 @@
+# Node modules
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React Native
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# iOS
+ios/Pods/
+ios/build/
+ios/Podfile.lock
+ios/vendor/
+
+# Android
+android/.gradle/
+android/build/
+android/local.properties
+android/*.iml
+android/.idea/
+android/gradlew
+android/gradlew.bat
+android/gradle/
+
+# Metro
+.metro-health-check*
+node_modules/
+
+# Buck
+buck-out/
+\.buckd/
+*.keystore
+!debug.keystore
+
+# VSCode
+.vscode/
+
+# IntelliJ
+*.iml
+.idea/
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# dotenv environment variables file
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# React Native Flipper
+.flipper/
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
+
+# Bundle artifacts
+*.jsbundle
+
+# CocoaPods
+ios/Pods/
+ios/**/*.xcworkspace
+
+# Expo
+.expo/
+__generated__/
+
+# Watchman
+.watchmanconfig
+
+# App specific ignores (if any)
+# Add any app-specific files you want to ignore here
