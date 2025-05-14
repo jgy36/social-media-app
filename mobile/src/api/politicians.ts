@@ -53,6 +53,19 @@ export const getCabinetMembers = async (): Promise<Politician[]> => {
 };
 
 /**
+ * Get a single politician by ID
+ */
+export const getPoliticianById = async (id: string): Promise<Politician | null> => {
+  try {
+    const response = await axios.get<Politician>(`${BASE_URL}/politicians/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching politician with ID ${id}:`, error);
+    return null;
+  }
+};
+
+/**
  * Get politicians by county
  */
 export const getPoliticiansByCounty = async (county: string, state: string): Promise<Politician[]> => {

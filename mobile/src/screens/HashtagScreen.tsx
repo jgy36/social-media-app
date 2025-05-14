@@ -5,7 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { PostType } from "@/types/post";
 import Post from "@/components/feed/Post";
-import { getPostsByHashtag, getHashtagInfo } from "@/api/posts";
+import { getPostsByHashtag } from "@/api/posts";
 
 const HashtagScreen = () => {
   const navigation = useNavigation();
@@ -17,7 +17,6 @@ const HashtagScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "trending">("recent");
-  const [hashtagInfo, setHashtagInfo] = useState<{useCount: number} | null>(null);
 
   // Format hashtag for display
   const displayTag = tag?.startsWith('#') ? tag : `#${tag}`;
@@ -31,16 +30,6 @@ const HashtagScreen = () => {
       setError(null);
 
       try {
-        // Try to fetch hashtag metadata first
-        try {
-          const tagInfo = await getHashtagInfo(apiTag);
-          if (tagInfo) {
-            setHashtagInfo(tagInfo);
-          }
-        } catch (infoError) {
-          console.error("Error fetching hashtag info:", infoError);
-        }
-        
         // Fetch posts with this hashtag
         const postsData = await getPostsByHashtag(apiTag);
         
@@ -75,13 +64,23 @@ const HashtagScreen = () => {
 
   const handleRefresh = () => {
     setRefreshing(true);
-    // Re-fetch data
-    navigation.setParams({ tag: apiTag }); // This will trigger useEffect
+    // Re-fetch data by triggering useEffect
+    const timer = setTimeout(() => {
+      // This will re-trigger the useEffect
+      setIsLoading(true);
+    }, 100);
+    return () => clearTimeout(timer);
   };
 
-  const renderPost = ({ item }: { item: PostType }) => (
-    <Post key={item.id} post={item} />
-  );
+  const renderPost = ({ item }: { item: PostType }) => {
+    // Ensure isLiked is always a boolean for the Post component
+    const postWithDefaults = {
+      ...item,
+      isLiked: item.isLiked || false,
+      commentsCount: item.commentsCount || 0,
+    };
+    return <Post key={item.id} post={postWithDefaults} />;
+  };
 
   const renderEmptyState = () => (
     <View className="flex-1 items-center justify-center p-8">
@@ -93,7 +92,7 @@ const HashtagScreen = () => {
         Be the first to post with the {displayTag} hashtag!
       </Text>
       <TouchableOpacity
-        onPress={() => navigation.navigate('Feed')}
+        onPress={() => navigation.goBack()}
         className="bg-blue-500 px-6 py-3 rounded-lg mt-4"
       >
         <Text className="text-white font-medium">Back to Feed</Text>
@@ -156,11 +155,6 @@ const HashtagScreen = () => {
             <Text className="ml-1 text-sm text-gray-600 dark:text-gray-400">
               {posts.length} posts
             </Text>
-            {hashtagInfo && (
-              <Text className="ml-4 text-sm text-gray-600 dark:text-gray-400">
-                {hashtagInfo.useCount} mentions
-              </Text>
-            )}
           </View>
 
           {/* Sort Options */}

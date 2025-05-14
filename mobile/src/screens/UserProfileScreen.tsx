@@ -272,14 +272,14 @@ const UserProfileScreen = () => {
                 {/* Action Buttons */}
                 {!isAuthenticated ? (
                   <TouchableOpacity
-                    onPress={() => navigation.navigate('Login')}
+                    onPress={() => (navigation as any).navigate('Login')}
                     className="bg-blue-500 px-4 py-2 rounded-lg"
                   >
                     <Text className="text-white font-medium">Log in</Text>
                   </TouchableOpacity>
                 ) : isCurrentUserProfile ? (
                   <TouchableOpacity
-                    onPress={() => navigation.navigate('Settings')}
+                    onPress={() => (navigation as any).navigate('Settings')}
                     className="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-lg"
                   >
                     <Text className="text-gray-700 dark:text-gray-300 font-medium">Edit Profile</Text>
@@ -390,7 +390,7 @@ const UserProfileScreen = () => {
                   You need to be logged in to view this user's posts.
                 </Text>
                 <TouchableOpacity
-                  onPress={() => navigation.navigate('Login')}
+                  onPress={() => (navigation as any).navigate('Login')}
                   className="bg-blue-500 px-6 py-3 rounded-lg mt-4"
                 >
                   <Text className="text-white font-medium">Log In</Text>

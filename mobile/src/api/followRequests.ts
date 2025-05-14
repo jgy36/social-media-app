@@ -1,7 +1,7 @@
 // src/api/followRequests.ts
 import { apiClient, safeApiCall } from "./apiClient";
 
-interface FollowRequest {
+export interface FollowRequest {
   id: number;
   userId: number;
   username: string;

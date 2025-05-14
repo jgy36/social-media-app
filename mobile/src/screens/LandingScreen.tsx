@@ -17,15 +17,17 @@ const LandingScreen = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user.token) {
-      navigation.navigate('Feed');
+      // You'll need to make sure 'Feed' exists in your navigation stack
+      // If it doesn't, replace with the appropriate screen name
+      (navigation as any).navigate('Feed');
     }
   }, [user.token, navigation]);
 
-  // Google OAuth setup (you'll need to configure this)
+  // Google OAuth setup with proper configuration
   const [request, response, promptAsync] = Google.useAuthRequest({
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   });
 
   useEffect(() => {
@@ -33,6 +35,7 @@ const LandingScreen = () => {
       // Handle Google login response
       console.log('Google login successful', response);
       // You'll need to implement the Google login logic here
+      // Example: sendGoogleTokenToBackend(response.authentication?.idToken);
     }
   }, [response]);
 
@@ -44,11 +47,19 @@ const LandingScreen = () => {
     <View className="flex-1 bg-gray-100 items-center justify-center px-6">
       {/* App Logo or Header */}
       <View className="items-center mb-8">
-        <Image
-          source={require('@/assets/images/logo.png')} // You'll need to add your logo
+        {/* Option 1: If you have a logo file */}
+        {/* Uncomment this and comment out the placeholder below */}
+        {/* <Image
+          source={require('@/assets/images/logo.png')}
           className="w-24 h-24 mb-4"
           resizeMode="contain"
-        />
+        /> */}
+        
+        {/* Option 2: Placeholder logo using MaterialIcons */}
+        <View className="w-24 h-24 mb-4 bg-blue-600 rounded-full items-center justify-center">
+          <MaterialIcons name="how-to-vote" size={48} color="white" />
+        </View>
+        
         <Text className="text-4xl font-bold text-gray-800 text-center">
           Join Today
         </Text>
@@ -65,15 +76,22 @@ const LandingScreen = () => {
           className="w-full flex-row items-center justify-center bg-white border border-gray-300 px-4 py-3 rounded-lg shadow-sm"
           disabled={!request}
         >
-          <MaterialIcons name="google" size={20} color="#DB4437" />
-          <Text className="ml-3 text-gray-800 font-medium">
+          {/* Using a custom Google-like icon since MaterialIcons doesn't have 'google' */}
+          <View className="w-5 h-5 bg-red-500 rounded mr-3 items-center justify-center">
+            <Text className="text-white text-xs font-bold">G</Text>
+          </View>
+          <Text className="text-gray-800 font-medium">
             Sign Up with Google
           </Text>
         </TouchableOpacity>
 
         {/* Create Account */}
         <TouchableOpacity
-          onPress={() => navigation.navigate('Register')}
+          onPress={() => {
+            // Make sure 'Register' screen exists in your navigation stack
+            // If it doesn't, replace with the appropriate screen name
+            (navigation as any).navigate('Register');
+          }}
           className="w-full bg-blue-600 px-4 py-3 rounded-lg items-center"
         >
           <Text className="text-white font-medium text-lg">
@@ -84,7 +102,11 @@ const LandingScreen = () => {
 
       {/* Sign In */}
       <TouchableOpacity
-        onPress={() => navigation.navigate('Login')}
+        onPress={() => {
+          // Make sure 'Login' screen exists in your navigation stack
+          // If it doesn't, replace with the appropriate screen name
+          (navigation as any).navigate('Login');
+        }}
         className="mt-6 w-full max-w-sm bg-gray-600 px-4 py-3 rounded-lg items-center"
       >
         <Text className="text-white font-medium text-lg">

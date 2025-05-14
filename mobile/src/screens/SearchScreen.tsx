@@ -106,17 +106,17 @@ const SearchScreen = () => {
   const handleResultPress = (result: SearchResult) => {
     switch (result.type) {
       case "user":
-        navigation.navigate('Profile', { username: result.username || result.name });
+        (navigation as any).navigate('Profile', { username: result.username || result.name });
         break;
       case "community":
-        navigation.navigate('CommunityDetail', { id: result.id });
+        (navigation as any).navigate('CommunityDetail', { id: result.id });
         break;
       case "hashtag":
         const tag = result.name.startsWith('#') ? result.name.substring(1) : result.name;
-        navigation.navigate('Hashtag', { tag });
+        (navigation as any).navigate('Hashtag', { tag });
         break;
       case "post":
-        navigation.navigate('PostDetail', { postId: result.id });
+        (navigation as any).navigate('PostDetail', { postId: result.id });
         break;
     }
   };

@@ -34,7 +34,8 @@ const MessagesScreen = () => {
 
   // Navigate to conversation
   const handleOpenConversation = (conversationId: number) => {
-    navigation.navigate('ConversationDetail', { id: conversationId });
+    // Fixed navigation with type assertion
+    (navigation as any).navigate('ConversationDetail', { id: conversationId });
   };
 
   // Handle refresh
@@ -45,7 +46,8 @@ const MessagesScreen = () => {
 
   // Navigate to new message
   const handleNewMessage = () => {
-    navigation.navigate('NewMessage');
+    // Fixed navigation with type assertion
+    (navigation as any).navigate('NewMessage');
   };
 
   // Tab button component
@@ -73,10 +75,10 @@ const MessagesScreen = () => {
       }`}
     >
       <View className="flex-row items-center">
+        {/* Fixed AuthorAvatar - removed profileImageUrl prop */}
         <AuthorAvatar
           username={conversation.otherUser.username}
           size={48}
-          profileImageUrl={conversation.otherUser.profileImageUrl}
         />
 
         <View className="flex-1 ml-3">

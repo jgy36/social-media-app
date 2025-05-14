@@ -4,8 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
 import { AppDispatch } from '../redux/store';
-import { loginUser } from '../api/auth';
-import { setUserData } from '../redux/slices/userSlice';
+import { loginUser } from '../redux/slices/userSlice';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -22,15 +21,14 @@ const LoginScreen = () => {
 
     setIsLoading(true);
     try {
-      const result = await loginUser(email, password);
-      if (result.success) {
-        dispatch(setUserData(result.user));
-        navigation.navigate('Feed' as never);
-      } else {
-        Alert.alert('Login Failed', result.message);
-      }
+      // Use the loginUser thunk from redux, matching the web version
+      const result = await dispatch(loginUser({ email, password })).unwrap();
+      
+      // Navigate to the main app screen after successful login
+      // You might need to adjust the navigation based on your navigation stack
+      (navigation as any).navigate('Feed');
     } catch (error) {
-      Alert.alert('Error', 'An error occurred during login');
+      Alert.alert('Login Failed', error as string || 'An error occurred during login');
     } finally {
       setIsLoading(false);
     }
@@ -72,9 +70,16 @@ const LoginScreen = () => {
         
         <TouchableOpacity
           className="mt-4 items-center"
-          onPress={() => navigation.navigate('Register' as never)}
+          onPress={() => (navigation as any).navigate('Register')}
         >
           <Text className="text-blue-600">Don't have an account? Register</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          className="mt-2 items-center"
+          onPress={() => navigation.goBack()}
+        >
+          <Text className="text-gray-600">Back to Landing</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -2,20 +2,24 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { registerUser } from '../api/auth';
+import { useDispatch } from 'react-redux';
+import { AppDispatch } from '@/redux/store';
+import { registerUser } from '@/redux/slices/userSlice';
 
 const RegisterScreen = () => {
   const navigation = useNavigation();
+  const dispatch = useDispatch<AppDispatch>();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
     password: '',
     confirmPassword: '',
+    displayName: '',
   });
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async () => {
-    if (!formData.username || !formData.email || !formData.password) {
+    if (!formData.username || !formData.email || !formData.password || !formData.displayName) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
@@ -27,15 +31,19 @@ const RegisterScreen = () => {
 
     setIsLoading(true);
     try {
-      const result = await registerUser(formData.username, formData.email, formData.password);
-      if (result.success) {
-        Alert.alert('Success', 'Account created successfully! Please verify your email.');
-        navigation.navigate('Login' as never);
-      } else {
-        Alert.alert('Registration Failed', result.message);
-      }
+      // Use Redux action like the web version
+      await dispatch(registerUser({
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        displayName: formData.displayName,
+      })).unwrap();
+
+      Alert.alert('Success', 'Account created successfully!');
+      // Navigate to main app screen after successful registration
+      (navigation as any).navigate('Feed');
     } catch (error) {
-      Alert.alert('Error', 'An error occurred during registration');
+      Alert.alert('Registration Failed', error as string || 'An error occurred during registration');
     } finally {
       setIsLoading(false);
     }
@@ -45,6 +53,14 @@ const RegisterScreen = () => {
     <View className="flex-1 justify-center items-center bg-background p-6">
       <View className="w-full max-w-md bg-white rounded-lg shadow-md p-6">
         <Text className="text-2xl font-bold text-center mb-6">Register</Text>
+        
+        <TextInput
+          className="w-full h-12 px-4 mb-4 border border-gray-300 rounded-md"
+          placeholder="Display Name"
+          value={formData.displayName}
+          onChangeText={(text) => setFormData({...formData, displayName: text})}
+          autoCapitalize="words"
+        />
         
         <TextInput
           className="w-full h-12 px-4 mb-4 border border-gray-300 rounded-md"
@@ -93,9 +109,16 @@ const RegisterScreen = () => {
         
         <TouchableOpacity
           className="mt-4 items-center"
-          onPress={() => navigation.navigate('Login' as never)}
+          onPress={() => (navigation as any).navigate('Login')}
         >
           <Text className="text-blue-600">Already have an account? Sign In</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          className="mt-2 items-center"
+          onPress={() => navigation.goBack()}
+        >
+          <Text className="text-gray-600">Back to Landing</Text>
         </TouchableOpacity>
       </View>
     </View>

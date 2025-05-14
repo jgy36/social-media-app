@@ -298,7 +298,7 @@ const PoliticiansScreen = () => {
         <TouchableOpacity
           onPress={resetFilters}
           className="bg-gray-200 dark:bg-gray-600 px-4 py-2 rounded-lg self-start"
-          disabled={isLoading || error}
+          disabled={isLoading || !!error}
         >
           <Text className="text-gray-700 dark:text-gray-300 font-medium">
             Reset Filters

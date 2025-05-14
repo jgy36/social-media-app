@@ -1,17 +1,22 @@
 // src/screens/FollowRequestsScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
-import AuthorAvatar from '@/components/shared/AuthorAvatar';
-import { getFollowRequests, handleFollowRequest } from '@/api/followRequests';
-import { UserProfile } from '@/api/types';
-
-interface FollowRequest {
-  id: number;
-  user: UserProfile;
-  createdAt: string;
-}
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import AuthorAvatar from "@/components/shared/AuthorAvatar";
+import {
+  getFollowRequests,
+  approveFollowRequest,
+  rejectFollowRequest,
+  type FollowRequest,
+} from "@/api/followRequests";
 
 const FollowRequestsScreen = () => {
   const navigation = useNavigation();
@@ -26,8 +31,8 @@ const FollowRequestsScreen = () => {
       const data = await getFollowRequests();
       setRequests(data);
     } catch (err) {
-      console.error('Error fetching follow requests:', err);
-      setError('Could not load follow requests');
+      console.error("Error fetching follow requests:", err);
+      setError("Could not load follow requests");
     } finally {
       setIsLoading(false);
       setRefreshing(false);
@@ -40,19 +45,19 @@ const FollowRequestsScreen = () => {
 
   const handleAccept = async (requestId: number) => {
     try {
-      await handleFollowRequest(requestId, 'accept');
-      setRequests(prev => prev.filter(req => req.id !== requestId));
+      await approveFollowRequest(requestId);
+      setRequests((prev) => prev.filter((req) => req.id !== requestId));
     } catch (err) {
-      console.error('Error accepting follow request:', err);
+      console.error("Error accepting follow request:", err);
     }
   };
 
   const handleReject = async (requestId: number) => {
     try {
-      await handleFollowRequest(requestId, 'reject');
-      setRequests(prev => prev.filter(req => req.id !== requestId));
+      await rejectFollowRequest(requestId);
+      setRequests((prev) => prev.filter((req) => req.id !== requestId));
     } catch (err) {
-      console.error('Error rejecting follow request:', err);
+      console.error("Error rejecting follow request:", err);
     }
   };
 
@@ -64,21 +69,17 @@ const FollowRequestsScreen = () => {
   const renderRequest = ({ item }: { item: FollowRequest }) => (
     <View className="bg-white dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700">
       <View className="flex-row items-center">
-        <AuthorAvatar 
-          username={item.user.username}
-          size={48}
-          profileImageUrl={item.user.profileImageUrl}
-        />
-        
+        <AuthorAvatar username={item.username} size={48} />
+
         <View className="flex-1 ml-3">
           <Text className="font-semibold text-gray-900 dark:text-white">
-            {item.user.displayName || item.user.username}
+            {item.displayName || item.username}
           </Text>
           <Text className="text-gray-500 dark:text-gray-400 text-sm">
-            @{item.user.username}
+            @{item.username}
           </Text>
           <Text className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-            {new Date(item.createdAt).toLocaleDateString()}
+            {new Date(item.requestedAt).toLocaleDateString()}
           </Text>
         </View>
 
@@ -91,7 +92,7 @@ const FollowRequestsScreen = () => {
               Decline
             </Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity
             onPress={() => handleAccept(item.id)}
             className="bg-blue-500 px-4 py-2 rounded-lg"
@@ -108,7 +109,10 @@ const FollowRequestsScreen = () => {
       {/* Header */}
       <View className="bg-white dark:bg-gray-800 pt-12 pb-4 px-4 border-b border-gray-200 dark:border-gray-700">
         <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => navigation.goBack()} className="mr-4">
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            className="mr-4"
+          >
             <MaterialIcons name="arrow-back" size={24} color="gray" />
           </TouchableOpacity>
           <Text className="text-xl font-bold text-gray-900 dark:text-white">
@@ -145,7 +149,8 @@ const FollowRequestsScreen = () => {
             No Pending Requests
           </Text>
           <Text className="text-gray-500 dark:text-gray-400 text-center mt-2">
-            When someone requests to follow your private account, their requests will appear here.
+            When someone requests to follow your private account, their requests
+            will appear here.
           </Text>
         </View>
       ) : (

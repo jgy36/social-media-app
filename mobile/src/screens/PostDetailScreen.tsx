@@ -101,7 +101,7 @@ const PostDetailScreen = () => {
 
   const handleReply = (username: string) => {
     if (!user.token) {
-      navigation.navigate('Login');
+      (navigation as any).navigate('Login');
       return;
     }
 

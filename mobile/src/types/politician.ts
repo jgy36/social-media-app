@@ -9,4 +9,13 @@ export interface Politician {
   position: string;
   termLength: number;
   photoUrl: string | null;
+  // Additional fields to match web version
+  age?: number;
+  website?: string;
+  email?: string;
+  phone?: string;
+  twitter?: string;
+  facebook?: string;
+  instagram?: string;
+  bio?: string;
 }
