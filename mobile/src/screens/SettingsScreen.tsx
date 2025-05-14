@@ -22,7 +22,7 @@ const SettingsScreen = () => {
   ];
 
   const renderTabContent = () => {
-    switch (activeTab) {
+    switch (activeTab) { 
       case 'profile':
         return <ProfileSettings />;
       case 'account':

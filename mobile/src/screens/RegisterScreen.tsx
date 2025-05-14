@@ -19,7 +19,7 @@ const RegisterScreen = () => {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-
+ 
     if (formData.password !== formData.confirmPassword) {
       Alert.alert('Error', 'Passwords do not match');
       return;

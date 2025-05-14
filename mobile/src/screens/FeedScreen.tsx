@@ -1,110 +1,76 @@
-import { MaterialIcons } from '@expo/vector-icons';
 // src/screens/FeedScreen.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
-import { PostType } from '../types/post';
-import { getFeedPosts } from '../api/posts';
-import PostComponent from '../components/feed/PostComponent';
-import CreatePostModal from '../components/feed/CreatePostModal'; 
-
+import PostList from '../components/feed/PostList';
+import PostForm from '../components/feed/PostForm';
+import FeedTabs from '../components/feed/FeedTabs';
 
 const FeedScreen = () => {
-  const [posts, setPosts] = useState<PostType[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'for-you' | 'following' | 'communities'>('for-you');
   const [isPostModalVisible, setIsPostModalVisible] = useState(false);
   const user = useSelector((state: RootState) => state.user);
 
-  const loadPosts = async () => {
-    try {
-      const feedPosts = await getFeedPosts(activeTab);
-      setPosts(feedPosts);
-    } catch (error) {
-      console.error('Error loading posts:', error);
-    } finally {
-      setIsLoading(false);
-      setRefreshing(false);
-    }
+  // Function to handle post creation and refresh feed
+  const handlePostCreated = () => {
+    setIsPostModalVisible(false);
+    // The PostList component will handle refreshing via the refreshFeed event
+    window.dispatchEvent(new CustomEvent('refreshFeed'));
   };
-
-  useEffect(() => {
-    loadPosts();
-  }, [activeTab]);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadPosts();
-  };
-
-  const TabButton = ({ id, label, isActive, onPress }: any) => (
-    <TouchableOpacity
-      className={`flex-1 py-3 items-center ${
-        isActive ? 'bg-primary' : 'bg-muted'
-      } rounded-lg mx-1`}
-      onPress={onPress}
-    >
-      <Text className={`font-medium ${isActive ? 'text-white' : 'text-muted-foreground'}`}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
 
   return (
     <View className="flex-1 bg-background">
       {/* Header with Tabs */}
-      <View className="bg-white px-4 py-4 shadow-sm">
-        <View className="flex-row mb-4">
-          <TabButton
-            id="for-you"
-            label="For You"
-            isActive={activeTab === 'for-you'}
-            onPress={() => setActiveTab('for-you')}
-          />
-          <TabButton
-            id="following"
-            label="Following"
-            isActive={activeTab === 'following'}
-            onPress={() => setActiveTab('following')}
-          />
-          <TabButton
-            id="communities"
-            label="Communities"
-            isActive={activeTab === 'communities'}
-            onPress={() => setActiveTab('communities')}
-          />
-        </View>
+      <View className="bg-white dark:bg-gray-800 shadow-sm">
+        <FeedTabs
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab)}
+        />
       </View>
 
       {/* Posts List */}
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <PostComponent post={item} />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        className="flex-1"
-        showsVerticalScrollIndicator={false}
-      />
+      <PostList activeTab={activeTab} />
 
       {/* Floating Action Button */}
       <TouchableOpacity
-        className="absolute bottom-6 right-6 w-14 h-14 bg-primary rounded-full items-center justify-center shadow-lg"
+        className="absolute bottom-6 right-6 w-14 h-14 bg-blue-500 rounded-full items-center justify-center shadow-lg"
         onPress={() => setIsPostModalVisible(true)}
       >
-        <PenSquare size={24} color="white" />
+        <MaterialIcons name="edit" size={24} color="white" />
       </TouchableOpacity>
 
       {/* Create Post Modal */}
-      <CreatePostModal
+      <Modal
         visible={isPostModalVisible}
-        onClose={() => setIsPostModalVisible(false)}
-        onPostCreated={() => {
-          setIsPostModalVisible(false);
-          loadPosts();
-        }}
-      />
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setIsPostModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1 bg-black/50 justify-center"
+        >
+          <View className="bg-white dark:bg-gray-900 rounded-t-3xl p-6 min-h-[50%] mx-4 mt-auto">
+            {/* Header */}
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-xl font-semibold text-gray-900 dark:text-white">
+                Create a new post
+              </Text>
+              <TouchableOpacity 
+                onPress={() => setIsPostModalVisible(false)} 
+                className="p-2"
+              >
+                <MaterialIcons name="close" size={24} color="gray" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Post Form */}
+            <PostForm onPostCreated={handlePostCreated} />
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
