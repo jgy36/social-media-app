@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios"
+    "android": "expo run:android",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/metro-config": "^0.20.14",
@@ -26,7 +26,7 @@
     "expo-auth-session": "^6.1.5",
     "expo-av": "^15.1.4",
     "expo-clipboard": "^7.1.4",
-    "expo-dev-client": "^5.1.8",
+    "expo-dev-client": "~5.1.8",
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "~14.1.4",
     "expo-notifications": "^0.31.2",
@@ -36,9 +36,9 @@
     "expo-web-browser": "^14.1.6",
     "lucide-react-native": "^0.510.0",
     "nativewind": "^4.1.23",
-    "react": "^18.3.1",
+    "react": "^19.1.0",
     "react-content-loader": "^7.0.2",
-    "react-dom": "^18.3.1",
+    "react-dom": "^19.1.0",
     "react-native": "0.79.2",
     "react-native-config": "^1.5.5",
     "react-native-fs": "^2.20.0",
