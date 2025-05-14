@@ -1,17 +1,13 @@
 import { MaterialIcons } from '@expo/vector-icons';
 // src/screens/community/CommunitiesListScreen.tsx
 import React, { useState, useEffect } from "react";
-import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl } from "react-native";
-import { router } from "expo-router";
+import { View, Text, FlatList, TouchableOpacity, Alert, RefreshControl, ActivityIndicator } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/redux/store";
 import axios from "axios";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 import { joinCommunity, leaveCommunity } from "@/redux/slices/communitySlice";
-import LoadingState from "@/components/ui/LoadingState";
 
 interface Community {
   id: string;
@@ -27,6 +23,7 @@ interface Community {
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8080/api";
 
 const CommunitiesListScreen = () => {
+  const navigation = useNavigation();
   const [communities, setCommunities] = useState<Community[]>([]);
   const [filteredCommunities, setFilteredCommunities] = useState<Community[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -44,7 +41,7 @@ const CommunitiesListScreen = () => {
 
   const handleCreateButtonClick = () => {
     if (isAdmin) {
-      router.push("/community/create");
+      (navigation as any).navigate('CreateCommunity');
     } else {
       Alert.alert(
         "Permission Denied",
@@ -96,7 +93,7 @@ const CommunitiesListScreen = () => {
     if (!isAuthenticated) {
       Alert.alert("Login Required", "Please login to join communities", [
         { text: "Cancel", style: "cancel" },
-        { text: "Login", onPress: () => router.push("/login") }
+        { text: "Login", onPress: () => (navigation as any).navigate('Login') }
       ]);
       return;
     }
@@ -185,14 +182,15 @@ const CommunitiesListScreen = () => {
 
   const navigateToCommunity = (communityId: string) => {
     console.log(`Navigating to community: ${communityId}`);
-    router.push(`/community/${communityId}`);
+    (navigation as any).navigate('CommunityDetail', { id: communityId });
   };
 
   // Loading state
   if (isLoading) {
     return (
-      <View className="flex-1 bg-background">
-        <LoadingState message="Loading communities..." />
+      <View className="flex-1 bg-background items-center justify-center">
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text className="mt-4 text-gray-500 dark:text-gray-400">Loading communities...</Text>
       </View>
     );
   }
@@ -201,16 +199,18 @@ const CommunitiesListScreen = () => {
   if (error) {
     return (
       <View className="flex-1 bg-background">
-        <View className="max-w-6xl mx-auto p-6">
-          <Card className="shadow-md">
-            <CardContent className="p-4">
-              <Text className="text-destructive font-medium text-lg mb-2">Error</Text>
-              <Text className="mb-4">{error}</Text>
-              <Button onPress={handleRefresh} className="mt-2">
-                <Text>Retry</Text>
-              </Button>
-            </CardContent>
-          </Card>
+        <View className="p-6">
+          <View className="bg-white dark:bg-gray-900 p-6 rounded-lg">
+            <MaterialIcons name="error-outline" size={48} color="#EF4444" />
+            <Text className="text-red-500 font-medium text-lg mb-2">Error</Text>
+            <Text className="text-gray-700 dark:text-gray-300 mb-4">{error}</Text>
+            <TouchableOpacity
+              onPress={handleRefresh}
+              className="bg-blue-500 px-4 py-2 rounded-lg items-center"
+            >
+              <Text className="text-white font-medium">Retry</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     );
@@ -219,102 +219,117 @@ const CommunitiesListScreen = () => {
   const renderCommunityCard = ({ item: community }: { item: Community }) => (
     <TouchableOpacity
       onPress={() => navigateToCommunity(community.id)}
-      className="mb-4"
+      className="mb-4 mx-4"
     >
-      <Card
-        className="shadow-sm border-l-4 mx-2"
+      <View
+        className="bg-white dark:bg-gray-900 rounded-lg p-6 border-l-4"
         style={{
-          borderLeftColor: community.color || "var(--primary)",
+          borderLeftColor: community.color || "#3B82F6",
         }}
       >
-        <CardContent className="p-6">
-          {/* Top row with name and join button */}
-          <View className="flex-row justify-between items-start mb-1">
-            <Text className="text-lg font-medium flex-1 pr-2" numberOfLines={1}>
-              {community.name}
+        {/* Top row with name and join button */}
+        <View className="flex-row justify-between items-start mb-2">
+          <Text className="text-lg font-medium text-gray-900 dark:text-white flex-1 pr-2" numberOfLines={1}>
+            {community.name}
+          </Text>
+
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              handleJoinCommunity(community.id);
+            }}
+            className={`px-4 py-2 rounded-lg ${
+              community.isJoined 
+                ? 'bg-gray-200 dark:bg-gray-700' 
+                : 'bg-blue-500'
+            }`}
+          >
+            <Text className={`font-medium ${
+              community.isJoined 
+                ? 'text-gray-700 dark:text-gray-300' 
+                : 'text-white'
+            }`}>
+              {community.isJoined ? "Joined" : "Join"}
             </Text>
+          </TouchableOpacity>
+        </View>
 
-            <Button
-              variant={community.isJoined ? "outline" : "default"}
-              size="sm"
-              onPress={(e) => {
-                e.stopPropagation();
-                handleJoinCommunity(community.id);
-              }}
-            >
-              <Text>{community.isJoined ? "Joined" : "Join"}</Text>
-            </Button>
-          </View>
-
-          {/* Trending badge */}
-          {community.trending && (
-            <View className="mb-2">
-              <Badge variant="outline" className="bg-orange-100 text-orange-800">
-                <TrendingUp className="h-3 w-3 mr-1" />
-                <Text>Trending</Text>
-              </Badge>
+        {/* Trending badge */}
+        {community.trending && (
+          <View className="mb-3">
+            <View className="bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded-full flex-row items-center self-start">
+              <MaterialIcons name="trending-up" size={12} color="#F97316" />
+              <Text className="text-orange-800 dark:text-orange-200 text-xs font-medium ml-1">Trending</Text>
             </View>
-          )}
-
-          {/* Description */}
-          <View className="mb-2">
-            <Text className="text-sm text-muted-foreground" numberOfLines={2}>
-              {community.description}
-            </Text>
           </View>
+        )}
 
-          {/* Members count */}
-          <View className="flex-row items-center">
-            <Users className="h-3 w-3 mr-1 text-muted-foreground" />
-            <Text className="text-xs text-muted-foreground">
-              {community.members.toLocaleString()} members
-            </Text>
-          </View>
-        </CardContent>
-      </Card>
+        {/* Description */}
+        <View className="mb-3">
+          <Text className="text-sm text-gray-600 dark:text-gray-400" numberOfLines={2}>
+            {community.description}
+          </Text>
+        </View>
+
+        {/* Members count */}
+        <View className="flex-row items-center">
+          <MaterialIcons name="group" size={16} color="#6B7280" />
+          <Text className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+            {community.members.toLocaleString()} members
+          </Text>
+        </View>
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <View className="flex-1 bg-background">
-      <View className="p-4">
-        <View className="flex-row justify-between items-center mb-6">
+      {/* Header */}
+      <View className="bg-white dark:bg-gray-800 pt-12 pb-4 px-4 border-b border-gray-200 dark:border-gray-700">
+        <View className="flex-row justify-between items-center">
           <View className="flex-1">
-            <Text className="text-3xl font-bold text-foreground">Communities</Text>
-            <Text className="text-muted-foreground">
+            <Text className="text-3xl font-bold text-gray-900 dark:text-white">Communities</Text>
+            <Text className="text-gray-600 dark:text-gray-400">
               Join discussions with like-minded individuals
             </Text>
           </View>
 
-          <Button onPress={handleCreateButtonClick}>
-            <Plus className="h-4 w-4 mr-2" />
-            <Text>Create</Text>
-          </Button>
+          <TouchableOpacity
+            onPress={handleCreateButtonClick}
+            className="bg-blue-500 px-4 py-2 rounded-lg flex-row items-center"
+          >
+            <MaterialIcons name="add" size={20} color="white" />
+            <Text className="text-white font-medium ml-1">Create</Text>
+          </TouchableOpacity>
         </View>
-
-        {filteredCommunities.length > 0 ? (
-          <FlatList
-            data={filteredCommunities}
-            renderItem={renderCommunityCard}
-            keyExtractor={(item) => item.id}
-            refreshControl={
-              <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
-            }
-            showsVerticalScrollIndicator={false}
-          />
-        ) : (
-          <View className="flex-1 justify-center items-center py-12">
-            <Users className="h-12 w-12 text-muted-foreground mb-4" />
-            <Text className="text-lg font-medium mb-2 text-foreground">No Communities Found</Text>
-            <Text className="text-muted-foreground mb-4">
-              There are no communities available
-            </Text>
-            <Button onPress={handleCreateButtonClick}>
-              <Text>Create a Community</Text>
-            </Button>
-          </View>
-        )}
       </View>
+
+      {filteredCommunities.length > 0 ? (
+        <FlatList
+          data={filteredCommunities}
+          renderItem={renderCommunityCard}
+          keyExtractor={(item) => item.id}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingVertical: 16 }}
+        />
+      ) : (
+        <View className="flex-1 justify-center items-center py-12 px-4">
+          <MaterialIcons name="group" size={64} color="#6B7280" />
+          <Text className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Communities Found</Text>
+          <Text className="text-gray-600 dark:text-gray-400 text-center mb-4">
+            There are no communities available
+          </Text>
+          <TouchableOpacity
+            onPress={handleCreateButtonClick}
+            className="bg-blue-500 px-6 py-3 rounded-lg"
+          >
+            <Text className="text-white font-medium">Create a Community</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 };

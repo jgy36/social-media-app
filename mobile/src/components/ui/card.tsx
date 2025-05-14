@@ -56,4 +56,14 @@ const CardContent = React.forwardRef<View, React.ComponentProps<typeof View>>(
   )
 );
 
+const CardFooter = React.forwardRef<View, React.ComponentProps<typeof View>>(
+  ({ className, ...props }, ref) => (
+    <View
+      ref={ref}
+      className={cn('flex items-center p-6 pt-0', className)}
+      {...props}
+    />
+  )
+);
+
 export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent };

@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, TextInput, Share } from 'react-native';
+import { View, Text, TouchableOpacity, Modal, TextInput, Share, Linking } from 'react-native';
 
 import * as Clipboard from 'expo-clipboard';
 
@@ -36,22 +36,28 @@ const ShareButton = ({ postId, sharesCount = 0 }: ShareButtonProps) => {
     }
   };
 
-  const openTwitterShare = () => {
+  const openTwitterShare = async () => {
     const postUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://yourapp.com'}/post/${postId}`;
     const twitterUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(postUrl)}`;
     
-    // In React Native, you would use Linking.openURL(twitterUrl)
-    console.log('Would open Twitter share:', twitterUrl);
-    setIsOpen(false);
+    try {
+      await Linking.openURL(twitterUrl);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error opening Twitter:', error);
+    }
   };
 
-  const openFacebookShare = () => {
+  const openFacebookShare = async () => {
     const postUrl = `${process.env.EXPO_PUBLIC_WEB_URL || 'https://yourapp.com'}/post/${postId}`;
     const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(postUrl)}`;
     
-    // In React Native, you would use Linking.openURL(facebookUrl)
-    console.log('Would open Facebook share:', facebookUrl);
-    setIsOpen(false);
+    try {
+      await Linking.openURL(facebookUrl);
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Error opening Facebook:', error);
+    }
   };
 
   return (
@@ -60,7 +66,7 @@ const ShareButton = ({ postId, sharesCount = 0 }: ShareButtonProps) => {
         onPress={() => setIsOpen(true)}
         className="flex-row items-center"
       >
-        <Share2 size={20} color="#6366f1" />
+        <MaterialIcons name="share" size={20} color="#6366f1" />
         <Text className="ml-1 text-gray-600 dark:text-gray-400">
           {sharesCount > 0 ? sharesCount : "Share"}
         </Text>
@@ -101,7 +107,7 @@ const ShareButton = ({ postId, sharesCount = 0 }: ShareButtonProps) => {
                   onPress={handleNativeShare}
                   className="flex-row items-center p-4 bg-blue-500 rounded-lg"
                 >
-                  <Share2 size={20} color="white" />
+                  <MaterialIcons name="share" size={20} color="white" />
                   <Text className="text-white font-semibold ml-3">Share using...</Text>
                 </TouchableOpacity>
                 
@@ -109,7 +115,7 @@ const ShareButton = ({ postId, sharesCount = 0 }: ShareButtonProps) => {
                   onPress={handleCopyLink}
                   className="flex-row items-center p-4 bg-gray-100 dark:bg-gray-800 rounded-lg"
                 >
-                  <Copy size={20} color="gray" />
+                  <MaterialIcons name="content-copy" size={20} color="gray" />
                   <Text className="text-gray-700 dark:text-gray-300 font-semibold ml-3">Copy Link</Text>
                 </TouchableOpacity>
                 
@@ -128,7 +134,7 @@ const ShareButton = ({ postId, sharesCount = 0 }: ShareButtonProps) => {
                     <Text className="text-gray-700 dark:text-gray-300 font-semibold">Facebook</Text>
                   </TouchableOpacity>
                 </View>
-              </div>
+              </View>
             </View>
           </View>
         </View>

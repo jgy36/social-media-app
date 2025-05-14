@@ -1,7 +1,12 @@
-// src/api/accountManagement.ts - React Native version
+// src/api/accountManagement.ts - Cross-platform version
 import { apiClient, safeApiCall } from "./apiClient";
 import { Platform } from 'react-native';
-import RNFS from 'react-native-fs';
+
+// Conditionally import RNFS only on native platforms
+let RNFS: any = null;
+if (Platform.OS !== 'web') {
+  RNFS = require('react-native-fs');
+}
 
 /**
  * Interface for email verification status
@@ -128,9 +133,9 @@ export const disconnectSocialAccount = async (
 };
 
 /**
- * Export user data - React Native version
- * Handles both download to device and sharing
- * @returns Success status with file path on device
+ * Export user data - Cross-platform version
+ * Handles file saving on native platforms and browser download on web
+ * @returns Success status with file path on device or download initiation on web
  */
 export const exportUserData = async (): Promise<{ 
   success: boolean; 
@@ -142,44 +147,71 @@ export const exportUserData = async (): Promise<{
       responseType: 'blob',
     });
     
-    // Get the download path for different platforms
-    const downloadPath = Platform.OS === 'ios' 
-      ? RNFS.DocumentDirectoryPath 
-      : RNFS.DownloadDirectoryPath;
-    
-    // Create filename with timestamp
-    const timestamp = new Date().toISOString().slice(0, 10);
-    const fileName = `user-data-export-${timestamp}.json`;
-    const filePath = `${downloadPath}/${fileName}`;
-    
-    // Write the blob to file
-    const reader = new FileReader();
-    const writePromise = new Promise<string>((resolve, reject) => {
-      reader.onload = async () => {
-        try {
-          if (typeof reader.result === 'string') {
-            // Remove data URL prefix if present
-            const base64Data = reader.result.split(',')[1] || reader.result;
-            await RNFS.writeFile(filePath, base64Data, 'base64');
-            resolve(filePath);
-          } else {
-            reject(new Error('Unable to read file data'));
-          }
-        } catch (error) {
-          reject(error);
-        }
+    if (Platform.OS === 'web') {
+      // Web platform - trigger browser download
+      const blob = response.data as Blob;
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const fileName = `user-data-export-${timestamp}.json`;
+      
+      // Create download link and trigger download
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { 
+        success: true, 
+        message: `Data exported as ${fileName}`
       };
-      reader.onerror = () => reject(reader.error);
-    });
-    
-    reader.readAsDataURL(response.data as Blob);
-    const resultPath = await writePromise;
-    
-    return { 
-      success: true, 
-      filePath: resultPath,
-      message: `Data exported to ${fileName}`
-    };
+    } else {
+      // Native platforms (iOS/Android) - save to device storage
+      if (!RNFS) {
+        throw new Error('File system not available');
+      }
+      
+      // Get the download path for different platforms
+      const downloadPath = Platform.OS === 'ios' 
+        ? RNFS.DocumentDirectoryPath 
+        : RNFS.DownloadDirectoryPath;
+      
+      // Create filename with timestamp
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const fileName = `user-data-export-${timestamp}.json`;
+      const filePath = `${downloadPath}/${fileName}`;
+      
+      // Write the blob to file
+      const reader = new FileReader();
+      const writePromise = new Promise<string>((resolve, reject) => {
+        reader.onload = async () => {
+          try {
+            if (typeof reader.result === 'string') {
+              // Remove data URL prefix if present
+              const base64Data = reader.result.split(',')[1] || reader.result;
+              await RNFS.writeFile(filePath, base64Data, 'base64');
+              resolve(filePath);
+            } else {
+              reject(new Error('Unable to read file data'));
+            }
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => reject(reader.error);
+      });
+      
+      reader.readAsDataURL(response.data as Blob);
+      const resultPath = await writePromise;
+      
+      return { 
+        success: true, 
+        filePath: resultPath,
+        message: `Data exported to ${fileName}`
+      };
+    }
   }, "Failed to export user data");
 };
 

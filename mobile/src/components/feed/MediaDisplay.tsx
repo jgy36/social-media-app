@@ -1,8 +1,8 @@
 // src/components/feed/MediaDisplay.tsx
 import { useState, useEffect } from "react";
 import { View, Image, TouchableOpacity, ScrollView, Text } from "react-native";
-import { Video } from 'expo-av';
-import { Film } from "react-native-vector-icons/Feather";
+import { Video, ResizeMode } from 'expo-av';
+import { MaterialIcons } from '@expo/vector-icons';
 import { MediaType } from "@/types/post";
 
 interface MediaDisplayProps {
@@ -76,7 +76,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({ media }) => {
               source={{ uri: getFullUrl(selectedMedia.url) }}
               style={{ width: '100%', height: 300 }}
               useNativeControls
-              resizeMode="contain"
+              resizeMode={ResizeMode.CONTAIN}
               shouldPlay={false}
             />
           </TouchableOpacity>
@@ -110,7 +110,7 @@ const MediaDisplay: React.FC<MediaDisplayProps> = ({ media }) => {
                 />
               ) : item.mediaType === "video" ? (
                 <View className="w-full h-full bg-black items-center justify-center">
-                  <Film name="film" size={24} color="white" />
+                  <MaterialIcons name="movie" size={24} color="white" />
                 </View>
               ) : null}
             </TouchableOpacity>
