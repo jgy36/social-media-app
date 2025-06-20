@@ -363,6 +363,16 @@ public class PostController {
             @RequestParam(value = "repost", required = false) String repost,
             @RequestParam(value = "communityId", required = false) String communityId) {
 
+        // ADD THIS DEBUG BLOCK AT THE VERY BEGINNING
+        System.out.println("🔍 =================================");
+        System.out.println("🔍 POST /with-media received parameters:");
+        System.out.println("🔍   content: '" + content + "'");
+        System.out.println("🔍   communityId: '" + communityId + "'");
+        System.out.println("🔍   communityId == null? " + (communityId == null));
+        System.out.println("🔍   communityId isEmpty? " + (communityId != null && communityId.isEmpty()));
+        System.out.println("🔍   mediaFiles count: " + (mediaFiles != null ? mediaFiles.length : 0));
+        System.out.println("🔍 =================================");
+
         try {
             System.out.println("📝 Creating post with media");
             System.out.println("  Content: " + content);

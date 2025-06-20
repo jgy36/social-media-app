@@ -153,26 +153,31 @@ public class AuthController {
     /**
      * ✅ Login endpoint: Authenticates user and returns JWT token with complete profile data.
      */
+    // In AuthController.java, modify the loginUser method:
     @PostMapping("/login")
     public ResponseEntity<?> loginUser(@RequestBody LoginRequest loginRequest, HttpServletResponse response) {
         // First check if user exists and is verified
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        // Check if user is verified
-        if (!user.isVerified()) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                    "success", false,
-                    "message", "Please verify your email before logging in.",
-                    "errorCode", "EMAIL_NOT_VERIFIED"
-            ));
-        }
+        // TEMPORARILY DISABLED - Comment out or remove this block to allow unverified users to login
+    /*
+    // Check if user is verified
+    if (!user.isVerified()) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                "success", false,
+                "message", "Please verify your email before logging in.",
+                "errorCode", "EMAIL_NOT_VERIFIED"
+        ));
+    }
+    */
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
+        // Rest of the login method remains the same...
         // Check if 2FA is enabled for this user
         if (securityService.isTwoFaEnabled(user.getId())) {
             // Generate a temporary token for 2FA verification
@@ -191,7 +196,6 @@ public class AuthController {
         String username = ((org.springframework.security.core.userdetails.User) authentication.getPrincipal()).getUsername();
         String token = jwtTokenUtil.generateToken(username);
 
-        // Rest of your existing login code...
         // Set JWT in HTTP-only cookie
         Cookie jwtCookie = new Cookie("jwt", token);
         jwtCookie.setHttpOnly(true);
