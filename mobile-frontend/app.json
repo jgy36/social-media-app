@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "router": {
+      "enabled": false
+    },
+    "ios": {
+      "bundleIdentifier": "com.jgy36.politicalapp",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      },
+      "newArchEnabled": false
+    },
+    "android": {
+      "package": "com.jgy36.politicalapp",
+      "newArchEnabled": false,
+      "permissions": ["INTERNET", "ACCESS_NETWORK_STATE"],
+      "config": {
+        "usesCleartextTraffic": true
+      }
+    },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ]
+  },
+  "extra": {
+    "eas": {
+      "projectId": "8b599124-191c-48ef-b2ef-531bc656f9c6"
+    }
+  }
+}
