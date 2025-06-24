@@ -7,14 +7,13 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 
-// Import screens
+// Import existing screens
 import LandingScreen from "../screens/LandingScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import VerifyEmailScreen from "../screens/VerifyEmailScreen";
 import VerifyScreen from "../screens/VerifyScreen";
 import FeedScreen from "../screens/FeedScreen";
-import MapScreen from "../screens/MapScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import UserProfileScreen from "../screens/UserProfileScreen";
 import SettingsScreen from "../screens/SettingsScreen";
@@ -24,18 +23,27 @@ import CommunityDetailScreen from "../screens/community/CommunityDetailScreen";
 import CreateCommunityScreen from "../screens/community/CreateCommunityScreen";
 import PostDetailScreen from "../screens/PostDetailScreen";
 import SavedPostsScreen from "../screens/SavedPostsScreen";
-import PoliticiansScreen from "../screens/PoliticiansScreen";
-import PoliticianDetailScreen from "../screens/PoliticianDetailScreen";
 import HashtagScreen from "../screens/HashtagScreen";
 import DebugScreen from "../screens/DebugScreen";
 import OAuthConnectSuccessScreen from "../screens/OAuthConnectSuccessScreen";
+
+// Import new screens (we'll create these next)
+import ExploreScreen from "../screens/ExploreScreen";
+import MessagesScreen from "../screens/MessagesScreen";
+import DatingScreen from "../screens/DatingScreen";
+import DatingSetupScreen from "../screens/dating/DatingSetupScreen";
+import SwipeScreen from "../screens/dating/SwipeScreen";
+import MatchDetailScreen from "../screens/dating/MatchDetailScreen";
+import PhotoCameraScreen from "../screens/messages/PhotoCameraScreen";
+import PhotoViewerScreen from "../screens/messages/PhotoViewerScreen";
+import PhotoConversationScreen from "../screens/messages/PhotoConversationScreen";
 
 import { RootStackParamList, TabParamList } from "./types";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
-// Replace the MainTabNavigator function (around lines 25-65) with this:
+// New 5-tab structure for social media + dating app
 const MainTabNavigator = () => {
   return (
     <Tab.Navigator
@@ -47,14 +55,14 @@ const MainTabNavigator = () => {
             case "Feed":
               iconName = "home";
               break;
-            case "Communities":
-              iconName = "group";
+            case "Explore":
+              iconName = "search";
               break;
-            case "Map":
-              iconName = "map";
+            case "Messages":
+              iconName = "photo-camera"; // Camera icon for photo messaging
               break;
-            case "Politicians":
-              iconName = "how-to-vote";
+            case "Dating":
+              iconName = "favorite"; // Heart icon for dating/swiping
               break;
             case "Profile":
               iconName = "person";
@@ -65,16 +73,40 @@ const MainTabNavigator = () => {
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: "#3B82F6",
+        tabBarActiveTintColor: "#E91E63", // Pink color for dating app theme
         tabBarInactiveTintColor: "gray",
+        tabBarStyle: {
+          backgroundColor: "#000", // Dark theme
+          borderTopColor: "#333",
+        },
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Feed" component={FeedScreen} />
-      <Tab.Screen name="Communities" component={CommunitiesListScreen} />
-      <Tab.Screen name="Map" component={MapScreen} />
-      <Tab.Screen name="Politicians" component={PoliticiansScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Feed"
+        component={FeedScreen}
+        options={{ tabBarLabel: "Home" }}
+      />
+      <Tab.Screen
+        name="Explore"
+        component={ExploreScreen}
+        options={{ tabBarLabel: "Explore" }}
+      />
+      <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
+        options={{ tabBarLabel: "Snap" }}
+      />
+      <Tab.Screen
+        name="Dating"
+        component={DatingScreen}
+        options={{ tabBarLabel: "Dating" }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ tabBarLabel: "Profile" }}
+      />
     </Tab.Navigator>
   );
 };
@@ -130,11 +162,40 @@ const AppNavigator = () => {
             <Stack.Screen name="PostDetail" component={PostDetailScreen} />
             <Stack.Screen name="SavedPosts" component={SavedPostsScreen} />
 
-            {/* Politicians screens */}
-            <Stack.Screen name="Politicians" component={PoliticiansScreen} />
+            {/* Dating screens */}
             <Stack.Screen
-              name="PoliticianDetail"
-              component={PoliticianDetailScreen}
+              name="DatingSetup"
+              component={DatingSetupScreen}
+              options={{
+                headerShown: true,
+                title: "Complete Your Dating Profile",
+                headerStyle: { backgroundColor: "#000" },
+                headerTintColor: "#fff",
+              }}
+            />
+            <Stack.Screen name="SwipeScreen" component={SwipeScreen} />
+            <Stack.Screen name="MatchDetail" component={MatchDetailScreen} />
+
+            {/* Photo Message screens */}
+            <Stack.Screen
+              name="PhotoCamera"
+              component={PhotoCameraScreen}
+              options={{
+                headerShown: false,
+                presentation: "fullScreenModal",
+              }}
+            />
+            <Stack.Screen
+              name="PhotoViewer"
+              component={PhotoViewerScreen}
+              options={{
+                headerShown: false,
+                presentation: "fullScreenModal",
+              }}
+            />
+            <Stack.Screen
+              name="PhotoConversation"
+              component={PhotoConversationScreen}
             />
 
             {/* Hashtag screens */}
