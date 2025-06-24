@@ -10,9 +10,9 @@ export type RootStackParamList = {
   // Main tab screens
   MainTabs: undefined;
   Feed: undefined;
-  Search: undefined;
-  Map: undefined;
+  Explore: undefined;
   Messages: undefined;
+  Dating: undefined;
   Profile: undefined;
 
   // Profile screens
@@ -29,9 +29,16 @@ export type RootStackParamList = {
   PostDetail: { postId: number };
   SavedPosts: undefined;
 
-  // Politicians screens
-  Politicians: undefined;
-  PoliticianDetail: { id: string };
+  // Dating screens
+  DatingProfile: undefined;
+  DatingSetup: undefined;
+  SwipeScreen: undefined;
+  MatchDetail: { matchId: number };
+
+  // Photo Message screens
+  PhotoCamera: { recipientId?: number };
+  PhotoViewer: { photoMessageId: number };
+  PhotoConversation: { userId: number };
 
   // Hashtag screens
   Hashtag: { tag: string };
@@ -46,11 +53,11 @@ export type RootStackParamList = {
   OAuthConnectSuccess: { provider?: string };
 };
 
-// Replace the TabParamList (around line 40) with this:
+// Updated TabParamList for the new 5-tab structure
 export type TabParamList = {
-  Feed: undefined;
-  Communities: undefined;
-  Map: undefined;
-  Politicians: undefined;
-  Profile: undefined;
+  Feed: undefined; // Posts/Feed tab
+  Explore: undefined; // Explore tab (discovery)
+  Messages: undefined; // Snap/Message tab (photo messaging)
+  Dating: undefined; // Swiping/Dating tab
+  Profile: undefined; // Profile tab (social media and dating profile)
 };
