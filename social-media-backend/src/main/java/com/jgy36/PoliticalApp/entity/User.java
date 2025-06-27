@@ -73,6 +73,11 @@ public class User {
     @Column(nullable = true)
     private String profileImageUrl;
 
+    // Add to existing User.java
+    private Boolean datingModeEnabled = false;
+    private Boolean datingProfileComplete = false;
+    private LocalDateTime lastActive;
+
     // Settings relationships
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -176,4 +181,5 @@ public class User {
     public void setVerificationTokenExpiresAt(LocalDateTime verificationTokenExpiresAt) {
         this.verificationTokenExpiresAt = verificationTokenExpiresAt;
     }
+
 }

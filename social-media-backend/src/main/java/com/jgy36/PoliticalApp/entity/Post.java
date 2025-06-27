@@ -21,6 +21,9 @@ import java.util.Set;
 @Table(name = "posts")
 public class Post {
 
+    // Add to existing Post.java
+    private Boolean showOnDatingProfile = false;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
